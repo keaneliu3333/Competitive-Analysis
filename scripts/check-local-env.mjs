@@ -38,6 +38,41 @@ function portOpen(port) {
   });
 }
 
+async function fetchText(url) {
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    return {
+      ok: response.ok,
+      status: response.status,
+      text: await response.text(),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      text: "",
+      error: error.message,
+    };
+  }
+}
+
+async function probeWorkbenchService(port) {
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const [health, home] = await Promise.all([fetchText(`${baseUrl}/api/health`), fetchText(`${baseUrl}/`)]);
+  let healthJson = null;
+  try {
+    healthJson = JSON.parse(health.text);
+  } catch {
+    healthJson = null;
+  }
+  return {
+    healthOk: Boolean(health.ok && healthJson?.ok === true),
+    homeOk: Boolean(home.ok && home.text.includes("清洁电器竞品分析工作台") && home.text.includes("script.js")),
+    healthStatus: health.status,
+    homeStatus: home.status,
+  };
+}
+
 const major = Number(process.versions.node.split(".")[0]);
 addCheck("Node.js 18+", major >= 18, `当前 ${process.versions.node}`);
 
@@ -81,6 +116,19 @@ try {
 const port = Number(envLocal.PORT || envExample.PORT || 4173);
 const isPortOpen = await portOpen(port);
 addCheck(`端口 ${port}`, !isPortOpen, isPortOpen ? "已有进程监听；启动前需换端口或停止旧服务" : "空闲");
+if (isPortOpen) {
+  const service = await probeWorkbenchService(port);
+  addCheck(
+    `端口 ${port} 健康接口`,
+    service.healthOk,
+    service.healthOk ? "当前监听服务返回工作台健康状态" : `健康接口异常或不是当前工作台，HTTP ${service.healthStatus}`,
+  );
+  addCheck(
+    `端口 ${port} 首页`,
+    service.homeOk,
+    service.homeOk ? "当前监听服务可返回工作台首页" : `首页异常或不是当前工作台，HTTP ${service.homeStatus}`,
+  );
+}
 
 const failed = checks.filter((check) => !check.ok);
 console.log("Local environment check");
@@ -88,6 +136,15 @@ for (const check of checks) {
   console.log(`${check.ok ? "OK" : "WARN"} ${check.name}${check.detail ? ` - ${check.detail}` : ""}`);
 }
 
-if (failed.some((check) => ![".env.local", "OPENAI_API_KEY 配置", "访问令牌配置", `端口 ${port}`].includes(check.name))) {
+const allowedWarnings = new Set([
+  ".env.local",
+  "OPENAI_API_KEY 配置",
+  "访问令牌配置",
+  `端口 ${port}`,
+  `端口 ${port} 健康接口`,
+  `端口 ${port} 首页`,
+]);
+
+if (failed.some((check) => !allowedWarnings.has(check.name))) {
   process.exit(1);
 }
