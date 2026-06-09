@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "description": "Calibration cases for cleaner competitive analysis extraction and comparison quality. Replace placeholder URLs or file paths with approved real product detail sources during field calibration.",
+  "coverageTargets": {
+    "minCases": 10,
+    "categories": ["扫地机", "洗地机", "吸尘器"],
+    "sourceTypes": ["url", "file"],
+    "summaryMaxChars": 500
+  },
+  "cases": [
+    {
+      "id": "robot-url-flagship-base-station",
+      "category": "扫地机",
+      "source": {
+        "type": "url",
+        "url": "https://example.com/evals/robot-flagship-base-station",
+        "notes": "替换为头部品牌旗舰扫地机官网或电商详情页。"
+      },
+      "expected": {
+        "brand": "示例品牌A",
+        "model": "R-Flagship",
+        "priceRange": { "min": 4500, "max": 7000, "currency": "CNY" },
+        "requiredFeatures": ["suction", "navigation", "obstacle", "base", "hotWash", "dustCollection"],
+        "topSellingPointKeywords": ["全能基站", "热水", "避障"]
+      },
+      "acceptance": {
+        "minConfidence": 75,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "robot-url-midrange-price-defense",
+      "category": "扫地机",
+      "source": {
+        "type": "url",
+        "url": "https://example.com/evals/robot-midrange-price-defense",
+        "notes": "替换为 3000-4500 元价位扫地机详情页。"
+      },
+      "expected": {
+        "brand": "示例品牌B",
+        "model": "R-Mid",
+        "priceRange": { "min": 3000, "max": 4500, "currency": "CNY" },
+        "requiredFeatures": ["suction", "navigation", "base", "edgeCleaning"],
+        "topSellingPointKeywords": ["贴边", "基站", "性价比"]
+      },
+      "acceptance": {
+        "minConfidence": 72,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "robot-file-long-image-parameter-table",
+      "category": "扫地机",
+      "source": {
+        "type": "file",
+        "path": "evals/fixtures/robot-long-detail-placeholder.png",
+        "notes": "替换为详情页长图或截图，重点校验参数表 OCR/视觉理解。"
+      },
+      "expected": {
+        "brand": "示例品牌C",
+        "model": "R-Image",
+        "priceRange": { "min": 2500, "max": 6000, "currency": "CNY" },
+        "requiredFeatures": ["suction", "mopPressure", "battery", "noise"],
+        "topSellingPointKeywords": ["吸力", "续航", "噪音"]
+      },
+      "acceptance": {
+        "minConfidence": 68,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "robot-file-pdf-official-spec",
+      "category": "扫地机",
+      "source": {
+        "type": "file",
+        "path": "evals/fixtures/robot-official-spec-placeholder.pdf",
+        "notes": "替换为官方规格 PDF 或产品手册。"
+      },
+      "expected": {
+        "brand": "示例品牌D",
+        "model": "R-PDF",
+        "priceRange": { "min": 3500, "max": 6500, "currency": "CNY" },
+        "requiredFeatures": ["navigation", "obstacle", "battery", "app"],
+        "topSellingPointKeywords": ["导航", "APP", "语音"]
+      },
+      "acceptance": {
+        "minConfidence": 70,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "floorwasher-url-flat-cleaning",
+      "category": "洗地机",
+      "source": {
+        "type": "url",
+        "url": "https://example.com/evals/floorwasher-flat-cleaning",
+        "notes": "替换为可平躺洗地机详情页。"
+      },
+      "expected": {
+        "brand": "示例品牌E",
+        "model": "F-Flat",
+        "priceRange": { "min": 2500, "max": 4500, "currency": "CNY" },
+        "requiredFeatures": ["suction", "edgeCleaning", "base", "hotWash", "battery"],
+        "topSellingPointKeywords": ["平躺", "热水", "自清洁"]
+      },
+      "acceptance": {
+        "minConfidence": 72,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "floorwasher-url-dual-roller",
+      "category": "洗地机",
+      "source": {
+        "type": "url",
+        "url": "https://example.com/evals/floorwasher-dual-roller",
+        "notes": "替换为双滚刷或强清洁力洗地机详情页。"
+      },
+      "expected": {
+        "brand": "示例品牌F",
+        "model": "F-Dual",
+        "priceRange": { "min": 1800, "max": 3800, "currency": "CNY" },
+        "requiredFeatures": ["suction", "mopPressure", "edgeCleaning", "noise"],
+        "topSellingPointKeywords": ["双滚刷", "贴边", "强清洁"]
+      },
+      "acceptance": {
+        "minConfidence": 70,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "floorwasher-file-long-image-maintenance",
+      "category": "洗地机",
+      "source": {
+        "type": "file",
+        "path": "evals/fixtures/floorwasher-long-detail-placeholder.png",
+        "notes": "替换为洗地机长图，重点校验水箱、续航、自清洁和烘干证据。"
+      },
+      "expected": {
+        "brand": "示例品牌G",
+        "model": "F-Image",
+        "priceRange": { "min": 1500, "max": 5000, "currency": "CNY" },
+        "requiredFeatures": ["base", "hotWash", "battery", "noise"],
+        "topSellingPointKeywords": ["烘干", "水箱", "续航"]
+      },
+      "acceptance": {
+        "minConfidence": 68,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "vacuum-url-lightweight-cordless",
+      "category": "吸尘器",
+      "source": {
+        "type": "url",
+        "url": "https://example.com/evals/vacuum-lightweight-cordless",
+        "notes": "替换为轻量无线吸尘器官网或电商详情页。"
+      },
+      "expected": {
+        "brand": "示例品牌H",
+        "model": "V-Light",
+        "priceRange": { "min": 1200, "max": 3500, "currency": "CNY" },
+        "requiredFeatures": ["suction", "battery", "noise", "app"],
+        "topSellingPointKeywords": ["轻量", "续航", "吸力"]
+      },
+      "acceptance": {
+        "minConfidence": 72,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "vacuum-url-anti-tangle-pet",
+      "category": "吸尘器",
+      "source": {
+        "type": "url",
+        "url": "https://example.com/evals/vacuum-anti-tangle-pet",
+        "notes": "替换为宠物/防缠绕卖点突出的吸尘器详情页。"
+      },
+      "expected": {
+        "brand": "示例品牌I",
+        "model": "V-Pet",
+        "priceRange": { "min": 1600, "max": 4200, "currency": "CNY" },
+        "requiredFeatures": ["suction", "edgeCleaning", "battery", "noise"],
+        "topSellingPointKeywords": ["防缠绕", "宠物", "毛发"]
+      },
+      "acceptance": {
+        "minConfidence": 70,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "vacuum-file-pdf-spec-comparison",
+      "category": "吸尘器",
+      "source": {
+        "type": "file",
+        "path": "evals/fixtures/vacuum-spec-placeholder.pdf",
+        "notes": "替换为吸尘器规格 PDF，重点校验参数矩阵和 500 字总结输入。"
+      },
+      "expected": {
+        "brand": "示例品牌J",
+        "model": "V-PDF",
+        "priceRange": { "min": 1000, "max": 5000, "currency": "CNY" },
+        "requiredFeatures": ["suction", "battery", "noise", "app"],
+        "topSellingPointKeywords": ["参数", "续航", "过滤"]
+      },
+      "acceptance": {
+        "minConfidence": 68,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    }
+  ]
+}

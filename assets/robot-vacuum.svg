@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-label="扫地机器人产品示意图">
+  <rect width="160" height="160" rx="18" fill="#f5f8fb"/>
+  <circle cx="80" cy="82" r="54" fill="#ffffff" stroke="#c8d2dc" stroke-width="5"/>
+  <circle cx="80" cy="82" r="22" fill="#e9eff5" stroke="#9fafbd" stroke-width="4"/>
+  <circle cx="80" cy="82" r="8" fill="#0f766e"/>
+  <path d="M43 113c10 15 64 15 74 0" fill="none" stroke="#355c9d" stroke-width="6" stroke-linecap="round"/>
+  <path d="M44 56h72" fill="none" stroke="#dbe2e8" stroke-width="5" stroke-linecap="round"/>
+</svg>

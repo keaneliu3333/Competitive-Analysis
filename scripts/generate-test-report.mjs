@@ -1,0 +1,99 @@
+#!/usr/bin/env node
+
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = process.cwd();
+
+function run(command) {
+  const startedAt = Date.now();
+  try {
+    const output = execFileSync(command[0], command.slice(1), {
+      cwd: root,
+      encoding: "utf8",
+      stdio: "pipe",
+    });
+    return {
+      command: command.join(" "),
+      ok: true,
+      durationMs: Date.now() - startedAt,
+      output: output.trim(),
+    };
+  } catch (error) {
+    return {
+      command: command.join(" "),
+      ok: false,
+      durationMs: Date.now() - startedAt,
+      output: `${error.stdout || ""}${error.stderr || ""}`.trim() || error.message,
+    };
+  }
+}
+
+function read(path) {
+  return readFileSync(join(root, path), "utf8");
+}
+
+function fenced(value) {
+  return `\`\`\`text\n${String(value || "-").slice(0, 4000)}\n\`\`\``;
+}
+
+const commands = [
+  ["node", "--check", "script.js"],
+  ["node", "--check", "server.mjs"],
+  ["node", "--check", "scripts/verify-mvp.mjs"],
+  ["node", "--check", "scripts/verify-runtime.mjs"],
+  ["node", "--check", "scripts/verify-traceability.mjs"],
+  ["node", "scripts/verify-mvp.mjs"],
+  ["node", "scripts/verify-runtime.mjs"],
+  ["node", "scripts/verify-traceability.mjs"],
+];
+
+const results = commands.map(run);
+const generatedAt = new Date();
+const dateStamp = generatedAt.toISOString().slice(0, 10);
+const reportDir = join(root, "reports");
+mkdirSync(reportDir, { recursive: true });
+
+const acceptance = read("docs/mvp-acceptance.md");
+const traceability = read("docs/requirements-traceability.md");
+const summary = results.every((result) => result.ok) ? "通过" : "失败";
+const lines = [
+  "# 清洁电器竞品分析 MVP 测试报告",
+  "",
+  `生成时间：${generatedAt.toISOString()}`,
+  `总体结果：${summary}`,
+  "",
+  "## 自动验收结果",
+  "",
+  "| 命令 | 结果 | 耗时 |",
+  "| --- | --- | --- |",
+  ...results.map((result) => `| \`${result.command}\` | ${result.ok ? "通过" : "失败"} | ${result.durationMs}ms |`),
+  "",
+  "## 命令输出",
+  "",
+  ...results.flatMap((result) => [
+    `### ${result.command}`,
+    "",
+    fenced(result.output),
+    "",
+  ]),
+  "## MVP 验收清单快照",
+  "",
+  acceptance,
+  "",
+  "## 需求追踪矩阵快照",
+  "",
+  traceability,
+  "",
+];
+
+const outputPath = join(reportDir, `mvp-test-report-${dateStamp}.md`);
+writeFileSync(outputPath, lines.join("\n"), "utf8");
+
+if (!results.every((result) => result.ok)) {
+  console.error(`MVP test report failed: ${outputPath}`);
+  process.exit(1);
+}
+
+console.log(`MVP test report generated: ${outputPath}`);

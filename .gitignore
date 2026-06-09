@@ -1,0 +1,38 @@
+.DS_Store
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+.env.local
+.env.*.local
+
+# Dependencies and package-manager caches
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+
+# Build output and framework state
+.next/
+dist/
+.netlify/
+.build/
+
+# Python local packages, environments, and bytecode
+.venv-packages/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Logs, coverage, and generated reports
+*.log
+coverage/
+.nyc_output/
+reports/
+
+# Runtime state
+data/workbench-state.json
+data/api-usage.json
+data/*.json
