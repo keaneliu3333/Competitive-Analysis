@@ -124,7 +124,7 @@ APP_ACCESS_TOKEN=change-me
 
 `APP_ACCESS_TOKEN` 是可选的兼容内部访问令牌。不设置时适合本机开发；设置后除 `/api/health` 外的 API 都需要页面输入同一个令牌，请求会通过 `X-App-Token` 发送。需要只读查看和写入分离时，改用 `APP_READ_TOKEN` 和 `APP_WRITE_TOKEN`：读令牌可查看产品库、用量和预抓取 metadata，写令牌可保存状态、运行 AI 分析和生成对比总结。
 
-详情页上传支持多张图片和单个 PDF。图片会作为 `input_image` 发送给 Responses API，长图会在前端自动切片，最多发送 8 张图片；PDF 会作为 `input_file` 发送，单个文件限制 50MB。URL 预抓取会额外生成图片候选、价格候选和文案证据片段。服务端 JSON 请求体限制为 70MB，用于覆盖 base64 膨胀并拦截异常大请求。兜底结果不会保存 PDF 原文，只记录文件名、类型和大小用于追溯。
+详情页上传支持多张图片和单个 PDF。上传图片会作为 `input_image` 发送给 Responses API，长图会在前端自动切片，最多发送 8 张图片；URL 预抓取会额外生成图片候选、价格候选和文案证据片段，并把最多 4 张可访问的详情页图片候选作为远程 `input_image` 交给模型理解。PDF 会作为 `input_file` 发送，单个文件限制 50MB。服务端 JSON 请求体限制为 70MB，用于覆盖 base64 膨胀并拦截异常大请求。兜底结果不会保存 PDF 原文，只记录文件名、类型和大小用于追溯。
 
 ## 数据存储
 
