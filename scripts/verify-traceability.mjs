@@ -25,6 +25,10 @@ const server = readRequired("server.mjs");
 const index = readRequired("index.html");
 const runtimeVerifier = readRequired("scripts/verify-runtime.mjs");
 const mvpVerifier = readRequired("scripts/verify-mvp.mjs");
+const releaseVerifier = readRequired("scripts/verify-release.mjs");
+const exportVerifier = readRequired("scripts/verify-exports.mjs");
+const summaryVerifier = readRequired("scripts/verify-summary.mjs");
+const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
 
 for (const requirement of [
   "简洁明了的 UI/UX 交互",
@@ -83,5 +87,28 @@ for (const token of ["AI fallback APIs", "customFeatures", "exportHandoffReport"
 }
 
 assertIncludes(mvpVerifier, "scripts/verify-traceability.mjs", "MVP verifier traceability inclusion");
+
+for (const token of [
+  "Release readiness verification",
+  "scripts/check-local-env.mjs",
+  "scripts/verify-mvp.mjs",
+  "scripts/verify-exports.mjs",
+  "scripts/verify-summary.mjs",
+  "scripts/verify-data-package.mjs",
+]) {
+  assertIncludes(releaseVerifier, token, "release verifier traceability");
+}
+
+for (const token of ["Export verification passed", "Top3 优先级卖点", "brandRoadmapReportHtml"]) {
+  assertIncludes(exportVerifier, token, "export verifier traceability");
+}
+
+for (const token of ["Summary verification passed", "500-character cap", "产品功能", "使用感受"]) {
+  assertIncludes(summaryVerifier, token, "summary verifier traceability");
+}
+
+for (const token of ["Data package verification passed", "custom field history preservation", "backupBeforeDataPackageImport"]) {
+  assertIncludes(dataPackageVerifier, token, "data package verifier traceability");
+}
 
 console.log("Traceability verification passed.");

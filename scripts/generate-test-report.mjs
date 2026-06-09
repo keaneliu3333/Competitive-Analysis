@@ -41,12 +41,20 @@ function fenced(value) {
 const commands = [
   ["node", "--check", "script.js"],
   ["node", "--check", "server.mjs"],
+  ["node", "--check", "scripts/verify-access.mjs"],
   ["node", "--check", "scripts/verify-mvp.mjs"],
   ["node", "--check", "scripts/verify-runtime.mjs"],
   ["node", "--check", "scripts/verify-traceability.mjs"],
+  ["node", "--check", "scripts/verify-exports.mjs"],
+  ["node", "--check", "scripts/verify-summary.mjs"],
+  ["node", "--check", "scripts/verify-data-package.mjs"],
+  ["node", "scripts/verify-access.mjs"],
   ["node", "scripts/verify-mvp.mjs"],
   ["node", "scripts/verify-runtime.mjs"],
   ["node", "scripts/verify-traceability.mjs"],
+  ["node", "scripts/verify-exports.mjs"],
+  ["node", "scripts/verify-summary.mjs"],
+  ["node", "scripts/verify-data-package.mjs"],
 ];
 
 const results = commands.map(run);

@@ -1012,6 +1012,7 @@ export {
   extractTextSnippets,
   isReadAuthorized,
   isWriteAuthorized,
+  normalizeComparisonSummary,
   pricesFromText,
   usageTokens,
 };

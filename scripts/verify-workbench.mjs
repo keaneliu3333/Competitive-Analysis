@@ -75,9 +75,13 @@ const mvpVerifier = readRequired("scripts/verify-mvp.mjs");
 const runtimeVerifier = readRequired("scripts/verify-runtime.mjs");
 const traceabilityVerifier = readRequired("scripts/verify-traceability.mjs");
 const traceabilityDoc = readRequired("docs/requirements-traceability.md");
+const exportVerifier = readRequired("scripts/verify-exports.mjs");
+const summaryVerifier = readRequired("scripts/verify-summary.mjs");
+const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
 const reportGenerator = readRequired("scripts/generate-test-report.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
 const hygieneVerifier = readRequired("scripts/verify-hygiene.mjs");
+const releaseVerifier = readRequired("scripts/verify-release.mjs");
 
 for (const file of [
   "styles.css",
@@ -543,7 +547,13 @@ for (const topic of [
   assertIncludes(deploymentDoc, topic, "deployment document");
 }
 
-for (const topic of ["Access verification passed", "APP_READ_TOKEN", "APP_WRITE_TOKEN", "isWriteAuthorized"]) {
+for (const topic of [
+  "Access verification passed",
+  "open local mode",
+  "read/write split mode",
+  "legacy APP_ACCESS_TOKEN mode",
+  "wrong-token rejection",
+]) {
   assertIncludes(accessVerifier, topic, "access verifier");
 }
 
@@ -583,7 +593,43 @@ for (const topic of ["需求追踪矩阵", "导出 Excel", "电商、官网详�
   assertIncludes(traceabilityDoc, topic, "traceability document");
 }
 
-for (const topic of ["MVP test report generated", "docs/requirements-traceability.md", "reports"]) {
+for (const topic of [
+  "Export verification passed",
+  "product Excel",
+  "comparison Excel",
+  "roadmap SVG",
+  "all-brand PDF",
+]) {
+  assertIncludes(exportVerifier, topic, "export verifier");
+}
+
+for (const topic of [
+  "Summary verification passed",
+  "500-character cap",
+  "产品功能",
+  "使用感受",
+]) {
+  assertIncludes(summaryVerifier, topic, "summary verifier");
+}
+
+for (const topic of [
+  "Data package verification passed",
+  "JSON handoff payload",
+  "saved views",
+  "custom field history preservation",
+]) {
+  assertIncludes(dataPackageVerifier, topic, "data package verifier");
+}
+
+for (const topic of [
+  "MVP test report generated",
+  "docs/requirements-traceability.md",
+  "reports",
+  "scripts/verify-access.mjs",
+  "scripts/verify-exports.mjs",
+  "scripts/verify-summary.mjs",
+  "scripts/verify-data-package.mjs",
+]) {
   assertIncludes(reportGenerator, topic, "test report generator");
 }
 
@@ -602,6 +648,18 @@ for (const topic of [
 
 for (const topic of ["Hygiene verification passed", "data/*.json", "reports/", "potential secret"]) {
   assertIncludes(hygieneVerifier, topic, "hygiene verifier");
+}
+
+for (const topic of [
+  "Release readiness verification",
+  "scripts/check-local-env.mjs",
+  "scripts/verify-mvp.mjs",
+  "scripts/verify-exports.mjs",
+  "scripts/verify-summary.mjs",
+  "scripts/verify-data-package.mjs",
+  "scripts/generate-test-report.mjs",
+]) {
+  assertIncludes(releaseVerifier, topic, "release verifier");
 }
 
 validateStateFile();

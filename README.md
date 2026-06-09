@@ -54,6 +54,12 @@ http://localhost:4173/api/health
 
 ## 验证
 
+发布验收总入口会依次运行本地环境预检、完整 MVP 自动验收并生成测试报告：
+
+```bash
+node scripts/verify-release.mjs
+```
+
 不依赖浏览器或第三方包的静态验收检查：
 
 ```bash
@@ -76,17 +82,24 @@ node --check scripts/verify-access.mjs
 node --check scripts/verify-costs.mjs
 node --check scripts/verify-metadata.mjs
 node --check scripts/verify-evals.mjs
+node --check scripts/verify-exports.mjs
+node --check scripts/verify-summary.mjs
+node --check scripts/verify-data-package.mjs
 node --check scripts/verify-mvp.mjs
 node --check scripts/verify-runtime.mjs
 node --check scripts/verify-traceability.mjs
 node --check scripts/generate-test-report.mjs
 node --check scripts/check-local-env.mjs
 node --check scripts/verify-hygiene.mjs
+node --check scripts/verify-release.mjs
 node scripts/verify-workbench.mjs
 node scripts/verify-access.mjs
 node scripts/verify-costs.mjs
 node scripts/verify-metadata.mjs
 node scripts/verify-evals.mjs
+node scripts/verify-exports.mjs
+node scripts/verify-summary.mjs
+node scripts/verify-data-package.mjs
 node scripts/verify-mvp.mjs
 node scripts/verify-runtime.mjs
 node scripts/verify-traceability.mjs
@@ -98,6 +111,9 @@ node scripts/verify-hygiene.mjs
 完整 MVP 验收清单见 [docs/mvp-acceptance.md](docs/mvp-acceptance.md)。
 需求逐条映射见 [docs/requirements-traceability.md](docs/requirements-traceability.md)。
 测试报告可通过 `node scripts/generate-test-report.mjs` 生成到 `reports/`。
+导出结构专项验收可运行 `node scripts/verify-exports.mjs`，检查产品库 Excel、型号对比 Excel、路线图 Excel、路线图 SVG 和各品牌分页 PDF 的关键结构。
+500 字总结专项验收可运行 `node scripts/verify-summary.mjs`，检查字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
+数据包交接专项验收可运行 `node scripts/verify-data-package.mjs`，检查完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
 本地环境预检可运行 `node scripts/check-local-env.mjs`，检查 Node 版本、配置模板、数据目录、端口占用，以及已监听端口是否真的返回工作台健康接口和首页。
 提交前卫生检查可运行 `node scripts/verify-hygiene.mjs`，确认真实配置、本地数据、生成报告不会被误提交，并扫描明显密钥。
 

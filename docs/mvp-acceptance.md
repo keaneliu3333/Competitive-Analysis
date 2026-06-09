@@ -18,11 +18,20 @@
 ## 验收命令
 
 ```bash
+node scripts/verify-release.mjs
+```
+
+发布验收总入口会依次运行本地环境预检、完整 MVP 自动验收并生成测试报告。需要只跑核心自动验收时，可运行：
+
+```bash
 node scripts/verify-mvp.mjs
 ```
 
 该命令会串联语法检查、工作台功能静态检查、访问令牌检查、成本日志检查、元数据抓取检查、离线 eval 模板检查和本地 HTTP 运行时检查。运行时检查通过内存请求注入覆盖首页、静态资源、只读 API、AI 详情页失败兜底和对比总结失败兜底，不依赖固定端口或外网。
 需求逐条映射见 `docs/requirements-traceability.md`，并由 `node scripts/verify-traceability.mjs` 检查。
+导出结构由 `node scripts/verify-exports.mjs` 专项检查，覆盖产品库 Excel、型号对比 Excel、路线图 Excel、路线图 SVG 和各品牌分页 PDF 的关键结构。
+500 字总结由 `node scripts/verify-summary.mjs` 专项检查，覆盖字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
+数据包交接由 `node scripts/verify-data-package.mjs` 专项检查，覆盖完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
 交付前可运行 `node scripts/generate-test-report.mjs`，在 `reports/` 生成带时间戳的 Markdown 测试报告。
 启动前可运行 `node scripts/check-local-env.mjs` 做本地环境预检。
 提交前可运行 `node scripts/verify-hygiene.mjs` 做密钥和本地生成物卫生检查。

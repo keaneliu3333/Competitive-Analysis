@@ -50,9 +50,13 @@ for (const path of [
   "scripts/verify-evals.mjs",
   "scripts/verify-runtime.mjs",
   "scripts/verify-traceability.mjs",
+  "scripts/verify-exports.mjs",
+  "scripts/verify-summary.mjs",
+  "scripts/verify-data-package.mjs",
   "scripts/generate-test-report.mjs",
   "scripts/check-local-env.mjs",
   "scripts/verify-hygiene.mjs",
+  "scripts/verify-release.mjs",
 ]) {
   readRequired(path);
 }
@@ -86,6 +90,7 @@ for (const topic of [
   "读写访问令牌",
   "部署和运维交接",
   "已监听端口是否真的返回工作台健康接口和首页",
+  "发布验收总入口",
 ]) {
   assertIncludes(files.readme, topic, "README.md MVP coverage");
 }
@@ -203,9 +208,13 @@ for (const args of [
   ["--check", "scripts/verify-evals.mjs"],
   ["--check", "scripts/verify-runtime.mjs"],
   ["--check", "scripts/verify-traceability.mjs"],
+  ["--check", "scripts/verify-exports.mjs"],
+  ["--check", "scripts/verify-summary.mjs"],
+  ["--check", "scripts/verify-data-package.mjs"],
   ["--check", "scripts/generate-test-report.mjs"],
   ["--check", "scripts/check-local-env.mjs"],
   ["--check", "scripts/verify-hygiene.mjs"],
+  ["--check", "scripts/verify-release.mjs"],
   ["scripts/verify-workbench.mjs"],
   ["scripts/verify-access.mjs"],
   ["scripts/verify-costs.mjs"],
@@ -213,6 +222,9 @@ for (const args of [
   ["scripts/verify-evals.mjs"],
   ["scripts/verify-runtime.mjs"],
   ["scripts/verify-traceability.mjs"],
+  ["scripts/verify-exports.mjs"],
+  ["scripts/verify-summary.mjs"],
+  ["scripts/verify-data-package.mjs"],
   ["scripts/verify-hygiene.mjs"],
 ]) {
   runNode(args);

@@ -53,7 +53,13 @@ http://localhost:4173/api/health
 
 ## 验收检查
 
-每次发布前运行：
+每次发布前优先运行：
+
+```bash
+node scripts/verify-release.mjs
+```
+
+该命令会依次执行本地环境预检、完整 MVP 自动验收，并生成 `reports/` 下的 Markdown 测试报告。需要拆分定位问题时，再运行：
 
 ```bash
 node --check script.js
@@ -63,17 +69,24 @@ node --check scripts/verify-access.mjs
 node --check scripts/verify-costs.mjs
 node --check scripts/verify-metadata.mjs
 node --check scripts/verify-evals.mjs
+node --check scripts/verify-exports.mjs
+node --check scripts/verify-summary.mjs
+node --check scripts/verify-data-package.mjs
 node --check scripts/verify-mvp.mjs
 node --check scripts/verify-runtime.mjs
 node --check scripts/verify-traceability.mjs
 node --check scripts/generate-test-report.mjs
 node --check scripts/check-local-env.mjs
 node --check scripts/verify-hygiene.mjs
+node --check scripts/verify-release.mjs
 node scripts/verify-workbench.mjs
 node scripts/verify-access.mjs
 node scripts/verify-costs.mjs
 node scripts/verify-metadata.mjs
 node scripts/verify-evals.mjs
+node scripts/verify-exports.mjs
+node scripts/verify-summary.mjs
+node scripts/verify-data-package.mjs
 node scripts/verify-mvp.mjs
 node scripts/verify-runtime.mjs
 node scripts/verify-traceability.mjs
