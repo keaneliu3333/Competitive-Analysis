@@ -83,7 +83,7 @@ node scripts/verify-hygiene.mjs
 ```
 
 当前环境不能访问 localhost 时，至少保留以上静态验收；可访问浏览器时再补充导入、筛选、对比、导出、路线图和用量面板的人工冒烟测试。
-启动前可先运行 `node scripts/check-local-env.mjs`，确认配置模板、数据目录和端口状态。
+启动前可先运行 `node scripts/check-local-env.mjs`，确认配置模板、数据目录、端口状态，以及已监听端口是否真的返回工作台健康接口和首页。
 提交前运行 `node scripts/verify-hygiene.mjs`，确认真实配置、本地数据和生成报告仍被 `.gitignore` 排除。
 
 ## 数据与备份
@@ -109,6 +109,7 @@ node scripts/verify-hygiene.mjs
 - 页面显示成本单价未配置：检查 `.env.local` 是否包含 `OPENAI_INPUT_USD_PER_1M` 和 `OPENAI_OUTPUT_USD_PER_1M`，或 `OPENAI_TOTAL_USD_PER_1M`。
 - API 返回 401：确认页面输入的访问令牌与 `APP_READ_TOKEN`、`APP_WRITE_TOKEN` 或 `APP_ACCESS_TOKEN` 一致。
 - API 返回 403：当前令牌没有写权限，输入 `APP_WRITE_TOKEN` 或兼容的 `APP_ACCESS_TOKEN`。
+- 端口已占用但页面 404：运行 `node scripts/check-local-env.mjs`，确认该端口的健康接口和首页是否都来自当前工作台；如果健康接口正常但首页异常，换 `PORT` 启动或停止旧服务。
 - 上传 PDF 失败：确认文件小于 50MB，且是 PDF；大文件可先拆页或上传截图。
 - URL 预抓取失败：可改用截图/PDF 上传；电商平台页面结构和访问限制可能导致 metadata 不稳定。
 - URL 预抓取结果异常：检查导入面板里的图片候选、价格候选和文案证据片段；证据不足时补充上传详情页长图或 PDF。

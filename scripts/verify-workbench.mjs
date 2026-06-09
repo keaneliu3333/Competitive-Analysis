@@ -587,7 +587,16 @@ for (const topic of ["MVP test report generated", "docs/requirements-traceabilit
   assertIncludes(reportGenerator, topic, "test report generator");
 }
 
-for (const topic of ["Local environment check", ".env.example", "端口", "data/ 可写"]) {
+for (const topic of [
+  "Local environment check",
+  ".env.example",
+  "端口",
+  "data/ 可写",
+  "probeWorkbenchService",
+  "端口 ${port} 健康接口",
+  "端口 ${port} 首页",
+  "清洁电器竞品分析工作台",
+]) {
   assertIncludes(localEnvChecker, topic, "local environment checker");
 }
 

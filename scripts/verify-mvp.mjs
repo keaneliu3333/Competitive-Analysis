@@ -85,6 +85,7 @@ for (const topic of [
   "数据质量检查",
   "读写访问令牌",
   "部署和运维交接",
+  "已监听端口是否真的返回工作台健康接口和首页",
 ]) {
   assertIncludes(files.readme, topic, "README.md MVP coverage");
 }

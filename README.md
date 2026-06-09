@@ -98,7 +98,7 @@ node scripts/verify-hygiene.mjs
 完整 MVP 验收清单见 [docs/mvp-acceptance.md](docs/mvp-acceptance.md)。
 需求逐条映射见 [docs/requirements-traceability.md](docs/requirements-traceability.md)。
 测试报告可通过 `node scripts/generate-test-report.mjs` 生成到 `reports/`。
-本地环境预检可运行 `node scripts/check-local-env.mjs`，检查 Node 版本、配置模板、数据目录和端口占用。
+本地环境预检可运行 `node scripts/check-local-env.mjs`，检查 Node 版本、配置模板、数据目录、端口占用，以及已监听端口是否真的返回工作台健康接口和首页。
 提交前卫生检查可运行 `node scripts/verify-hygiene.mjs`，确认真实配置、本地数据、生成报告不会被误提交，并扫描明显密钥。
 
 `scripts/verify-runtime.mjs` 会通过内存请求注入验证本地 HTTP app，不绑定固定端口；它覆盖首页、静态资源、只读 API、AI 详情页失败兜底和对比总结失败兜底。
