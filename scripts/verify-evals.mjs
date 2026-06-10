@@ -56,8 +56,14 @@ if (!existsSync(casesPath)) {
       if (!testCase.source?.type) fail(`${label}: missing source.type`);
       if (!["url", "file"].includes(testCase.source?.type)) fail(`${label}: source.type must be url or file`);
       if (testCase.source?.type) sourceTypes.add(testCase.source.type);
+      if (testCase.source?.url && !isValidUrl(testCase.source.url)) fail(`${label}: source.url must be a valid http(s) url`);
       if (testCase.source?.type === "url" && !isValidUrl(testCase.source.url)) fail(`${label}: url source must include a valid http(s) url`);
-      if (testCase.source?.type === "file" && !testCase.source.path) fail(`${label}: file source must include path`);
+      if (testCase.source?.type === "file") {
+        if (!testCase.source.path) fail(`${label}: file source must include path`);
+        if (testCase.source.path && !existsSync(join(root, testCase.source.path))) fail(`${label}: file source path must exist`);
+      }
+      const sourceText = JSON.stringify(testCase.source || {});
+      if (/example\.com|placeholder/i.test(sourceText)) fail(`${label}: source must not use placeholder URLs or notes`);
       if (!testCase.expected?.brand) fail(`${label}: missing expected.brand`);
       if (!testCase.expected?.model) fail(`${label}: missing expected.model`);
       const range = testCase.expected?.priceRange;

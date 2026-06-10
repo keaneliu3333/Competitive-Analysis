@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600" viewBox="0 0 900 1600">
+  <rect width="900" height="1600" fill="#f7faf8"/>
+  <rect x="48" y="48" width="804" height="1504" rx="18" fill="#ffffff" stroke="#d8e1dc"/>
+  <text x="86" y="120" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#17352d">Roborock S8 MaxV Ultra</text>
+  <text x="86" y="166" font-family="Arial, sans-serif" font-size="20" fill="#426159">Source-backed long detail fixture</text>
+  <text x="86" y="220" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#17352d">Official source</text>
+  <text x="86" y="258" font-family="Arial, sans-serif" font-size="18" fill="#426159">https://us.roborock.com/products/roborock-s8-maxv-ultra</text>
+  <text x="86" y="326" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#17352d">Observed price band</text>
+  <text x="86" y="364" font-family="Arial, sans-serif" font-size="18" fill="#426159">US page showed $799.99 sale price and $1,799.99 original price during source capture.</text>
+  <text x="86" y="434" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#17352d">Top priority selling points</text>
+  <text x="110" y="484" font-family="Arial, sans-serif" font-size="21" fill="#17352d">P1: 8-in-1 RockDock Ultra with hot-water mop washing and heated-air drying.</text>
+  <text x="110" y="530" font-family="Arial, sans-serif" font-size="21" fill="#17352d">P2: 10000Pa extreme suction, VibraRise 3.0 mopping and liftable brush/mop.</text>
+  <text x="110" y="576" font-family="Arial, sans-serif" font-size="21" fill="#17352d">P3: FlexiArm side brush, extra edge mopping and Reactive AI obstacle recognition.</text>
+  <text x="86" y="660" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#17352d">Parameter evidence</text>
+  <text x="110" y="708" font-family="Arial, sans-serif" font-size="20" fill="#426159">Category: robot vacuum and mop</text>
+  <text x="110" y="748" font-family="Arial, sans-serif" font-size="20" fill="#426159">Navigation: PreciSense LiDAR navigation plus Reactive AI 2.0 obstacle recognition</text>
+  <text x="110" y="788" font-family="Arial, sans-serif" font-size="20" fill="#426159">Base station: auto detergent, auto dust emptying, self-refilling and self-cleaning</text>
+  <text x="110" y="828" font-family="Arial, sans-serif" font-size="20" fill="#426159">App and voice: Roborock SmartPlan and Hello Rocky voice assistant</text>
+  <text x="110" y="868" font-family="Arial, sans-serif" font-size="20" fill="#426159">Connectivity: official page notes 2.4GHz Wi-Fi only</text>
+  <text x="86" y="952" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#17352d">Expected extraction checks</text>
+  <text x="110" y="1000" font-family="Arial, sans-serif" font-size="20" fill="#426159">Brand should be Roborock, model should be S8 MaxV Ultra.</text>
+  <text x="110" y="1040" font-family="Arial, sans-serif" font-size="20" fill="#426159">AI should preserve evidence for suction, dock, hot wash, obstacle avoidance and edge cleaning.</text>
+  <text x="110" y="1080" font-family="Arial, sans-serif" font-size="20" fill="#426159">Low-confidence currency conversion from USD to CNY should be flagged for manual review.</text>
+</svg>

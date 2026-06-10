@@ -573,11 +573,11 @@ for (const topic of ["schemaVersion", "requiredFeatures", "topSellingPointKeywor
   assertIncludes(evalCases, topic, "eval sample cases");
 }
 
-for (const topic of ["coverageTargets", "minCases", "sourceTypes", "robot-url-flagship-base-station", "vacuum-file-pdf-spec-comparison"]) {
+for (const topic of ["coverageTargets", "minCases", "sourceTypes", "roborock-s8-maxv-ultra", "roborock-h60-ultra"]) {
   assertIncludes(evalCases, topic, "eval sample coverage");
 }
 
-for (const topic of ["Eval verification passed", "at least", "coverageTargets.summaryMaxChars", "requiresEvidence must be true"]) {
+for (const topic of ["Eval verification passed", "at least", "coverageTargets.summaryMaxChars", "requiresEvidence must be true", "placeholder"]) {
   assertIncludes(evalVerifier, topic, "eval verifier");
 }
 
