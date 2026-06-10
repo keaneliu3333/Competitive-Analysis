@@ -48,6 +48,8 @@ const commands = [
   ["node", "--check", "scripts/verify-exports.mjs"],
   ["node", "--check", "scripts/verify-summary.mjs"],
   ["node", "--check", "scripts/verify-data-package.mjs"],
+  ["node", "--check", "scripts/verify-formalization-plan.mjs"],
+  ["node", "--check", "scripts/generate-smoke-checklist.mjs"],
   ["node", "scripts/verify-access.mjs"],
   ["node", "scripts/verify-mvp.mjs"],
   ["node", "scripts/verify-runtime.mjs"],
@@ -55,6 +57,8 @@ const commands = [
   ["node", "scripts/verify-exports.mjs"],
   ["node", "scripts/verify-summary.mjs"],
   ["node", "scripts/verify-data-package.mjs"],
+  ["node", "scripts/verify-formalization-plan.mjs"],
+  ["node", "scripts/generate-smoke-checklist.mjs"],
 ];
 
 const results = commands.map(run);

@@ -29,6 +29,8 @@ const releaseVerifier = readRequired("scripts/verify-release.mjs");
 const exportVerifier = readRequired("scripts/verify-exports.mjs");
 const summaryVerifier = readRequired("scripts/verify-summary.mjs");
 const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
+const formalizationVerifier = readRequired("scripts/verify-formalization-plan.mjs");
+const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
 
 for (const requirement of [
   "简洁明了的 UI/UX 交互",
@@ -95,6 +97,8 @@ for (const token of [
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
+  "scripts/verify-formalization-plan.mjs",
+  "scripts/generate-smoke-checklist.mjs",
 ]) {
   assertIncludes(releaseVerifier, token, "release verifier traceability");
 }
@@ -109,6 +113,14 @@ for (const token of ["Summary verification passed", "500-character cap", "产品
 
 for (const token of ["Data package verification passed", "custom field history preservation", "backupBeforeDataPackageImport"]) {
   assertIncludes(dataPackageVerifier, token, "data package verifier traceability");
+}
+
+for (const token of ["Formalization plan verification passed", "Route Handlers", "release gates"]) {
+  assertIncludes(formalizationVerifier, token, "formalization verifier traceability");
+}
+
+for (const token of ["Manual smoke checklist generated", "启动与首页", "交接与审计"]) {
+  assertIncludes(smokeChecklistGenerator, token, "manual smoke checklist traceability");
 }
 
 console.log("Traceability verification passed.");

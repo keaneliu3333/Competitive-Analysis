@@ -85,6 +85,7 @@ node --check scripts/verify-evals.mjs
 node --check scripts/verify-exports.mjs
 node --check scripts/verify-summary.mjs
 node --check scripts/verify-data-package.mjs
+node --check scripts/generate-smoke-checklist.mjs
 node --check scripts/verify-mvp.mjs
 node --check scripts/verify-runtime.mjs
 node --check scripts/verify-traceability.mjs
@@ -100,6 +101,7 @@ node scripts/verify-evals.mjs
 node scripts/verify-exports.mjs
 node scripts/verify-summary.mjs
 node scripts/verify-data-package.mjs
+node scripts/generate-smoke-checklist.mjs
 node scripts/verify-mvp.mjs
 node scripts/verify-runtime.mjs
 node scripts/verify-traceability.mjs
@@ -114,6 +116,7 @@ node scripts/verify-hygiene.mjs
 导出结构专项验收可运行 `node scripts/verify-exports.mjs`，检查产品库 Excel、型号对比 Excel、路线图 Excel、路线图 SVG 和各品牌分页 PDF 的关键结构。
 500 字总结专项验收可运行 `node scripts/verify-summary.mjs`，检查字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
 数据包交接专项验收可运行 `node scripts/verify-data-package.mjs`，检查完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
+人工浏览器冒烟清单可运行 `node scripts/generate-smoke-checklist.mjs` 生成到 `reports/`，用于记录筛选、自定义字段、AI 导入、对比、路线图、数据包和交接包的手工验收结果。
 本地环境预检可运行 `node scripts/check-local-env.mjs`，检查 Node 版本、配置模板、数据目录、端口占用，以及已监听端口是否真的返回工作台健康接口和首页。
 提交前卫生检查可运行 `node scripts/verify-hygiene.mjs`，确认真实配置、本地数据、生成报告不会被误提交，并扫描明显密钥。
 
@@ -170,6 +173,8 @@ CSV 支持中文或英文表头。最小模板：
 CSV 导入会校验品牌、型号、品类和价格。缺少品牌/型号、品类无法识别或价格为负数的行会被跳过，导入完成后会提示新增、更新和跳过行数量及前几条原因。
 
 ## 后续正式化路径
+
+详细迁移计划见 [docs/formalization-roadmap.md](docs/formalization-roadmap.md)。
 
 - 将 LocalStorage 产品库迁移到 PostgreSQL，按 README 中的实体拆表。
 - 将 `server.mjs` 的 `/api/analyze` 和 `/api/compare` 迁移为 Next.js Route Handlers。

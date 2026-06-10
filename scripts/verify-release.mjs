@@ -26,8 +26,16 @@ const steps = [
     command: ["node", "scripts/verify-data-package.mjs"],
   },
   {
+    name: "正式化迁移计划验收",
+    command: ["node", "scripts/verify-formalization-plan.mjs"],
+  },
+  {
     name: "生成 MVP 测试报告",
     command: ["node", "scripts/generate-test-report.mjs"],
+  },
+  {
+    name: "生成人工冒烟清单",
+    command: ["node", "scripts/generate-smoke-checklist.mjs"],
   },
 ];
 

@@ -53,7 +53,9 @@ for (const path of [
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
+  "scripts/verify-formalization-plan.mjs",
   "scripts/generate-test-report.mjs",
+  "scripts/generate-smoke-checklist.mjs",
   "scripts/check-local-env.mjs",
   "scripts/verify-hygiene.mjs",
   "scripts/verify-release.mjs",
@@ -211,7 +213,9 @@ for (const args of [
   ["--check", "scripts/verify-exports.mjs"],
   ["--check", "scripts/verify-summary.mjs"],
   ["--check", "scripts/verify-data-package.mjs"],
+  ["--check", "scripts/verify-formalization-plan.mjs"],
   ["--check", "scripts/generate-test-report.mjs"],
+  ["--check", "scripts/generate-smoke-checklist.mjs"],
   ["--check", "scripts/check-local-env.mjs"],
   ["--check", "scripts/verify-hygiene.mjs"],
   ["--check", "scripts/verify-release.mjs"],
@@ -225,6 +229,8 @@ for (const args of [
   ["scripts/verify-exports.mjs"],
   ["scripts/verify-summary.mjs"],
   ["scripts/verify-data-package.mjs"],
+  ["scripts/verify-formalization-plan.mjs"],
+  ["scripts/generate-smoke-checklist.mjs"],
   ["scripts/verify-hygiene.mjs"],
 ]) {
   runNode(args);
