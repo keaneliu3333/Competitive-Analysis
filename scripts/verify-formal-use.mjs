@@ -34,6 +34,7 @@ const releaseVerifier = readRequired("scripts/verify-release.mjs");
 const testReportGenerator = readRequired("scripts/generate-test-report.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
 const formalUsePackGenerator = readRequired("scripts/generate-formal-use-pack.mjs");
+const browserSmokeVerifier = readRequired("scripts/verify-formal-use-browser.mjs");
 const envExample = readRequired(".env.example");
 const gitignore = readRequired(".gitignore");
 
@@ -80,6 +81,8 @@ for (const topic of [
   "formal-use-launch-checklist.md",
   "generate-formal-use-pack.mjs",
   "verify-formal-use.mjs",
+  "verify-formal-use-browser.mjs",
+  "formal-use-browser-smoke",
 ]) {
   assertIncludes(readme, topic, "README formal use coverage");
 }
@@ -90,6 +93,8 @@ for (const topic of [
   "docs/formal-use-runbook.md",
   "docs/formal-use-launch-checklist.md",
   "reports/formal-use-pack",
+  "SMOKE_BASE_URL",
+  "verify-formal-use-browser.mjs",
 ]) {
   assertIncludes(deployment, topic, "deployment formal use coverage");
 }
@@ -124,12 +129,23 @@ for (const topic of [
   "正式功能使用启动清单",
   "provider",
   "500 字以内",
+  "formal-use-browser-smoke",
 ]) {
   assertIncludes(formalUsePackGenerator, topic, "formal use pack generator");
 }
 
 for (const topic of ["正式功能使用", "Go/No-Go", "反馈"]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist formal use coverage");
+}
+
+for (const topic of [
+  "Formal use browser smoke",
+  "SMOKE_BASE_URL",
+  "formal-use-browser-smoke",
+  "no in-page trial module",
+  "trialFeedback",
+]) {
+  assertIncludes(browserSmokeVerifier, topic, "formal use browser smoke verifier");
 }
 
 for (const forbidden of [

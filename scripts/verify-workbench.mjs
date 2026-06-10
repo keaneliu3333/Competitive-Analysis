@@ -88,6 +88,7 @@ const modelEvalGenerator = readRequired("scripts/generate-model-eval-report.mjs"
 const migrationReconciliationGenerator = readRequired("scripts/generate-migration-reconciliation.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
 const internalTrialPackGenerator = readRequired("scripts/generate-formal-use-pack.mjs");
+const formalUseBrowserVerifier = readRequired("scripts/verify-formal-use-browser.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
 const hygieneVerifier = readRequired("scripts/verify-hygiene.mjs");
 const releaseVerifier = readRequired("scripts/verify-release.mjs");
@@ -552,8 +553,22 @@ for (const topic of [
   "generate-formal-use-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
+  "verify-formal-use-browser.mjs",
 ]) {
   assertIncludes(readme, topic, "README capability");
+}
+
+for (const token of [
+  "Formal use browser smoke",
+  "SMOKE_BASE_URL",
+  "no in-page trial module",
+  "formal-use-browser-smoke",
+  "trialFeedback",
+  "数据包导出",
+  "路线图导出",
+  "型号对比和 500 字总结",
+]) {
+  assertIncludes(formalUseBrowserVerifier, token, "formal use browser verifier capability");
 }
 
 for (const topic of [

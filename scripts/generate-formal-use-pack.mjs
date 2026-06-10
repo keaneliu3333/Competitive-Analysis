@@ -17,6 +17,7 @@ function readOptional(path) {
 const runbook = readOptional("docs/formal-use-runbook.md");
 const launchChecklist = readOptional("docs/formal-use-launch-checklist.md");
 const smokeChecklist = readOptional(`reports/manual-smoke-checklist-${dateStamp}.md`);
+const browserSmoke = readOptional(`reports/formal-use-browser-smoke-${dateStamp}.json`);
 const modelEval = readOptional(`reports/model-eval-readiness-${dateStamp}.md`);
 
 const lines = [
@@ -37,6 +38,7 @@ const lines = [
   "node scripts/check-local-env.mjs",
   "node scripts/verify-formal-use.mjs",
   "node server.mjs",
+  "SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/verify-formal-use-browser.mjs",
   "```",
   "",
   "## 使用任务摘要",
@@ -68,6 +70,7 @@ const lines = [
   "## 已生成证据",
   "",
   `- 人工冒烟清单：${smokeChecklist ? `reports/manual-smoke-checklist-${dateStamp}.md` : "未生成"}`,
+  `- 浏览器正式功能冒烟：${browserSmoke ? `reports/formal-use-browser-smoke-${dateStamp}.json` : "未生成"}`,
   `- 多模型评估准备报告：${modelEval ? `reports/model-eval-readiness-${dateStamp}.md` : "未生成"}`,
   "- 正式功能使用启动清单：docs/formal-use-launch-checklist.md",
   "- MVP 测试报告：运行 `node scripts/generate-test-report.mjs` 后查看 `reports/mvp-test-report-*.md`。",

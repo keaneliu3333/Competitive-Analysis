@@ -34,6 +34,7 @@ node scripts/verify-mvp.mjs
 数据包交接由 `node scripts/verify-data-package.mjs` 专项检查，覆盖完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
 正式功能使用准备由 `node scripts/verify-formal-use.mjs` 专项检查，覆盖使用运行手册、启动清单、使用包、反馈模板、Go/No-Go 标准、无网页试用模块约束和部署交接。
 人工冒烟清单可通过 `node scripts/generate-smoke-checklist.mjs` 生成到 `reports/`，用于记录浏览器验收环境、状态、证据和结论。
+启动本地服务后可运行 `SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/verify-formal-use-browser.mjs`，自动覆盖筛选、自定义字段、AI 导入兜底、型号对比和 500 字以内总结、路线图导出、数据包导入导出、审计/用量日志，并生成 `reports/formal-use-browser-smoke-*.json`。
 正式功能使用包可通过 `node scripts/generate-formal-use-pack.mjs` 生成到 `reports/`，用于组织使用任务和归档使用反馈。
 交付前可运行 `node scripts/generate-test-report.mjs`，在 `reports/` 生成带时间戳的 Markdown 测试报告。
 启动前可运行 `node scripts/check-local-env.mjs` 做本地环境预检。

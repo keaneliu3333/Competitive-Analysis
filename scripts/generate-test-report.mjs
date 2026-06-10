@@ -51,6 +51,7 @@ const commands = [
   ["node", "--check", "scripts/verify-summary.mjs"],
   ["node", "--check", "scripts/verify-data-package.mjs"],
   ["node", "--check", "scripts/verify-formal-use.mjs"],
+  ["node", "--check", "scripts/verify-formal-use-browser.mjs"],
   ["node", "--check", "scripts/verify-formalization-plan.mjs"],
   ["node", "--check", "scripts/verify-api-migration-map.mjs"],
   ["node", "--check", "scripts/generate-migration-reconciliation.mjs"],
