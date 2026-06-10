@@ -341,8 +341,8 @@
                 <div class="popover" id="columnsPopover"></div>
               </div>
             </div>
-            <div class="table-wrap">
-              <table>
+            <div class="table-wrap product-table-wrap">
+              <table class="product-table">
                 <thead>
                   <tr id="productTableHead"></tr>
                 </thead>
@@ -400,11 +400,17 @@
             </div>
             <details class="comparison-history-panel">
               <summary>
-                <span>总结历史</span>
+                <span class="history-summary-copy">
+                  <span class="history-kicker">复盘与导出</span>
+                  <strong>对比总结历史</strong>
+                  <span>默认收起，保留历史记录用于复盘和 CSV 导出。</span>
+                </span>
+              </summary>
+              <div class="history-actions">
                 <button class="secondary-button" type="button" id="exportComparisonHistory">
                   导出总结记录
                 </button>
-              </summary>
+              </div>
               <div id="comparisonHistory" class="comparison-history"></div>
             </details>
             <div class="table-wrap compact">

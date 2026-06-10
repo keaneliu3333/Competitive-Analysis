@@ -157,6 +157,12 @@ textarea:focus-visible {
   gap: 10px;
 }
 
+.topbar-actions,
+.panel-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .inline-control {
   display: flex;
   min-width: 180px;
@@ -619,6 +625,10 @@ textarea {
   border-radius: var(--radius);
 }
 
+.product-table-wrap {
+  max-height: 640px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -675,6 +685,27 @@ tbody tr {
 
 tbody tr:hover,
 tbody tr.is-selected {
+  background: #eef8f6;
+}
+
+.product-table th:first-child,
+.product-table td:first-child {
+  position: sticky;
+  left: 0;
+}
+
+.product-table th:first-child {
+  z-index: 3;
+}
+
+.product-table td:first-child {
+  z-index: 2;
+  background: #fff;
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.product-table tbody tr:hover td:first-child,
+.product-table tbody tr.is-selected td:first-child {
   background: #eef8f6;
 }
 
@@ -957,17 +988,16 @@ tbody tr.is-selected {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-muted);
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .comparison-history-panel summary {
-  display: flex;
-  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  min-height: 44px;
   cursor: pointer;
-  font-weight: 800;
 }
 
 .comparison-history-panel summary::-webkit-details-marker {
@@ -976,6 +1006,7 @@ tbody tr.is-selected {
 
 .comparison-history-panel summary::before {
   content: "展开";
+  justify-self: start;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: #fff;
@@ -987,6 +1018,33 @@ tbody tr.is-selected {
 
 .comparison-history-panel[open] summary::before {
   content: "收起";
+}
+
+.history-summary-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.history-summary-copy strong {
+  font-size: 14px;
+}
+
+.history-summary-copy span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.history-kicker {
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.history-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .comparison-history {

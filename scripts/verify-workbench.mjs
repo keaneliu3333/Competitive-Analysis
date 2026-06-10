@@ -173,6 +173,27 @@ for (const id of requiredElementIds) {
   assertRegex(indexHtml, new RegExp(`id=["']${id}["']`), `index.html element #${id}`);
 }
 
+for (const token of [
+  "product-table",
+  "product-table-wrap",
+  "history-summary-copy",
+  "history-actions",
+  "复盘与导出",
+  "默认收起",
+]) {
+  assertIncludes(indexHtml, token, "index.html formal workbench layout");
+}
+
+for (const token of [
+  ".product-table-wrap",
+  ".product-table th:first-child",
+  ".history-summary-copy",
+  ".history-actions",
+  "max-height: 640px",
+]) {
+  assertIncludes(readRequired("styles.css"), token, "styles.css formal workbench layout");
+}
+
 const requiredClientFunctions = [
   "apiFetch",
   "mergeState",
