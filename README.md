@@ -174,7 +174,8 @@ CSV 导入会校验品牌、型号、品类和价格。缺少品牌/型号、品
 
 ## 后续正式化路径
 
-详细迁移计划见 [docs/formalization-roadmap.md](docs/formalization-roadmap.md)。
+详细迁移计划见 [docs/formalization-roadmap.md](docs/formalization-roadmap.md)，API 与队列迁移矩阵见 [docs/api-migration-map.md](docs/api-migration-map.md)，Prisma 数据模型草案见 [docs/prisma-schema-draft.prisma](docs/prisma-schema-draft.prisma)。
+迁移前数量基线可运行 `node scripts/generate-migration-reconciliation.mjs` 生成到 `reports/`。
 
 - 将 LocalStorage 产品库迁移到 PostgreSQL，按 README 中的实体拆表。
 - 将 `server.mjs` 的 `/api/analyze` 和 `/api/compare` 迁移为 Next.js Route Handlers。

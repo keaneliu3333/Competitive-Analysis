@@ -132,7 +132,8 @@ node scripts/verify-hygiene.mjs
 
 ## 正式化迁移路径
 
-详细阶段拆分、数据模型、队列、权限、迁移和回滚策略见 `docs/formalization-roadmap.md`。
+详细阶段拆分、数据模型、队列、权限、迁移和回滚策略见 `docs/formalization-roadmap.md`；API 与队列迁移矩阵见 `docs/api-migration-map.md`；字段级 Prisma 草案见 `docs/prisma-schema-draft.prisma`。
+迁移前数量基线可运行 `node scripts/generate-migration-reconciliation.mjs` 生成到 `reports/`。
 
 - 后端迁移到 Next.js Route Handlers。
 - 数据迁移到 PostgreSQL + Prisma，拆分 Product、SourcePage、MediaAsset、PriceSnapshot、FeatureModule、FeatureField、ProductFeatureValue、SellingPoint、RoadmapItem、AnalysisRun。

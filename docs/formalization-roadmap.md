@@ -25,6 +25,7 @@
   - `FeatureModule`、`FeatureField`、`ProductFeatureValue`
   - `SellingPoint`、`RoadmapItem`、`AnalysisRun`
   - `SavedView`、`AuditLog`、`ApiUsageLog`
+- 字段级草案见 `docs/prisma-schema-draft.prisma`，正式项目创建后迁移到 `prisma/schema.prisma`。
 - 编写一次性迁移脚本，把 `data/workbench-state.json` 和导出的数据包 JSON 导入 PostgreSQL。
 - 产品去重继续沿用品牌 + 型号策略，并保留价格、分析和审计历史。
 - 验收：产品、自定义字段、保存视图、审计、分析记录、价格快照和比较历史导入后数量一致。
@@ -38,6 +39,7 @@
   - `POST /api/analyze`
   - `POST /api/compare`
   - `GET /api/usage`
+- 详细 API、资源和队列映射见 `docs/api-migration-map.md`。
 - 将 `APP_ACCESS_TOKEN` 过渡为内部组织账号与角色权限。
 - 最低角色：
   - `viewer`：查看产品库、路线图、用量和导出只读数据。
@@ -85,6 +87,7 @@
 
 - 先冻结一份 `cleaner-workbench-*.json` 数据包，作为回滚基线。
 - 运行 JSON 到 PostgreSQL 的导入脚本，导入后生成数量对账报告。
+- 可先运行 `node scripts/generate-migration-reconciliation.mjs` 生成迁移前数量基线。
 - 对账项：
   - 产品数、品牌数、品类数
   - 自定义模块和字段数

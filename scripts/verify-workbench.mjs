@@ -79,7 +79,9 @@ const exportVerifier = readRequired("scripts/verify-exports.mjs");
 const summaryVerifier = readRequired("scripts/verify-summary.mjs");
 const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
 const formalizationVerifier = readRequired("scripts/verify-formalization-plan.mjs");
+const apiMigrationVerifier = readRequired("scripts/verify-api-migration-map.mjs");
 const reportGenerator = readRequired("scripts/generate-test-report.mjs");
+const migrationReconciliationGenerator = readRequired("scripts/generate-migration-reconciliation.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
 const hygieneVerifier = readRequired("scripts/verify-hygiene.mjs");
@@ -633,6 +635,25 @@ for (const topic of [
 }
 
 for (const topic of [
+  "API migration map verification passed",
+  "Route Handlers",
+  "BullMQ jobs",
+  "permissions",
+]) {
+  assertIncludes(apiMigrationVerifier, topic, "API migration map verifier");
+}
+
+for (const topic of [
+  "Migration reconciliation report generated",
+  "migrationCounts",
+  "ProductFeatureValue",
+  "PriceSnapshot",
+  "ComparisonRun",
+]) {
+  assertIncludes(migrationReconciliationGenerator, topic, "migration reconciliation generator");
+}
+
+for (const topic of [
   "MVP test report generated",
   "docs/requirements-traceability.md",
   "reports",
@@ -641,7 +662,10 @@ for (const topic of [
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
   "scripts/verify-formalization-plan.mjs",
+  "scripts/verify-api-migration-map.mjs",
+  "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-smoke-checklist.mjs",
+  "process.execPath",
 ]) {
   assertIncludes(reportGenerator, topic, "test report generator");
 }
@@ -684,8 +708,11 @@ for (const topic of [
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
   "scripts/verify-formalization-plan.mjs",
+  "scripts/verify-api-migration-map.mjs",
+  "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-test-report.mjs",
   "scripts/generate-smoke-checklist.mjs",
+  "process.execPath",
 ]) {
   assertIncludes(releaseVerifier, topic, "release verifier");
 }

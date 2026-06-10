@@ -30,6 +30,14 @@ const steps = [
     command: ["node", "scripts/verify-formalization-plan.mjs"],
   },
   {
+    name: "API 与队列迁移矩阵验收",
+    command: ["node", "scripts/verify-api-migration-map.mjs"],
+  },
+  {
+    name: "生成迁移对账报告",
+    command: ["node", "scripts/generate-migration-reconciliation.mjs"],
+  },
+  {
     name: "生成 MVP 测试报告",
     command: ["node", "scripts/generate-test-report.mjs"],
   },
@@ -41,8 +49,9 @@ const steps = [
 
 function runStep(step) {
   const startedAt = Date.now();
+  const command = step.command[0] === "node" ? [process.execPath, ...step.command.slice(1)] : step.command;
   try {
-    const output = execFileSync(step.command[0], step.command.slice(1), {
+    const output = execFileSync(command[0], command.slice(1), {
       cwd: root,
       encoding: "utf8",
       stdio: "pipe",

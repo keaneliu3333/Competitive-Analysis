@@ -8,8 +8,10 @@ const root = process.cwd();
 
 function run(command) {
   const startedAt = Date.now();
+  const executable = command[0] === "node" ? process.execPath : command[0];
+  const args = command[0] === "node" ? command.slice(1) : command.slice(1);
   try {
-    const output = execFileSync(command[0], command.slice(1), {
+    const output = execFileSync(executable, args, {
       cwd: root,
       encoding: "utf8",
       stdio: "pipe",
@@ -49,6 +51,8 @@ const commands = [
   ["node", "--check", "scripts/verify-summary.mjs"],
   ["node", "--check", "scripts/verify-data-package.mjs"],
   ["node", "--check", "scripts/verify-formalization-plan.mjs"],
+  ["node", "--check", "scripts/verify-api-migration-map.mjs"],
+  ["node", "--check", "scripts/generate-migration-reconciliation.mjs"],
   ["node", "--check", "scripts/generate-smoke-checklist.mjs"],
   ["node", "scripts/verify-access.mjs"],
   ["node", "scripts/verify-mvp.mjs"],
@@ -58,6 +62,8 @@ const commands = [
   ["node", "scripts/verify-summary.mjs"],
   ["node", "scripts/verify-data-package.mjs"],
   ["node", "scripts/verify-formalization-plan.mjs"],
+  ["node", "scripts/verify-api-migration-map.mjs"],
+  ["node", "scripts/generate-migration-reconciliation.mjs"],
   ["node", "scripts/generate-smoke-checklist.mjs"],
 ];
 

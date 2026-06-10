@@ -1,0 +1,306 @@
+// Draft schema for the formal Next.js + PostgreSQL + Prisma migration.
+// Move to prisma/schema.prisma when the formal app scaffold is created.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductCategory {
+  ROBOT_VACUUM
+  FLOOR_WASHER
+  STICK_VACUUM
+}
+
+enum ProductStatus {
+  PLANNED
+  LAUNCHED
+  WATCHING
+  REVIEW_REQUIRED
+}
+
+enum FeatureFieldType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  ENUM
+  PRICE
+  IMAGE
+}
+
+enum SourceType {
+  URL
+  IMAGE_UPLOAD
+  PDF_UPLOAD
+  MANUAL
+  CSV_IMPORT
+}
+
+enum AnalysisStatus {
+  OK
+  FALLBACK
+  ERROR
+  REVIEW_REQUIRED
+}
+
+enum UserRole {
+  VIEWER
+  EDITOR
+  ANALYST
+  ADMIN
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String?
+  role      UserRole  @default(VIEWER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  auditLogs AuditLog[]
+}
+
+model Brand {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Category {
+  id        String          @id @default(cuid())
+  name      ProductCategory @unique
+  products  Product[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model Product {
+  id             String                @id @default(cuid())
+  brandId        String
+  categoryId     String
+  name           String
+  model          String
+  price          Decimal               @default(0)
+  channel        String
+  status         ProductStatus         @default(REVIEW_REQUIRED)
+  quarter        String?
+  imageUrl       String?
+  sourceUrl      String?
+  confidence     Int                   @default(0)
+  reviewRequired Boolean               @default(true)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  brand          Brand                 @relation(fields: [brandId], references: [id])
+  category       Category              @relation(fields: [categoryId], references: [id])
+  sourcePages    SourcePage[]
+  mediaAssets    MediaAsset[]
+  priceSnapshots PriceSnapshot[]
+  featureValues  ProductFeatureValue[]
+  sellingPoints  SellingPoint[]
+  roadmapItems   RoadmapItem[]
+  analysisRuns   AnalysisRun[]
+  auditLogs      AuditLog[]
+
+  @@unique([brandId, model])
+  @@index([categoryId])
+  @@index([status])
+  @@index([quarter])
+}
+
+model SourcePage {
+  id              String       @id @default(cuid())
+  productId       String?
+  url             String
+  sourceType      SourceType   @default(URL)
+  title           String?
+  description     String?
+  priceCandidates Json?
+  imageCandidates Json?
+  textSnippets    Json?
+  statusCode      Int?
+  fetchedAt       DateTime?
+  error           String?
+  createdAt       DateTime     @default(now())
+  product         Product?     @relation(fields: [productId], references: [id])
+  mediaAssets     MediaAsset[]
+  analysisRuns    AnalysisRun[]
+
+  @@index([url])
+  @@index([productId])
+}
+
+model MediaAsset {
+  id           String     @id @default(cuid())
+  productId    String?
+  sourcePageId String?
+  url          String?
+  filename     String?
+  mimeType     String?
+  sizeBytes    Int?
+  width        Int?
+  height       Int?
+  kind         SourceType
+  createdAt    DateTime   @default(now())
+  product      Product?   @relation(fields: [productId], references: [id])
+  sourcePage   SourcePage? @relation(fields: [sourcePageId], references: [id])
+
+  @@index([productId])
+  @@index([sourcePageId])
+}
+
+model PriceSnapshot {
+  id        String   @id @default(cuid())
+  productId String
+  price     Decimal
+  channel   String?
+  source    String?
+  note      String?
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([productId, createdAt])
+}
+
+model FeatureModule {
+  id        String         @id @default(cuid())
+  name      String
+  position  Int            @default(0)
+  fields    FeatureField[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([name])
+}
+
+model FeatureField {
+  id        String                @id @default(cuid())
+  moduleId  String
+  key       String                @unique
+  name      String
+  type      FeatureFieldType
+  options   Json?
+  position  Int                   @default(0)
+  deletedAt DateTime?
+  module    FeatureModule         @relation(fields: [moduleId], references: [id])
+  values    ProductFeatureValue[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@index([moduleId])
+}
+
+model ProductFeatureValue {
+  id         String       @id @default(cuid())
+  productId  String
+  fieldId    String
+  valueText  String?
+  valueNum   Decimal?
+  valueBool  Boolean?
+  valueJson  Json?
+  evidence   String?
+  confidence Int?
+  confirmed  Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  product    Product      @relation(fields: [productId], references: [id])
+  field      FeatureField @relation(fields: [fieldId], references: [id])
+
+  @@unique([productId, fieldId])
+  @@index([fieldId])
+}
+
+model SellingPoint {
+  id        String   @id @default(cuid())
+  productId String
+  priority  Int
+  title     String
+  evidence  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@unique([productId, priority])
+}
+
+model RoadmapItem {
+  id        String   @id @default(cuid())
+  productId String
+  quarter   String
+  status    String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([quarter])
+}
+
+model AnalysisRun {
+  id              String         @id @default(cuid())
+  productId       String?
+  sourcePageId    String?
+  type            String
+  model           String
+  schemaName      String?
+  status          AnalysisStatus
+  confidence      Int?
+  inputSummary    Json?
+  outputSummary   Json?
+  usage           Json?
+  estimatedCostUsd Decimal?
+  error           String?
+  createdAt       DateTime       @default(now())
+  product         Product?       @relation(fields: [productId], references: [id])
+  sourcePage      SourcePage?    @relation(fields: [sourcePageId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([status])
+}
+
+model SavedView {
+  id        String   @id @default(cuid())
+  name      String
+  payload   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  productId String?
+  userId    String?
+  action    String
+  detail    String?
+  payload   Json?
+  createdAt DateTime @default(now())
+  product   Product? @relation(fields: [productId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model ApiUsageLog {
+  id               String   @id @default(cuid())
+  provider         String   @default("openai")
+  model            String
+  schemaName       String?
+  status           String
+  inputModalities  Json?
+  usage            Json?
+  estimatedCostUsd Decimal?
+  error            String?
+  responseId       String?
+  createdAt        DateTime @default(now())
+
+  @@index([model, createdAt])
+  @@index([status])
+}
