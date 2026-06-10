@@ -927,10 +927,6 @@ async function loadUsage() {
 
 function exportUsageCsv() {
   const records = usageState.recent || [];
-  if (!records.length) {
-    window.alert("暂无可导出的 AI 用量记录。");
-    return;
-  }
   const headers = [
     "createdAt",
     "model",
