@@ -1150,24 +1150,24 @@ tbody tr.is-selected {
   opacity: 0.45;
 }
 
-.mvp-readiness {
+.formal-readiness {
   display: grid;
   gap: 12px;
 }
 
-.mvp-summary {
+.formal-summary {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.mvp-checklist {
+.formal-checklist {
   display: grid;
   grid-template-columns: repeat(2, minmax(160px, 1fr));
   gap: 8px;
 }
 
-.mvp-check-item {
+.formal-check-item {
   min-height: 96px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1175,30 +1175,30 @@ tbody tr.is-selected {
   padding: 10px;
 }
 
-.mvp-check-item.is-ready {
+.formal-check-item.is-ready {
   border-color: #b7ddc5;
   background: #f4fbf6;
 }
 
-.mvp-check-item.is-gap {
+.formal-check-item.is-gap {
   border-color: #f0d3a5;
   background: #fff9ef;
 }
 
-.mvp-check-item strong {
+.formal-check-item strong {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
 }
 
-.mvp-check-item p {
+.formal-check-item p {
   margin: 0 0 6px;
   color: var(--text);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.mvp-check-item small {
+.formal-check-item small {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.4;
@@ -1311,7 +1311,7 @@ tbody tr.is-selected {
   .workspace-grid,
   .ops-grid,
   .metrics-grid,
-  .mvp-checklist {
+  .formal-checklist {
     grid-template-columns: 1fr;
   }
 }

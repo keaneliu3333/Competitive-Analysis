@@ -136,8 +136,8 @@ for (const id of [
   "exportDataPackage",
   "downloadCsvTemplate",
   "exportQualityCsv",
-  "mvpReadiness",
-  "exportMvpChecklist",
+  "formalReadiness",
+  "exportFormalChecklist",
   "exportHandoffReport",
 ]) {
   assertIncludes(files.index, `id="${id}"`, "index.html MVP control");
@@ -161,9 +161,9 @@ for (const fn of [
   "exportDataPackage",
   "importDataPackage",
   "exportQualityCsv",
-  "mvpChecklistItems",
-  "renderMvpReadiness",
-  "exportMvpChecklistCsv",
+  "formalChecklistItems",
+  "renderFormalReadiness",
+  "exportFormalChecklistCsv",
   "handoffReportMarkdown",
   "exportHandoffReport",
 ]) {

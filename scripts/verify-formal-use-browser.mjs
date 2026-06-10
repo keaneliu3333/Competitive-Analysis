@@ -359,7 +359,7 @@ async function main() {
     await expectDownload(page, () => page.locator("#exportQualityCsv").click(), "质量问题 CSV");
     await expectDownload(page, () => page.locator("#exportAuditCsv").click(), "审计 CSV");
     await expectDownload(page, () => page.locator("#exportUsageCsv").click(), "用量 CSV");
-    await expectDownload(page, () => page.locator("#exportMvpChecklist").click(), "正式清单 CSV", "formal-readiness");
+    await expectDownload(page, () => page.locator("#exportFormalChecklist").click(), "正式清单 CSV", "formal-readiness");
     await expectDownload(page, () => page.locator("#exportHandoffReport").click(), "Markdown 正式交接包", "formal-handoff");
     const exportForImport = await expectDownload(page, () => page.locator("#exportDataPackage").click(), "导入用数据包");
     writeFileSync(dataPackageImportPath, readFileSync(exportForImport.path));

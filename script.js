@@ -436,7 +436,7 @@ const els = {
   metricAvgPrice: document.querySelector("#metricAvgPrice"),
   metricReview: document.querySelector("#metricReview"),
   metricBrands: document.querySelector("#metricBrands"),
-  mvpReadiness: document.querySelector("#mvpReadiness"),
+  formalReadiness: document.querySelector("#formalReadiness"),
   qualityPanel: document.querySelector("#qualityPanel"),
   systemStatus: document.querySelector("#systemStatus"),
   reviewQueue: document.querySelector("#reviewQueue"),
@@ -1504,7 +1504,7 @@ function renderMetrics(products) {
   els.metricBrands.textContent = unique(products.map((p) => p.brand)).length;
 }
 
-function mvpChecklistItems() {
+function formalChecklistItems() {
   const categories = new Set(state.products.map((product) => product.category));
   const hasAllCategories = ["扫地机", "洗地机", "吸尘器"].every((category) => categories.has(category));
   const hasFeatureFields = allFields().length >= 8;
@@ -1569,21 +1569,21 @@ function mvpChecklistItems() {
   ];
 }
 
-function renderMvpReadiness() {
-  const items = mvpChecklistItems();
+function renderFormalReadiness() {
+  const items = formalChecklistItems();
   const readyCount = items.filter((item) => item.ready).length;
   const percent = Math.round((readyCount / items.length) * 100);
-  els.mvpReadiness.innerHTML = `
-    <div class="mvp-summary">
+  els.formalReadiness.innerHTML = `
+    <div class="formal-summary">
       <span class="status-badge ${percent >= 80 ? "is-ok" : "is-warning"}">正式使用就绪度 ${percent}%</span>
       <span class="status-badge">通过 ${readyCount}/${items.length}</span>
       <span class="status-badge">运行 node scripts/verify-release.mjs 做发布验收</span>
     </div>
-    <div class="mvp-checklist">
+    <div class="formal-checklist">
       ${items
         .map(
           (item) => `
-        <article class="mvp-check-item ${item.ready ? "is-ready" : "is-gap"}">
+        <article class="formal-check-item ${item.ready ? "is-ready" : "is-gap"}">
           <strong>${item.ready ? "通过" : "待补"} · ${escapeHtml(item.area)}</strong>
           <p>${escapeHtml(item.evidence)}</p>
           <small>${escapeHtml(item.next)}</small>
@@ -1595,9 +1595,9 @@ function renderMvpReadiness() {
   `;
 }
 
-function exportMvpChecklistCsv() {
+function exportFormalChecklistCsv() {
   const headers = ["area", "ready", "evidence", "next"];
-  const rows = mvpChecklistItems().map((item) => [item.area, item.ready ? "yes" : "no", item.evidence, item.next]);
+  const rows = formalChecklistItems().map((item) => [item.area, item.ready ? "yes" : "no", item.evidence, item.next]);
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
   download(`formal-readiness-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
 }
@@ -1611,7 +1611,7 @@ function handoffReportMarkdown() {
   const brands = unique(state.products.map((product) => product.brand));
   const reviewProducts = getReviewProducts();
   const qualityIssues = productQualityIssues();
-  const readyItems = mvpChecklistItems();
+  const readyItems = formalChecklistItems();
   const readyCount = readyItems.filter((item) => item.ready).length;
   const generatedAt = new Intl.DateTimeFormat("zh-CN", {
     dateStyle: "medium",
@@ -2279,7 +2279,7 @@ function renderAll() {
   const filteredProducts = getVisibleProducts();
   renderFilters();
   renderMetrics(filteredProducts);
-  renderMvpReadiness();
+  renderFormalReadiness();
   renderQualityPanel();
   renderReviewQueue();
   renderProductTable(filteredProducts);
@@ -3908,7 +3908,7 @@ function bindEvents() {
   });
 
   document.querySelector("#confirmAllReviews").addEventListener("click", confirmAllReviews);
-  document.querySelector("#exportMvpChecklist").addEventListener("click", exportMvpChecklistCsv);
+  document.querySelector("#exportFormalChecklist").addEventListener("click", exportFormalChecklistCsv);
   document.querySelector("#exportHandoffReport").addEventListener("click", exportHandoffReport);
   document.querySelector("#exportQualityCsv").addEventListener("click", exportQualityCsv);
 

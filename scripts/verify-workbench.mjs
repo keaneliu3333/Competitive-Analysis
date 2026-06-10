@@ -116,8 +116,8 @@ const requiredElementIds = [
   "featureFilterValue",
   "qualityPanel",
   "exportQualityCsv",
-  "mvpReadiness",
-  "exportMvpChecklist",
+  "formalReadiness",
+  "exportFormalChecklist",
   "exportHandoffReport",
   "savedViewName",
   "saveView",
@@ -218,9 +218,9 @@ const requiredClientFunctions = [
   "renderUsage",
   "loadUsage",
   "exportUsageCsv",
-  "mvpChecklistItems",
-  "renderMvpReadiness",
-  "exportMvpChecklistCsv",
+  "formalChecklistItems",
+  "renderFormalReadiness",
+  "exportFormalChecklistCsv",
   "handoffReportMarkdown",
   "exportHandoffReport",
   "duplicateProductGroups",
@@ -685,7 +685,7 @@ for (const topic of ["MVP verification passed", "docs/mvp-acceptance.md", "500-c
   assertIncludes(mvpVerifier, topic, "MVP verifier");
 }
 
-for (const topic of ["Runtime verification passed", "createAppServer", "exportMvpChecklist", "roadmapBoard", "AI fallback APIs"]) {
+for (const topic of ["Runtime verification passed", "createAppServer", "exportFormalChecklist", "roadmapBoard", "AI fallback APIs"]) {
   assertIncludes(runtimeVerifier, topic, "runtime verifier");
 }
 

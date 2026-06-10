@@ -78,17 +78,17 @@ const usage = await requestJson(server, "/api/usage");
 assert(Array.isArray(usage.recent), "/api/usage must return recent array");
 
 const html = await requestText(server, "/");
-for (const token of ["清洁电器竞品分析工作台", "mvpReadiness", "exportMvpChecklist", "exportHandoffReport", "sourceImage", "comparePicker", "roadmapBoard"]) {
+for (const token of ["清洁电器竞品分析工作台", "formalReadiness", "exportFormalChecklist", "exportHandoffReport", "sourceImage", "comparePicker", "roadmapBoard"]) {
   assert(html.includes(token), `index page missing ${token}`);
 }
 
 const script = await requestText(server, "/script.js");
-for (const token of ["renderMvpReadiness", "handoffReportMarkdown", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
+for (const token of ["renderFormalReadiness", "handoffReportMarkdown", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
   assert(script.includes(token), `script.js missing ${token}`);
 }
 
 const styles = await requestText(server, "/styles.css");
-for (const token of [".mvp-checklist", ".roadmap-board", ".comparison-summary"]) {
+for (const token of [".formal-checklist", ".roadmap-board", ".comparison-summary"]) {
   assert(styles.includes(token), `styles.css missing ${token}`);
 }
 
