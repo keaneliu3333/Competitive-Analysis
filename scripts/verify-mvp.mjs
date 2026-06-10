@@ -43,6 +43,7 @@ for (const path of [
   "assets/robot-vacuum.svg",
   "assets/floor-washer.svg",
   "assets/stick-vacuum.svg",
+  "docs/formal-use-runbook.md",
   "docs/formal-use-launch-checklist.md",
   "scripts/verify-workbench.mjs",
   "scripts/verify-access.mjs",

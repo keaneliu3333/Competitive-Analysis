@@ -14,7 +14,7 @@ function readOptional(path) {
   return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
 }
 
-const runbook = readOptional("docs/internal-trial-runbook.md");
+const runbook = readOptional("docs/formal-use-runbook.md");
 const launchChecklist = readOptional("docs/formal-use-launch-checklist.md");
 const smokeChecklist = readOptional(`reports/manual-smoke-checklist-${dateStamp}.md`);
 const modelEval = readOptional(`reports/model-eval-readiness-${dateStamp}.md`);
@@ -78,7 +78,7 @@ const lines = [
   "",
   "## 运行手册快照",
   "",
-  runbook || "未找到 docs/internal-trial-runbook.md",
+  runbook || "未找到 docs/formal-use-runbook.md",
   "",
 ];
 

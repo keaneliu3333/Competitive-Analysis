@@ -23,7 +23,7 @@ function assertNotIncludes(content, forbidden, label) {
   if (content.includes(forbidden)) failures.push(`${label} must not include: ${forbidden}`);
 }
 
-const runbook = readRequired("docs/internal-trial-runbook.md");
+const runbook = readRequired("docs/formal-use-runbook.md");
 const launchChecklist = readRequired("docs/formal-use-launch-checklist.md");
 const readme = readRequired("README.md");
 const deployment = readRequired("docs/deployment.md");
@@ -87,7 +87,7 @@ for (const topic of [
 for (const topic of [
   "正式功能使用",
   "网页内不增加单独试用模块",
-  "docs/internal-trial-runbook.md",
+  "docs/formal-use-runbook.md",
   "docs/formal-use-launch-checklist.md",
   "reports/formal-use-pack",
 ]) {

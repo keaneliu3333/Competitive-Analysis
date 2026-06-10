@@ -66,6 +66,7 @@ const envExample = readRequired(".env.example");
 const readme = readRequired("README.md");
 const gitignore = readRequired(".gitignore");
 const deploymentDoc = readRequired("docs/deployment.md");
+const formalUseRunbook = readRequired("docs/formal-use-runbook.md");
 const formalUseChecklist = readRequired("docs/formal-use-launch-checklist.md");
 const accessVerifier = readRequired("scripts/verify-access.mjs");
 const costVerifier = readRequired("scripts/verify-costs.mjs");
@@ -588,6 +589,16 @@ for (const topic of [
 }
 
 for (const topic of [
+  "正式功能使用运行手册",
+  "使用目标",
+  "使用任务",
+  "正式功能使用反馈",
+  "网页内不增加单独试用模块",
+]) {
+  assertIncludes(formalUseRunbook, topic, "formal use runbook");
+}
+
+for (const topic of [
   "正式功能使用启动清单",
   "网页内不增加任何“试用”模块",
   "trialFeedback",
@@ -674,12 +685,12 @@ for (const topic of [
 
 for (const topic of [
   "Formal use verification passed",
-  "docs/internal-trial-runbook.md",
+  "docs/formal-use-runbook.md",
   "docs/formal-use-launch-checklist.md",
   "Go/No-Go",
   "scripts/generate-formal-use-pack.mjs",
 ]) {
-  assertIncludes(internalTrialVerifier, topic, "internal trial verifier");
+  assertIncludes(internalTrialVerifier, topic, "formal use verifier");
 }
 
 for (const topic of [
@@ -761,7 +772,7 @@ for (const topic of [
   "node scripts/verify-release.mjs",
   "Go/No-Go",
 ]) {
-  assertIncludes(internalTrialPackGenerator, topic, "internal trial pack generator");
+  assertIncludes(internalTrialPackGenerator, topic, "formal use pack generator");
 }
 
 for (const topic of [

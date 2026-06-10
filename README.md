@@ -50,7 +50,7 @@ http://localhost:4173
 http://localhost:4173/api/health
 ```
 
-部署和运维交接见 [docs/deployment.md](docs/deployment.md)，正式功能使用运行手册见 [docs/internal-trial-runbook.md](docs/internal-trial-runbook.md)，正式功能使用启动清单见 [docs/formal-use-launch-checklist.md](docs/formal-use-launch-checklist.md)。
+部署和运维交接见 [docs/deployment.md](docs/deployment.md)，正式功能使用运行手册见 [docs/formal-use-runbook.md](docs/formal-use-runbook.md)，正式功能使用启动清单见 [docs/formal-use-launch-checklist.md](docs/formal-use-launch-checklist.md)。
 
 ## 验证
 
