@@ -130,13 +130,18 @@ for (const topic of [
   "provider",
   "500 字以内",
   "formal-use-browser-smoke",
+  "浏览器冒烟摘要",
+  "响应式视口摘要",
+  "browserSmokeStatus",
+  "responsiveRows",
 ]) {
   assertIncludes(formalUsePackGenerator, topic, "formal use pack generator");
 }
 
-for (const topic of ["正式功能使用", "Go/No-Go", "反馈"]) {
+for (const topic of ["正式功能人工冒烟清单", "正式功能使用", "Go/No-Go", "反馈", "使用人"]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist formal use coverage");
 }
+assertNotIncludes(smokeChecklistGenerator, "试用人", "manual smoke checklist formal wording");
 
 for (const topic of [
   "Formal use browser smoke",

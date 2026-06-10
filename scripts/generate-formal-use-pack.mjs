@@ -14,11 +14,38 @@ function readOptional(path) {
   return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
 }
 
+function parseOptionalJson(path) {
+  const content = readOptional(path);
+  if (!content) return null;
+  try {
+    return JSON.parse(content);
+  } catch {
+    return null;
+  }
+}
+
 const runbook = readOptional("docs/formal-use-runbook.md");
 const launchChecklist = readOptional("docs/formal-use-launch-checklist.md");
 const smokeChecklist = readOptional(`reports/manual-smoke-checklist-${dateStamp}.md`);
-const browserSmoke = readOptional(`reports/formal-use-browser-smoke-${dateStamp}.json`);
+const browserSmokePath = `reports/formal-use-browser-smoke-${dateStamp}.json`;
+const browserSmoke = readOptional(browserSmokePath);
+const browserSmokeJson = parseOptionalJson(browserSmokePath);
 const modelEval = readOptional(`reports/model-eval-readiness-${dateStamp}.md`);
+
+const browserSmokeStatus = browserSmokeJson
+  ? browserSmokeJson.issues?.length
+    ? `未通过，问题 ${browserSmokeJson.issues.length} 个`
+    : `通过，检查项 ${browserSmokeJson.results?.length || 0} 个`
+  : "未生成";
+const browserSmokeRows = browserSmokeJson?.results?.length
+  ? browserSmokeJson.results.map((result) => `| ${result.name} | ${result.status} | ${result.detail || "-"} |`)
+  : ["| 未生成 | - | 运行浏览器冒烟后自动填充 |"];
+const responsiveRows = browserSmokeJson?.responsiveChecks?.length
+  ? browserSmokeJson.responsiveChecks.map(
+      (check) =>
+        `| ${check.viewport} | ${check.width}x${check.height} | ${check.status} | ${check.documentScrollWidth}/${check.bodyScrollWidth} |`,
+    )
+  : ["| 未生成 | - | - | - |"];
 
 const lines = [
   "# 清洁电器竞品分析正式功能使用包",
@@ -54,6 +81,21 @@ const lines = [
   "| 用量审计 | CSV | provider、model、status、usage、estimatedCostUsd 和错误摘要可追溯 |",
   "| 使用反馈 | 使用包记录 | 至少记录 1 条反馈或改进建议，并给出 Go/No-Go 建议 |",
   "",
+  "## 浏览器冒烟摘要",
+  "",
+  `- 状态：${browserSmokeStatus}`,
+  `- 报告：${browserSmoke ? browserSmokePath : "未生成"}`,
+  "",
+  "| 检查项 | 状态 | 详情 |",
+  "| --- | --- | --- |",
+  ...browserSmokeRows,
+  "",
+  "## 响应式视口摘要",
+  "",
+  "| 视口 | 尺寸 | 状态 | document/body scrollWidth |",
+  "| --- | --- | --- | --- |",
+  ...responsiveRows,
+  "",
   "## 反馈记录",
   "",
   "- 使用人：",
@@ -70,7 +112,7 @@ const lines = [
   "## 已生成证据",
   "",
   `- 人工冒烟清单：${smokeChecklist ? `reports/manual-smoke-checklist-${dateStamp}.md` : "未生成"}`,
-  `- 浏览器正式功能冒烟：${browserSmoke ? `reports/formal-use-browser-smoke-${dateStamp}.json` : "未生成"}`,
+  `- 浏览器正式功能冒烟：${browserSmoke ? `${browserSmokePath}（${browserSmokeStatus}）` : "未生成"}`,
   `- 多模型评估准备报告：${modelEval ? `reports/model-eval-readiness-${dateStamp}.md` : "未生成"}`,
   "- 正式功能使用启动清单：docs/formal-use-launch-checklist.md",
   "- MVP 测试报告：运行 `node scripts/generate-test-report.mjs` 后查看 `reports/mvp-test-report-*.md`。",

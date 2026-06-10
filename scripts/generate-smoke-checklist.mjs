@@ -80,12 +80,12 @@ const checks = [
       "运行 `node scripts/generate-formal-use-pack.mjs` 生成当天正式功能使用包。",
       "按使用包反馈模板记录 UI、AI、导出、数据恢复和权限问题。",
     ],
-    expected: "试用人、资料类型、完成任务、阻塞问题、可后续优化和 Go/No-Go 建议都有记录。",
+    expected: "使用人、资料类型、完成任务、阻塞问题、可后续优化和 Go/No-Go 建议都有记录。",
   },
 ];
 
 const lines = [
-  "# 清洁电器竞品分析 MVP 人工冒烟清单",
+  "# 清洁电器竞品分析正式功能人工冒烟清单",
   "",
   `生成时间：${generatedAt.toISOString()}`,
   "",

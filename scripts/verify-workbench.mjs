@@ -803,13 +803,18 @@ for (const topic of [
   "路线图导出",
   "交接与审计",
   "正式功能使用反馈",
+  "正式功能人工冒烟清单",
+  "使用人",
 ]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist generator");
 }
+if (smokeChecklistGenerator.includes("试用人")) fail("manual smoke checklist generator must not use 试用人 wording.");
 
 for (const topic of [
   "Formal use pack generated",
   "清洁电器竞品分析正式功能使用包",
+  "浏览器冒烟摘要",
+  "响应式视口摘要",
   "正式功能使用启动清单",
   "node scripts/verify-release.mjs",
   "Go/No-Go",
