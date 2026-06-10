@@ -9,10 +9,10 @@
 | `GET /api/health` | `GET /api/health` | public | 同步 | `ApiUsageLog` optional | 返回服务状态、模型、成本单价配置和访问控制状态。 |
 | `GET /api/state` | `GET /api/products`、`GET /api/feature-modules`、`GET /api/saved-views`、`GET /api/audit-logs` | `viewer` | 同步 | `Product`、`FeatureModule`、`FeatureField`、`SavedView`、`AuditLog` | 替代单个 JSON state，按资源拆分；兼容期可保留聚合读接口。 |
 | `PUT /api/state` | `POST/PATCH /api/products`、`POST/PATCH /api/feature-fields`、`POST /api/imports/data-package` | `editor` | 同步 + 异步 | `Product`、`ProductFeatureValue`、`FeatureField`、`SavedView`、`AuditLog` | 普通编辑同步写入；完整数据包导入进入 `data-package-import` job。 |
-| `GET /api/usage` | `GET /api/usage` | `viewer` | 同步 | `ApiUsageLog` | 按模型、状态、时间范围和成本汇总查询。 |
+| `GET /api/usage` | `GET /api/usage` | `viewer` | 同步 | `ApiUsageLog` | 按 provider、模型、状态、时间范围和成本汇总查询。 |
 | `POST /api/fetch-metadata` | `POST /api/source-pages/fetch` | `viewer` | 异步优先 | `SourcePage`、`MediaAsset` | 创建 `metadata-fetch` job；简单页面可同步返回初始结果。 |
-| `POST /api/analyze` | `POST /api/analysis-runs` | `analyst` | 异步 | `AnalysisRun`、`SourcePage`、`MediaAsset`、`Product`、`ProductFeatureValue`、`SellingPoint`、`ApiUsageLog` | 创建 `analysis-run` job；失败时保留 fallback 和人工复核状态。 |
-| `POST /api/compare` | `POST /api/comparison-runs` | `analyst` | 同步 | `AnalysisRun`、`ApiUsageLog` | 生成 500 字以内总结，记录模型、usage、字段范围和产品集合。 |
+| `POST /api/analyze` | `POST /api/analysis-runs` | `analyst` | 异步 | `AnalysisRun`、`SourcePage`、`MediaAsset`、`Product`、`ProductFeatureValue`、`SellingPoint`、`ApiUsageLog` | 创建 `analysis-run` job；图像/PDF 默认 OpenAI Responses API；失败时保留 fallback 和人工复核状态。 |
+| `POST /api/compare` | `POST /api/comparison-runs` | `analyst` | 同步 | `AnalysisRun`、`ApiUsageLog` | 生成 500 字以内总结，按 `COMPARE_AI_PROVIDER` 优先 DeepSeek 或 OpenAI，记录 provider、模型、usage、字段范围和产品集合。 |
 
 ## 新增资源 API
 
@@ -35,7 +35,7 @@
 | --- | --- | --- | --- | --- |
 | `metadata-fetch` | `POST /api/source-pages/fetch` | URL、提交人、来源类型 | `SourcePage`、图片候选、价格候选、文案片段 | 不绕过限制；失败写 error，允许截图/PDF 兜底。 |
 | `playwright-screenshot` | metadata job 或人工触发 | URL、viewport、等待策略 | 截图 `MediaAsset`、状态码、重定向链 | 遇到登录、验证码、付费墙直接失败并记录原因。 |
-| `analysis-run` | `POST /api/analysis-runs` | sourcePageId、上传媒体、featureFields、examples | `AnalysisRun`、产品草稿、字段值、Top3 卖点、usage | OpenAI 失败写 fallback，进入人工复核。 |
+| `analysis-run` | `POST /api/analysis-runs` | sourcePageId、上传媒体、featureFields、examples、provider policy | `AnalysisRun`、产品草稿、字段值、Top3 卖点、provider、usage | OpenAI 图像/PDF失败写 fallback，进入人工复核；DeepSeek 仅用于文本复核/总结任务。 |
 | `data-package-import` | `POST /api/imports/data-package` | JSON 数据包、操作者 | 导入产品、字段、历史、视图、审计和比较历史 | 导入前生成备份；对账失败则回滚事务。 |
 | `csv-import` | CSV 上传 | CSV 文件、字段映射 | 新增/更新产品和导入报告 | 行级校验，失败行写入报告。 |
 | `export-build` | `POST /api/exports` | 导出类型、筛选条件、产品集合 | Excel/SVG/PDF/CSV/Markdown artifact | 失败保留 job error，可重试。 |
@@ -54,4 +54,5 @@
 - Route Handler 返回结构与当前工作台需要的字段兼容。
 - 所有写操作产生 `AuditLog`。
 - 所有 OpenAI 调用产生 `ApiUsageLog`。
+- 所有 DeepSeek 调用产生 `ApiUsageLog`，并能按 provider 导出。
 - 所有异步 job 可查看状态、错误、重试次数和输出摘要。

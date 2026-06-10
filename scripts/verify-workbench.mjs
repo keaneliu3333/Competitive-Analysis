@@ -81,6 +81,7 @@ const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
 const formalizationVerifier = readRequired("scripts/verify-formalization-plan.mjs");
 const apiMigrationVerifier = readRequired("scripts/verify-api-migration-map.mjs");
 const reportGenerator = readRequired("scripts/generate-test-report.mjs");
+const modelEvalGenerator = readRequired("scripts/generate-model-eval-report.mjs");
 const migrationReconciliationGenerator = readRequired("scripts/generate-migration-reconciliation.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
@@ -307,6 +308,12 @@ for (const token of [
   "createAppServer",
   "usageTokens",
   "callOpenAIJson",
+  "callModelJson",
+  "callDeepSeekJson",
+  "modelProviderStatus",
+  "compareProvider",
+  "DEEPSEEK_API_KEY",
+  "DEEPSEEK_MODEL",
   "HttpError",
   "maxJsonBodyBytes",
   "Invalid JSON request body",
@@ -392,7 +399,9 @@ for (const token of [
   "roadmapStatus",
   "roadmapQuarter",
   "cleaner-products-template.csv",
-  "openai-usage-",
+  "ai-usage-",
+  "DeepSeek",
+  "compareProvider",
   "comparison-summaries-",
   "audit-log-",
   "审计日志",
@@ -439,7 +448,17 @@ for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workb
   assertIncludes(gitignore, ignore, ".gitignore entry");
 }
 
-for (const token of ["OPENAI_API_KEY=", "OPENAI_MODEL=gpt-5.4-mini", "APP_READ_TOKEN=", "APP_WRITE_TOKEN=", "PORT=4173"]) {
+for (const token of [
+  "OPENAI_API_KEY=",
+  "OPENAI_MODEL=gpt-5.4-mini",
+  "AI_PROVIDER=openai",
+  "COMPARE_AI_PROVIDER=deepseek",
+  "DEEPSEEK_API_KEY=",
+  "DEEPSEEK_MODEL=deepseek-v4-flash",
+  "APP_READ_TOKEN=",
+  "APP_WRITE_TOKEN=",
+  "PORT=4173",
+]) {
   assertIncludes(envExample, token, ".env.example");
 }
 
@@ -470,6 +489,11 @@ for (const topic of [
   "OPENAI_INPUT_USD_PER_1M",
   "OPENAI_OUTPUT_USD_PER_1M",
   "OPENAI_TOTAL_USD_PER_1M",
+  "DeepSeek",
+  "AI_PROVIDER",
+  "COMPARE_AI_PROVIDER",
+  "DEEPSEEK_API_KEY",
+  "provider",
   "导出最近调用",
   "token usage",
   "70MB",
@@ -519,6 +543,7 @@ for (const topic of [
   "verify-runtime.mjs",
   "verify-traceability.mjs",
   "generate-test-report.mjs",
+  "generate-model-eval-report.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
 ]) {
@@ -532,6 +557,9 @@ for (const topic of [
   "APP_WRITE_TOKEN",
   "OPENAI_INPUT_USD_PER_1M",
   "OPENAI_TOTAL_USD_PER_1M",
+  "DEEPSEEK_API_KEY",
+  "COMPARE_AI_PROVIDER",
+  "provider",
   "估算成本",
   "data/workbench-state.json",
   "backup-before-import",
@@ -545,6 +573,7 @@ for (const topic of [
   "verify-runtime.mjs",
   "verify-traceability.mjs",
   "generate-test-report.mjs",
+  "generate-model-eval-report.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
 ]) {
@@ -671,6 +700,17 @@ for (const topic of [
 }
 
 for (const topic of [
+  "多模型真实样例评估准备报告",
+  "DeepSeek",
+  "OpenAI 抽取结果",
+  "本地兜底结果",
+  "provider",
+  "reports",
+]) {
+  assertIncludes(modelEvalGenerator, topic, "model eval report generator");
+}
+
+for (const topic of [
   "Manual smoke checklist generated",
   "人工冒烟清单",
   "启动与首页",
@@ -710,6 +750,7 @@ for (const topic of [
   "scripts/verify-formalization-plan.mjs",
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
+  "scripts/generate-model-eval-report.mjs",
   "scripts/generate-test-report.mjs",
   "scripts/generate-smoke-checklist.mjs",
   "process.execPath",

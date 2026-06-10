@@ -123,9 +123,9 @@ function usageTokens(usage = {}) {
 }
 
 function costPricingConfig() {
-  const inputUsdPer1M = numberEnv("OPENAI_INPUT_USD_PER_1M");
-  const outputUsdPer1M = numberEnv("OPENAI_OUTPUT_USD_PER_1M");
-  const totalUsdPer1M = numberEnv("OPENAI_TOTAL_USD_PER_1M");
+  const inputUsdPer1M = numberEnv("OPENAI_INPUT_USD_PER_1M") || numberEnv("AI_INPUT_USD_PER_1M");
+  const outputUsdPer1M = numberEnv("OPENAI_OUTPUT_USD_PER_1M") || numberEnv("AI_OUTPUT_USD_PER_1M");
+  const totalUsdPer1M = numberEnv("OPENAI_TOTAL_USD_PER_1M") || numberEnv("AI_TOTAL_USD_PER_1M");
   return {
     inputUsdPer1M,
     outputUsdPer1M,
@@ -152,10 +152,18 @@ function estimateApiCostUsd(usage) {
 function enrichUsageRecord(record) {
   const estimatedCostUsd = record.estimatedCostUsd ?? estimateApiCostUsd(record.usage);
   return {
+    provider: record.provider || providerFromModel(record.model),
     ...record,
     estimatedCostUsd,
     costEstimateSource: estimatedCostUsd == null ? "not_configured" : "env_rate_per_1m_tokens",
   };
+}
+
+function providerFromModel(model = "") {
+  const normalized = String(model || "").toLowerCase();
+  if (normalized.includes("deepseek")) return "deepseek";
+  if (normalized.includes("gpt") || normalized.includes("o1") || normalized.includes("o3") || normalized.includes("o4")) return "openai";
+  return "unknown";
 }
 
 async function readJson(request) {
@@ -589,9 +597,53 @@ function sanitizeAnalysisExamples(examples) {
     }));
 }
 
+function modelProviderStatus() {
+  const openaiModel = env.OPENAI_MODEL || "gpt-5.4-mini";
+  const deepseekModel = env.DEEPSEEK_MODEL || "deepseek-v4-flash";
+  const compareProvider = normalizeProvider(env.COMPARE_AI_PROVIDER || env.AI_PROVIDER || (env.DEEPSEEK_API_KEY ? "deepseek" : "openai"));
+  return {
+    defaultProvider: normalizeProvider(env.AI_PROVIDER || "openai"),
+    compareProvider,
+    providers: {
+      openai: {
+        configured: Boolean(env.OPENAI_API_KEY),
+        model: openaiModel,
+        supportsVisionFile: true,
+      },
+      deepseek: {
+        configured: Boolean(env.DEEPSEEK_API_KEY),
+        model: deepseekModel,
+        supportsVisionFile: false,
+      },
+    },
+  };
+}
+
+function normalizeProvider(provider) {
+  return String(provider || "").toLowerCase() === "deepseek" ? "deepseek" : "openai";
+}
+
+function providerModel(provider) {
+  return provider === "deepseek" ? env.DEEPSEEK_MODEL || "deepseek-v4-flash" : env.OPENAI_MODEL || "gpt-5.4-mini";
+}
+
+function usageInputModalities({ imageDataUrls, remoteImageUrls, fileAttachment, provider }) {
+  return inputModalities({ imageDataUrls, remoteImageUrls, fileAttachment }).map((item) => `${provider}:${item}`);
+}
+
+function schemaPrompt(prompt, schemaName, schema) {
+  return [
+    prompt,
+    "",
+    `必须只输出 JSON，不要 Markdown。JSON 必须符合 schema ${schemaName}:`,
+    JSON.stringify(schema),
+  ].join("\n");
+}
+
 async function callOpenAIJson({ prompt, imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment, schemaName, schema }) {
   const apiKey = env.OPENAI_API_KEY;
-  const model = env.OPENAI_MODEL || "gpt-5.4-mini";
+  const provider = "openai";
+  const model = providerModel(provider);
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
@@ -635,32 +687,113 @@ async function callOpenAIJson({ prompt, imageDataUrl, imageDataUrls, remoteImage
   if (!response.ok) {
     const message = data.error?.message || `OpenAI request failed with ${response.status}`;
     await appendApiUsage({
+      provider,
       schemaName,
       model,
       status: "error",
       error: message,
-      inputModalities: inputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment }),
+      inputModalities: usageInputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment, provider }),
     });
     throw new Error(message);
   }
   const text = outputTextFromResponse(data);
   await appendApiUsage({
+    provider,
     schemaName,
     model: data.model || model,
     status: "ok",
     responseId: data.id || "",
     usage: data.usage || null,
-    inputModalities: inputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment }),
+    inputModalities: usageInputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment, provider }),
   });
   return {
     json: JSON.parse(text),
     meta: {
       responseId: data.id || "",
       model: data.model || model,
+      provider,
       usage: data.usage || null,
       schemaName,
     },
   };
+}
+
+async function callDeepSeekJson({ prompt, schemaName, schema }) {
+  const provider = "deepseek";
+  const apiKey = env.DEEPSEEK_API_KEY;
+  const model = providerModel(provider);
+  const baseUrl = String(env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
+  if (!apiKey) {
+    throw new Error("DEEPSEEK_API_KEY is not configured");
+  }
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: "你是清洁电器竞品分析助手，只输出严格 JSON。" },
+        { role: "user", content: schemaPrompt(prompt, schemaName, schema) },
+      ],
+      response_format: { type: "json_object" },
+      stream: false,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    const message = data.error?.message || `DeepSeek request failed with ${response.status}`;
+    await appendApiUsage({
+      provider,
+      schemaName,
+      model,
+      status: "error",
+      error: message,
+      inputModalities: ["deepseek:text"],
+    });
+    throw new Error(message);
+  }
+  const text = data.choices?.[0]?.message?.content || "";
+  await appendApiUsage({
+    provider,
+    schemaName,
+    model: data.model || model,
+    status: "ok",
+    responseId: data.id || "",
+    usage: data.usage || null,
+    inputModalities: ["deepseek:text"],
+  });
+  return {
+    json: JSON.parse(text),
+    meta: {
+      responseId: data.id || "",
+      model: data.model || model,
+      provider,
+      usage: data.usage || null,
+      schemaName,
+    },
+  };
+}
+
+async function callModelJson({ task = "analysis_with_vision_file", prompt, imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment, schemaName, schema }) {
+  const needsVisionOrFile = Boolean(fileAttachment || imageDataUrl || imageDataUrls?.length || remoteImageUrls?.length);
+  const preferredProvider =
+    task === "compare_summary_text"
+      ? modelProviderStatus().compareProvider
+      : "openai";
+  if (preferredProvider === "deepseek" && !needsVisionOrFile) {
+    try {
+      return await callDeepSeekJson({ prompt, schemaName, schema });
+    } catch (error) {
+      if (env.OPENAI_API_KEY) {
+        return callOpenAIJson({ prompt, schemaName, schema });
+      }
+      throw error;
+    }
+  }
+  return callOpenAIJson({ prompt, imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment, schemaName, schema });
 }
 
 async function analyzeProduct(input) {
@@ -788,7 +921,8 @@ async function analyzeProduct(input) {
     },
   };
 
-  const { json: product, meta } = await callOpenAIJson({
+  const { json: product, meta } = await callModelJson({
+    task: "analysis_with_vision_file",
     prompt,
     imageDataUrl: input.imageDataUrl,
     imageDataUrls: input.imageDataUrls,
@@ -829,7 +963,8 @@ async function compareProducts(products) {
     },
   };
 
-  const { json, meta } = await callOpenAIJson({
+  const { json, meta } = await callModelJson({
+    task: "compare_summary_text",
     prompt,
     schemaName: "cleaner_compare_summary",
     schema,
@@ -871,10 +1006,16 @@ function normalizeComparisonSummary(summary, maxChars = 500) {
 
 async function handleApi(request, response, pathname) {
   if (pathname === "/api/health") {
+    const providerStatus = modelProviderStatus();
     sendJson(response, 200, {
       ok: true,
       openaiConfigured: Boolean(env.OPENAI_API_KEY),
-      model: env.OPENAI_MODEL || "gpt-5.4-mini",
+      deepseekConfigured: Boolean(env.DEEPSEEK_API_KEY),
+      model: providerStatus.providers.openai.model,
+      deepseekModel: providerStatus.providers.deepseek.model,
+      aiProvider: providerStatus.defaultProvider,
+      compareProvider: providerStatus.compareProvider,
+      providers: providerStatus.providers,
       ...accessStatus(),
       costPricingConfigured: costPricingConfig().configured,
     });
@@ -922,6 +1063,7 @@ async function handleApi(request, response, pathname) {
         product: fallbackProduct(input),
         analysisMeta: {
           model: env.OPENAI_MODEL || "gpt-5.4-mini",
+          provider: "openai",
           status: "fallback",
           usage: null,
         },

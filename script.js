@@ -363,7 +363,11 @@ let usageState = { count: 0, recent: [], estimatedTotalCostUsd: null, costPricin
 let healthState = {
   ok: false,
   openaiConfigured: false,
+  deepseekConfigured: false,
   model: "-",
+  deepseekModel: "-",
+  aiProvider: "openai",
+  compareProvider: "openai",
   accessTokenRequired: false,
   readTokenRequired: false,
   writeTokenRequired: false,
@@ -882,13 +886,14 @@ function renderUsage() {
     <span class="usage-badge">累计成本 ${usageState.costPricingConfigured ? formatCostUsd(usageState.estimatedTotalCostUsd) : "未配置单价"}</span>
   `;
   if (!records.length) {
-    els.usageTableBody.innerHTML = `<tr><td colspan="8">暂无 OpenAI 调用记录。</td></tr>`;
+    els.usageTableBody.innerHTML = `<tr><td colspan="9">暂无 AI 调用记录。</td></tr>`;
     return;
   }
   els.usageTableBody.innerHTML = records
     .map(
       (record) => `<tr>
         <td>${formatDateTime(record.createdAt)}</td>
+        <td>${escapeHtml(record.provider || "-")}</td>
         <td>${escapeHtml(record.model || "-")}</td>
         <td>${escapeHtml(record.schemaName || "-")}</td>
         <td>${escapeHtml(record.status || "-")}</td>
@@ -929,6 +934,7 @@ function exportUsageCsv() {
   const records = usageState.recent || [];
   const headers = [
     "createdAt",
+    "provider",
     "model",
     "schemaName",
     "status",
@@ -943,6 +949,7 @@ function exportUsageCsv() {
   ];
   const rows = records.map((record) => [
     record.createdAt || "",
+    record.provider || "",
     record.model || "",
     record.schemaName || "",
     record.status || "",
@@ -956,7 +963,7 @@ function exportUsageCsv() {
     record.error || "",
   ]);
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-  download(`openai-usage-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
+  download(`ai-usage-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
 }
 
 function exportComparisonHistory() {
@@ -1046,7 +1053,9 @@ function renderHealth() {
   els.systemStatus.innerHTML = `
     <span class="status-badge ${healthState.ok ? "is-ok" : "is-warning"}">服务 ${healthState.ok ? "正常" : "待检查"}</span>
     <span class="status-badge ${healthState.openaiConfigured ? "is-ok" : "is-warning"}">OpenAI ${healthState.openaiConfigured ? "已配置" : "未配置"}</span>
-    <span class="status-badge">模型 ${escapeHtml(healthState.model || "-")}</span>
+    <span class="status-badge ${healthState.deepseekConfigured ? "is-ok" : "is-warning"}">DeepSeek ${healthState.deepseekConfigured ? "已配置" : "未配置"}</span>
+    <span class="status-badge">抽取 ${escapeHtml(healthState.aiProvider || "openai")} / ${escapeHtml(healthState.model || "-")}</span>
+    <span class="status-badge">总结 ${escapeHtml(healthState.compareProvider || "openai")} / ${escapeHtml(healthState.compareProvider === "deepseek" ? healthState.deepseekModel || "-" : healthState.model || "-")}</span>
     <span class="status-badge ${healthState.accessTokenRequired ? "is-ok" : "is-warning"}">访问令牌 ${healthState.accessTokenRequired ? "已启用" : "未启用"}</span>
     <span class="status-badge ${healthState.readWriteSplitEnabled ? "is-ok" : "is-warning"}">读写分离 ${healthState.readWriteSplitEnabled ? "已启用" : "未启用"}</span>
     <span class="status-badge ${healthState.writeTokenRequired ? "is-ok" : "is-warning"}">写权限 ${healthState.writeTokenRequired ? "受保护" : "开放"}</span>
@@ -1062,7 +1071,11 @@ async function loadHealth() {
     healthState = {
       ok: Boolean(payload.ok),
       openaiConfigured: Boolean(payload.openaiConfigured),
+      deepseekConfigured: Boolean(payload.deepseekConfigured),
       model: payload.model || "-",
+      deepseekModel: payload.deepseekModel || "-",
+      aiProvider: payload.aiProvider || "openai",
+      compareProvider: payload.compareProvider || "openai",
       accessTokenRequired: Boolean(payload.accessTokenRequired),
       readTokenRequired: Boolean(payload.readTokenRequired),
       writeTokenRequired: Boolean(payload.writeTokenRequired),
@@ -1074,7 +1087,11 @@ async function loadHealth() {
     healthState = {
       ok: false,
       openaiConfigured: false,
+      deepseekConfigured: false,
       model: "-",
+      deepseekModel: "-",
+      aiProvider: "openai",
+      compareProvider: "openai",
       accessTokenRequired: false,
       readTokenRequired: false,
       writeTokenRequired: false,
@@ -3073,7 +3090,7 @@ async function generateSummary() {
     const payload = await response.json();
     const summary = normalizeComparisonSummary(payload.summary) || localSummary(products);
     els.comparisonSummary.textContent = summary;
-    addComparisonRun({ products, summary, source: payload.summary ? "openai" : "local", analysisMeta: payload.analysisMeta || null });
+    addComparisonRun({ products, summary, source: payload.analysisMeta?.provider || (payload.summary ? "openai" : "local"), analysisMeta: payload.analysisMeta || null });
   } catch {
     const summary = localSummary(products);
     els.comparisonSummary.textContent = summary;
@@ -3125,7 +3142,7 @@ function download(filename, content, type) {
   document.body.append(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function csvCell(value) {

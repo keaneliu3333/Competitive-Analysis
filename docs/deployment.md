@@ -15,6 +15,11 @@
 ```bash
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.4-mini
+AI_PROVIDER=openai
+COMPARE_AI_PROVIDER=deepseek
+DEEPSEEK_API_KEY=...
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 # OPENAI_INPUT_USD_PER_1M=...
 # OPENAI_OUTPUT_USD_PER_1M=...
 # OPENAI_TOTAL_USD_PER_1M=...
@@ -24,8 +29,11 @@ APP_ACCESS_TOKEN=change-me
 PORT=4173
 ```
 
-- `OPENAI_API_KEY`：用于详情页图片/PDF 理解和对比总结。
+- `OPENAI_API_KEY`：用于详情页图片/PDF 理解和结构化抽取。
 - `OPENAI_MODEL`：默认 `gpt-5.4-mini`，可按项目可用模型调整。
+- `AI_PROVIDER`：默认 provider 标记，当前图片/PDF 抽取仍固定走 OpenAI。
+- `COMPARE_AI_PROVIDER`：文本型型号对比总结 provider；配置为 `deepseek` 且 `DEEPSEEK_API_KEY` 有效时优先使用 DeepSeek。
+- `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL`：DeepSeek 文本任务配置，默认模型 `deepseek-v4-flash`，默认地址 `https://api.deepseek.com`。
 - `OPENAI_INPUT_USD_PER_1M` / `OPENAI_OUTPUT_USD_PER_1M`：可选成本单价，单位为每 100 万输入/输出 token 的美元价格；也可用 `OPENAI_TOTAL_USD_PER_1M` 按总 token 粗算。
 - `APP_ACCESS_TOKEN`：兼容内部访问令牌。设置后除 `/api/health` 外的 API 都需要 `X-App-Token`，并同时拥有读写权限。
 - `APP_READ_TOKEN` / `APP_WRITE_TOKEN`：可选读写分离令牌。读令牌可查看产品库、用量和预抓取 metadata；写令牌可保存状态、运行 AI 分析和生成对比总结。
@@ -72,6 +80,7 @@ node --check scripts/verify-evals.mjs
 node --check scripts/verify-exports.mjs
 node --check scripts/verify-summary.mjs
 node --check scripts/verify-data-package.mjs
+node --check scripts/generate-model-eval-report.mjs
 node --check scripts/generate-smoke-checklist.mjs
 node --check scripts/verify-mvp.mjs
 node --check scripts/verify-runtime.mjs
@@ -88,6 +97,7 @@ node scripts/verify-evals.mjs
 node scripts/verify-exports.mjs
 node scripts/verify-summary.mjs
 node scripts/verify-data-package.mjs
+node scripts/generate-model-eval-report.mjs
 node scripts/generate-smoke-checklist.mjs
 node scripts/verify-mvp.mjs
 node scripts/verify-runtime.mjs
@@ -106,7 +116,7 @@ node scripts/verify-hygiene.mjs
 服务端本地数据：
 
 - `data/workbench-state.json`：产品库、自定义模块、筛选配置和保存视图。
-- `data/api-usage.json`：OpenAI 调用摘要、usage、模型、状态、估算成本和错误摘要。
+- `data/api-usage.json`：OpenAI/DeepSeek 调用摘要、provider、usage、模型、状态、估算成本和错误摘要。
 
 建议每天或每次批量导入前备份 `data/`。页面内也可使用“导出数据包”导出完整 JSON，用于迁移或人工归档。导入数据包会在替换当前工作台前自动下载一份 `backup-before-import` JSON，误导入时可用它恢复。
 
@@ -121,6 +131,7 @@ node scripts/verify-hygiene.mjs
 ## 故障检查
 
 - 页面显示 OpenAI 未配置：检查 `.env.local` 是否包含 `OPENAI_API_KEY`，重启 `node server.mjs`。
+- 页面显示 DeepSeek 未配置：如果要让型号对比总结优先走 DeepSeek，检查 `.env.local` 是否包含 `DEEPSEEK_API_KEY`；不配置时不影响 OpenAI 图片/PDF 抽取。
 - 页面显示成本单价未配置：检查 `.env.local` 是否包含 `OPENAI_INPUT_USD_PER_1M` 和 `OPENAI_OUTPUT_USD_PER_1M`，或 `OPENAI_TOTAL_USD_PER_1M`。
 - API 返回 401：确认页面输入的访问令牌与 `APP_READ_TOKEN`、`APP_WRITE_TOKEN` 或 `APP_ACCESS_TOKEN` 一致。
 - API 返回 403：当前令牌没有写权限，输入 `APP_WRITE_TOKEN` 或兼容的 `APP_ACCESS_TOKEN`。
@@ -140,4 +151,4 @@ node scripts/verify-hygiene.mjs
 - 引入 Redis/BullMQ 处理 URL 抓取、截图、图片切片、PDF 分析和批量导入。
 - 将 `APP_ACCESS_TOKEN` 替换为组织账号、角色权限和审计日志。
 - 增加真实样例集，用于评估型号、价格、Top3 卖点、参数抽取和 500 字以内对标总结质量。
-- 将 `evals/sample-cases.json` 中 10 个离线校准模板替换为批准使用的真实详情页样例，覆盖扫地机、洗地机、吸尘器以及 URL/file 两类来源。
+- `evals/sample-cases.json` 已进入真实样例校准，覆盖扫地机、洗地机、吸尘器以及 URL、长图、PDF 来源；后续补充更多真实样例即可。

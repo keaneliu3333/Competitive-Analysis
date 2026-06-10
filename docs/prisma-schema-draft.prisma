@@ -301,6 +301,7 @@ model ApiUsageLog {
   responseId       String?
   createdAt        DateTime @default(now())
 
+  @@index([provider, createdAt])
   @@index([model, createdAt])
   @@index([status])
 }

@@ -53,6 +53,7 @@ const commands = [
   ["node", "--check", "scripts/verify-formalization-plan.mjs"],
   ["node", "--check", "scripts/verify-api-migration-map.mjs"],
   ["node", "--check", "scripts/generate-migration-reconciliation.mjs"],
+  ["node", "--check", "scripts/generate-model-eval-report.mjs"],
   ["node", "--check", "scripts/generate-smoke-checklist.mjs"],
   ["node", "scripts/verify-access.mjs"],
   ["node", "scripts/verify-mvp.mjs"],
@@ -64,6 +65,7 @@ const commands = [
   ["node", "scripts/verify-formalization-plan.mjs"],
   ["node", "scripts/verify-api-migration-map.mjs"],
   ["node", "scripts/generate-migration-reconciliation.mjs"],
+  ["node", "scripts/generate-model-eval-report.mjs"],
   ["node", "scripts/generate-smoke-checklist.mjs"],
 ];
 

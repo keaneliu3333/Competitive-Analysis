@@ -13,7 +13,7 @@
 - 自定义对比元素：支持新增模块和字段，字段类型包含文本、数字、布尔、枚举、价格、图片；枚举字段可配置和后续编辑选项，产品编辑时以下拉选择录入；模块和字段可排序，字段可重命名或从当前配置删除，删除不会清空历史产品值。
 - 型号对比：从产品库选择 2-5 个型号，并勾选本次报告需要的对比字段，输出参数矩阵、差异高亮和 500 字以内的对标总结；总结输入会压缩为价格、Top3 卖点和已选功能差异，覆盖自定义功能差异，并从产品功能、关键参数、使用感受多方面归纳。
 - 对比总结历史：每次生成 500 字以内总结会记录型号、字段范围、来源、模型和 usage，支持导出 CSV 复盘。
-- AI 详情页分析：支持 URL、多张图片、长图自动切片、PDF 和补充说明，可先预抓取页面标题、描述、主图和价格候选，再调用 OpenAI Responses API 输出结构化产品资料。
+- AI 详情页分析：支持 URL、多张图片、长图自动切片、PDF 和补充说明，可先预抓取页面标题、描述、主图和价格候选，再调用 OpenAI Responses API 输出结构化产品资料；文本型对比总结可配置为 DeepSeek。
 - 页面证据包：URL 预抓取会抽取图片候选、价格候选和详情文案片段，进入 AI 提示词并展示在导入面板，方便人工判断来源质量。
 - AI 自定义字段抽取：分析请求会携带当前功能模块字段，模型按字段 key 返回 customFeatures，入库后自动写入对比矩阵并保留证据。
 - AI 样例闭环：详情页分析会携带最多 3 个已确认高置信产品作为压缩示例，帮助模型沿用人工修订后的字段口径和卖点表达。
@@ -22,7 +22,7 @@
 - 分析追踪：详情面板显示页面证据包、最近分析运行、模型/状态/置信度，以及人工编辑、确认、导入等审计时间线。
 - 审计日志：集中展示并导出人工编辑、确认、导入、AI 入库等操作，便于内部复盘和交接。
 - 系统状态：工作台可查看本地服务、OpenAI 配置、当前模型和读写访问令牌启用状态。
-- AI 用量日志：OpenAI 调用会写入本地 `data/api-usage.json`，工作台可查看并导出最近调用的模型、状态、输入类型、token usage 和错误摘要。
+- AI 用量日志：OpenAI/DeepSeek 调用会写入本地 `data/api-usage.json`，工作台可查看并导出最近调用的 provider、模型、状态、输入类型、token usage 和错误摘要。
 - 品牌路线图：支持按品牌、品类、上市状态和季度筛选查看，按季度展示产品图、价格、上市状态、来源和 Top3 优先级卖点；也支持忽略品牌筛选、按品牌分页生成各品牌 PDF 版式。
 - 路线图图片导出：当前路线图筛选结果可导出为 SVG 图片，包含产品图、价格、上市状态、来源和 Top3 优先级卖点。
 - 对比表导出：当前选择的型号可导出为 Excel 对比表，包含产品图、价格、Top3 优先级卖点、500 字以内总结和已选功能参数矩阵。
@@ -85,6 +85,7 @@ node --check scripts/verify-evals.mjs
 node --check scripts/verify-exports.mjs
 node --check scripts/verify-summary.mjs
 node --check scripts/verify-data-package.mjs
+node --check scripts/generate-model-eval-report.mjs
 node --check scripts/generate-smoke-checklist.mjs
 node --check scripts/verify-mvp.mjs
 node --check scripts/verify-runtime.mjs
@@ -101,6 +102,7 @@ node scripts/verify-evals.mjs
 node scripts/verify-exports.mjs
 node scripts/verify-summary.mjs
 node scripts/verify-data-package.mjs
+node scripts/generate-model-eval-report.mjs
 node scripts/generate-smoke-checklist.mjs
 node scripts/verify-mvp.mjs
 node scripts/verify-runtime.mjs
@@ -117,6 +119,7 @@ node scripts/verify-hygiene.mjs
 500 字总结专项验收可运行 `node scripts/verify-summary.mjs`，检查字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
 数据包交接专项验收可运行 `node scripts/verify-data-package.mjs`，检查完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
 人工浏览器冒烟清单可运行 `node scripts/generate-smoke-checklist.mjs` 生成到 `reports/`，用于记录筛选、自定义字段、AI 导入、对比、路线图、数据包和交接包的手工验收结果。
+多模型真实样例评估准备报告可运行 `node scripts/generate-model-eval-report.mjs` 生成到 `reports/`，用于对齐 OpenAI 抽取、DeepSeek 总结和本地兜底的校准口径。
 本地环境预检可运行 `node scripts/check-local-env.mjs`，检查 Node 版本、配置模板、数据目录、端口占用，以及已监听端口是否真的返回工作台健康接口和首页。
 提交前卫生检查可运行 `node scripts/verify-hygiene.mjs`，确认真实配置、本地数据、生成报告不会被误提交，并扫描明显密钥。
 
@@ -129,6 +132,11 @@ node scripts/verify-hygiene.mjs
 ```bash
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.4-mini
+AI_PROVIDER=openai
+COMPARE_AI_PROVIDER=deepseek
+DEEPSEEK_API_KEY=...
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 # OPENAI_INPUT_USD_PER_1M=...
 # OPENAI_OUTPUT_USD_PER_1M=...
 # OPENAI_TOTAL_USD_PER_1M=...
@@ -138,6 +146,12 @@ APP_ACCESS_TOKEN=change-me
 ```
 
 `OPENAI_MODEL` 可按项目可用模型调整。没有 API key 或请求失败时，系统会返回“待人工确认”的兜底结果，不阻塞产品库流程。
+
+多模型第一阶段采用 OpenAI + DeepSeek：
+
+- `analysis_with_vision_file`：图片、长图、PDF 和结构化抽取继续使用 OpenAI Responses API。
+- `compare_summary_text`：`COMPARE_AI_PROVIDER=deepseek` 且 `DEEPSEEK_API_KEY` 已配置时，优先使用 DeepSeek；未配置或请求失败时回退到原有兜底总结。
+- `AI_PROVIDER` 是默认 provider 标记，当前不把图片/PDF 任务切到 DeepSeek。
 
 `OPENAI_INPUT_USD_PER_1M` 和 `OPENAI_OUTPUT_USD_PER_1M` 用于 AI 用量面板估算成本，单位是每 100 万输入/输出 token 的美元价格；如果只想按总 token 粗算，也可以改用 `OPENAI_TOTAL_USD_PER_1M`。不配置时仍会记录 token usage，但成本显示为未配置。
 
@@ -151,7 +165,7 @@ APP_ACCESS_TOKEN=change-me
 
 - 浏览器 `LocalStorage`：用于离线兜底和快速恢复。
 - 服务端 `data/workbench-state.json`：用于本机持久化产品库、筛选配置、自定义模块和保存视图。
-- 服务端 `data/api-usage.json`：用于记录 OpenAI 调用模型、状态、usage、估算成本和 response id，不记录 API key。
+- 服务端 `data/api-usage.json`：用于记录 AI provider、模型、状态、usage、估算成本和 response id，不记录 API key。
 
 删除 `data/workbench-state.json` 可回到内置样例数据。
 
@@ -185,7 +199,7 @@ CSV 导入会校验品牌、型号、品类和价格。缺少品牌/型号、品
 
 ## 样例校准
 
-`evals/sample-cases.json` 用于沉淀真实详情页样例和验收标准。当前包含 10 个离线校准模板，覆盖扫地机、洗地机、吸尘器以及 URL/file 两类来源；接入真实项目时将占位 URL 或文件路径替换为批准使用的官网、电商详情页、长图或 PDF。
+`evals/sample-cases.json` 用于沉淀真实详情页样例和验收标准。当前包含 11 个真实竞品校准样例，覆盖扫地机、洗地机、吸尘器，以及 URL、长图和 PDF 来源；验收脚本会阻止回退到 `example.com` 或 placeholder 来源。
 
 ```bash
 node scripts/verify-evals.mjs
