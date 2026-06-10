@@ -36,6 +36,8 @@ for (const topic of [
   "试用数据建议",
   "试用任务",
   "反馈模板",
+  "正式功能使用反馈",
+  "网页内不增加单独试用模块",
   "Go/No-Go 标准",
   "回滚与备份",
   "不做事项",
@@ -50,7 +52,8 @@ for (const topic of [
 }
 
 for (const topic of [
-  "内部试用运行手册",
+  "正式功能使用运行手册",
+  "正式功能使用",
   "generate-internal-trial-pack.mjs",
   "verify-internal-trial.mjs",
 ]) {
@@ -58,7 +61,8 @@ for (const topic of [
 }
 
 for (const topic of [
-  "内部试用",
+  "正式功能使用",
+  "网页内不增加单独试用模块",
   "docs/internal-trial-runbook.md",
   "reports/internal-trial-pack",
 ]) {
@@ -91,13 +95,14 @@ for (const topic of [
   "Internal trial pack generated",
   "node scripts/verify-release.mjs",
   "Go/No-Go",
+  "正式功能使用",
   "provider",
   "500 字以内",
 ]) {
   assertIncludes(trialPackGenerator, topic, "internal trial pack generator");
 }
 
-for (const topic of ["内部试用", "Go/No-Go", "反馈"]) {
+for (const topic of ["正式功能使用", "Go/No-Go", "反馈"]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist internal trial coverage");
 }
 

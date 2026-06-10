@@ -736,14 +736,14 @@ for (const topic of [
   "型号对比",
   "路线图导出",
   "交接与审计",
-  "内部试用记录",
+  "正式功能使用反馈",
 ]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist generator");
 }
 
 for (const topic of [
   "Internal trial pack generated",
-  "清洁电器竞品分析内部试用包",
+  "清洁电器竞品分析正式功能使用包",
   "node scripts/verify-release.mjs",
   "Go/No-Go",
 ]) {

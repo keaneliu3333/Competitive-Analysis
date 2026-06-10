@@ -19,13 +19,13 @@ const smokeChecklist = readOptional(`reports/manual-smoke-checklist-${dateStamp}
 const modelEval = readOptional(`reports/model-eval-readiness-${dateStamp}.md`);
 
 const lines = [
-  "# 清洁电器竞品分析内部试用包",
+  "# 清洁电器竞品分析正式功能使用包",
   "",
   `生成时间：${generatedAt.toISOString()}`,
   "",
   "## 使用范围",
   "",
-  "- 面向内部产品研究、产品经理、研发和运营试用。",
+  "- 面向内部产品研究、产品经理、研发和运营进行正式功能使用。",
   "- 当前版本是静态前端 + Node.js 内置服务，不是公开 SaaS。",
   "- 图片/PDF 结构化抽取默认走 OpenAI；文本总结可配置 DeepSeek，失败后回退 OpenAI 或本地兜底。",
   "",
@@ -49,6 +49,7 @@ const lines = [
   "| 路线图 | Excel/SVG/PDF | 卡片包含产品图、价格、Top3 卖点、状态和来源 |",
   "| 数据包 | JSON 和 backup-before-import | 导出、导入、备份、审计和保存视图可恢复 |",
   "| 用量审计 | CSV | provider、model、status、usage、estimatedCostUsd 和错误摘要可追溯 |",
+  "| 使用反馈 | 使用包记录 | 至少记录 1 条反馈或改进建议，并给出 Go/No-Go 建议 |",
   "",
   "## 反馈记录",
   "",
@@ -60,6 +61,7 @@ const lines = [
   "- UI 优化：",
   "- AI 抽取或总结问题：",
   "- 导出或数据恢复问题：",
+  "- 使用包反馈记录编号：",
   "- Go/No-Go 建议：",
   "",
   "## 已生成证据",

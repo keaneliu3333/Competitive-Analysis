@@ -26,7 +26,7 @@ const steps = [
     command: ["node", "scripts/verify-data-package.mjs"],
   },
   {
-    name: "内部试用准备验收",
+    name: "正式功能使用准备验收",
     command: ["node", "scripts/verify-internal-trial.mjs"],
   },
   {
@@ -54,7 +54,7 @@ const steps = [
     command: ["node", "scripts/generate-smoke-checklist.mjs"],
   },
   {
-    name: "生成内部试用包",
+    name: "生成正式功能使用包",
     command: ["node", "scripts/generate-internal-trial-pack.mjs"],
   },
 ];
