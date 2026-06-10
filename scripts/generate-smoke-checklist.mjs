@@ -15,7 +15,7 @@ const checks = [
     steps: [
       "运行 `node scripts/check-local-env.mjs`，确认端口、data/、配置模板和访问令牌状态。",
       "运行 `node server.mjs`，打开 `http://localhost:4173`。",
-      "确认首屏直接进入工作台，可看到产品库、筛选、AI 导入、型号对比、路线图和 MVP 就绪度。",
+      "确认首屏直接进入工作台，可看到产品库、筛选、AI 导入、型号对比、路线图和正式使用就绪度。",
     ],
     expected: "首页无空白、无明显重叠，核心模块可直接操作。",
   },
@@ -67,7 +67,7 @@ const checks = [
   {
     area: "交接与审计",
     steps: [
-      "导出产品库 Excel、质量问题 CSV、审计 CSV、用量 CSV、MVP 验收 CSV 和 Markdown 交接包。",
+      "导出产品库 Excel、质量问题 CSV、审计 CSV、用量 CSV、正式清单 CSV 和 Markdown 正式交接包。",
       "导出完整数据包 JSON，再导入该数据包。",
       "确认导入前自动下载 backup-before-import 备份。",
     ],

@@ -410,8 +410,8 @@ for (const token of [
   "quality-issues-",
   "mvp-readiness-",
   "mvp-handoff-",
-  "MVP 就绪度",
-  "清洁电器竞品分析 MVP 交接包",
+  "正式使用就绪度",
+  "清洁电器竞品分析正式使用交接包",
   "data-focus-quality",
   "缺少真实产品图",
   "keyword",
@@ -499,7 +499,7 @@ for (const topic of [
   "APP_WRITE_TOKEN",
   "系统状态",
   "关键词搜索",
-  "MVP 交付状态",
+  "正式使用状态",
   "数据质量检查",
   "重复型号",
   "导出问题",
@@ -805,6 +805,8 @@ for (const topic of [
   "正式功能使用反馈",
   "正式功能人工冒烟清单",
   "使用人",
+  "正式使用就绪度",
+  "正式清单 CSV",
 ]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist generator");
 }

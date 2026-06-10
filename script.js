@@ -1575,9 +1575,9 @@ function renderMvpReadiness() {
   const percent = Math.round((readyCount / items.length) * 100);
   els.mvpReadiness.innerHTML = `
     <div class="mvp-summary">
-      <span class="status-badge ${percent >= 80 ? "is-ok" : "is-warning"}">MVP 就绪度 ${percent}%</span>
+      <span class="status-badge ${percent >= 80 ? "is-ok" : "is-warning"}">正式使用就绪度 ${percent}%</span>
       <span class="status-badge">通过 ${readyCount}/${items.length}</span>
-      <span class="status-badge">运行 node scripts/verify-mvp.mjs 做静态验收</span>
+      <span class="status-badge">运行 node scripts/verify-release.mjs 做发布验收</span>
     </div>
     <div class="mvp-checklist">
       ${items
@@ -1620,13 +1620,13 @@ function handoffReportMarkdown() {
   const topQualityIssues = qualityIssues.slice(0, 8);
   const roadmapProducts = getRoadmapProducts();
   const lines = [
-    "# 清洁电器竞品分析 MVP 交接包",
+    "# 清洁电器竞品分析正式使用交接包",
     "",
     `生成时间：${generatedAt}`,
     "",
     "## 当前状态",
     "",
-    `- MVP 就绪度：${Math.round((readyCount / readyItems.length) * 100)}% (${readyCount}/${readyItems.length})`,
+    `- 正式使用就绪度：${Math.round((readyCount / readyItems.length) * 100)}% (${readyCount}/${readyItems.length})`,
     `- 产品数：${state.products.length}`,
     `- 覆盖品牌：${brands.length} (${markdownLine(brands.join("、"))})`,
     `- 覆盖品类：${categories.length} (${markdownLine(categories.join("、"))})`,
@@ -1635,7 +1635,7 @@ function handoffReportMarkdown() {
     `- 数据质量问题：${qualityIssues.length}`,
     `- 当前路线图产品：${roadmapProducts.length}`,
     "",
-    "## MVP 验收清单",
+    "## 正式使用验收清单",
     "",
     "| 模块 | 状态 | 证据 | 下一步 |",
     "| --- | --- | --- | --- |",
@@ -1650,6 +1650,8 @@ function handoffReportMarkdown() {
     "## 交付命令",
     "",
     "```bash",
+    "node scripts/verify-release.mjs",
+    "node scripts/verify-formal-use.mjs",
     "node scripts/verify-mvp.mjs",
     "node scripts/verify-runtime.mjs",
     "node scripts/verify-workbench.mjs",
