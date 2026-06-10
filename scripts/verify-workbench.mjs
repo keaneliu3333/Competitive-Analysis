@@ -79,14 +79,14 @@ const traceabilityDoc = readRequired("docs/requirements-traceability.md");
 const exportVerifier = readRequired("scripts/verify-exports.mjs");
 const summaryVerifier = readRequired("scripts/verify-summary.mjs");
 const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
-const internalTrialVerifier = readRequired("scripts/verify-internal-trial.mjs");
+const internalTrialVerifier = readRequired("scripts/verify-formal-use.mjs");
 const formalizationVerifier = readRequired("scripts/verify-formalization-plan.mjs");
 const apiMigrationVerifier = readRequired("scripts/verify-api-migration-map.mjs");
 const reportGenerator = readRequired("scripts/generate-test-report.mjs");
 const modelEvalGenerator = readRequired("scripts/generate-model-eval-report.mjs");
 const migrationReconciliationGenerator = readRequired("scripts/generate-migration-reconciliation.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
-const internalTrialPackGenerator = readRequired("scripts/generate-internal-trial-pack.mjs");
+const internalTrialPackGenerator = readRequired("scripts/generate-formal-use-pack.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
 const hygieneVerifier = readRequired("scripts/verify-hygiene.mjs");
 const releaseVerifier = readRequired("scripts/verify-release.mjs");
@@ -545,10 +545,10 @@ for (const topic of [
   "verify-mvp.mjs",
   "verify-runtime.mjs",
   "verify-traceability.mjs",
-  "verify-internal-trial.mjs",
+  "verify-formal-use.mjs",
   "generate-test-report.mjs",
   "generate-model-eval-report.mjs",
-  "generate-internal-trial-pack.mjs",
+  "generate-formal-use-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
 ]) {
@@ -577,10 +577,10 @@ for (const topic of [
   "verify-mvp.mjs",
   "verify-runtime.mjs",
   "verify-traceability.mjs",
-  "verify-internal-trial.mjs",
+  "verify-formal-use.mjs",
   "generate-test-report.mjs",
   "generate-model-eval-report.mjs",
-  "generate-internal-trial-pack.mjs",
+  "generate-formal-use-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
 ]) {
@@ -673,11 +673,11 @@ for (const topic of [
 }
 
 for (const topic of [
-  "Internal trial verification passed",
+  "Formal use verification passed",
   "docs/internal-trial-runbook.md",
   "docs/formal-use-launch-checklist.md",
   "Go/No-Go",
-  "scripts/generate-internal-trial-pack.mjs",
+  "scripts/generate-formal-use-pack.mjs",
 ]) {
   assertIncludes(internalTrialVerifier, topic, "internal trial verifier");
 }
@@ -718,12 +718,12 @@ for (const topic of [
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
-  "scripts/verify-internal-trial.mjs",
+  "scripts/verify-formal-use.mjs",
   "scripts/verify-formalization-plan.mjs",
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-smoke-checklist.mjs",
-  "scripts/generate-internal-trial-pack.mjs",
+  "scripts/generate-formal-use-pack.mjs",
   "process.execPath",
 ]) {
   assertIncludes(reportGenerator, topic, "test report generator");
@@ -755,7 +755,7 @@ for (const topic of [
 }
 
 for (const topic of [
-  "Internal trial pack generated",
+  "Formal use pack generated",
   "清洁电器竞品分析正式功能使用包",
   "正式功能使用启动清单",
   "node scripts/verify-release.mjs",
@@ -788,14 +788,14 @@ for (const topic of [
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
-  "scripts/verify-internal-trial.mjs",
+  "scripts/verify-formal-use.mjs",
   "scripts/verify-formalization-plan.mjs",
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-model-eval-report.mjs",
   "scripts/generate-test-report.mjs",
   "scripts/generate-smoke-checklist.mjs",
-  "scripts/generate-internal-trial-pack.mjs",
+  "scripts/generate-formal-use-pack.mjs",
   "process.execPath",
 ]) {
   assertIncludes(releaseVerifier, topic, "release verifier");

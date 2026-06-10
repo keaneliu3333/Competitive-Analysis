@@ -76,8 +76,8 @@ const checks = [
   {
     area: "正式功能使用反馈",
     steps: [
-      "打开 `docs/internal-trial-runbook.md`，确认试用目标、角色、任务和 Go/No-Go 标准。",
-      "运行 `node scripts/generate-internal-trial-pack.mjs` 生成当天试用包。",
+      "打开 `docs/internal-trial-runbook.md`，确认使用目标、角色、任务和 Go/No-Go 标准。",
+      "运行 `node scripts/generate-formal-use-pack.mjs` 生成当天试用包。",
       "按使用包反馈模板记录 UI、AI、导出、数据恢复和权限问题。",
     ],
     expected: "试用人、资料类型、完成任务、阻塞问题、可后续优化和 Go/No-Go 建议都有记录。",

@@ -42,7 +42,7 @@
 5. 路线图：按品牌、品类、状态和季度筛选，导出路线图 Excel、SVG 和各品牌分页 PDF。
 6. 数据包：导出完整 JSON 数据包，再导入同一数据包，确认导入前备份、审计日志和保存视图存在。
 7. 用量与审计：导出 AI 用量 CSV 和审计 CSV，确认 provider、model、status、usage、estimatedCostUsd 和关键操作可追溯。
-8. 正式功能使用反馈：在 `reports/internal-trial-pack-*.md` 的反馈记录区填写至少 1 条问题或改进建议，并给出 Go/No-Go 建议。
+8. 正式功能使用反馈：在 `reports/formal-use-pack-*.md` 的反馈记录区填写至少 1 条问题或改进建议，并给出 Go/No-Go 建议。
 
 ## 反馈模板
 
@@ -80,7 +80,7 @@ No-Go：
 - 代码回滚：使用上一个通过 `node scripts/verify-release.mjs` 的 Git 提交。
 - 数据回滚：优先导入 `backup-before-import` JSON；没有备份时使用正式使用前导出的完整数据包。
 - 配置回滚：恢复 `.env.local` 中 `PORT`、访问令牌和模型 provider 配置，不能提交真实密钥。
-- 报告归档：保留 `reports/mvp-test-report-*.md`、`reports/manual-smoke-checklist-*.md` 和 `reports/internal-trial-pack-*.md` 作为正式使用证据。
+- 报告归档：保留 `reports/mvp-test-report-*.md`、`reports/manual-smoke-checklist-*.md` 和 `reports/formal-use-pack-*.md` 作为正式使用证据。
 
 ## 不做事项
 

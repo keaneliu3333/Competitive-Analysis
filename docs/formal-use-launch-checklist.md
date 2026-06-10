@@ -31,8 +31,8 @@
 ## 使用反馈归档
 
 - 不在网页里新增反馈或试用模块。
-- 使用 `node scripts/generate-internal-trial-pack.mjs` 生成正式功能使用包。
-- 在 `reports/internal-trial-pack-*.md` 的反馈记录区填写问题、改进建议和 Go/No-Go 结论。
+- 使用 `node scripts/generate-formal-use-pack.mjs` 生成正式功能使用包。
+- 在 `reports/formal-use-pack-*.md` 的反馈记录区填写问题、改进建议和 Go/No-Go 结论。
 - 阻塞问题进入下一批小提交，修复后重新运行 `node scripts/verify-release.mjs`。
 
 ## Go/No-Go

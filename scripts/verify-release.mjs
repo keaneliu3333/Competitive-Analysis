@@ -27,7 +27,7 @@ const steps = [
   },
   {
     name: "正式功能使用准备验收",
-    command: ["node", "scripts/verify-internal-trial.mjs"],
+    command: ["node", "scripts/verify-formal-use.mjs"],
   },
   {
     name: "正式化迁移计划验收",
@@ -55,7 +55,7 @@ const steps = [
   },
   {
     name: "生成正式功能使用包",
-    command: ["node", "scripts/generate-internal-trial-pack.mjs"],
+    command: ["node", "scripts/generate-formal-use-pack.mjs"],
   },
 ];
 

@@ -80,10 +80,10 @@ node --check scripts/verify-evals.mjs
 node --check scripts/verify-exports.mjs
 node --check scripts/verify-summary.mjs
 node --check scripts/verify-data-package.mjs
-node --check scripts/verify-internal-trial.mjs
+node --check scripts/verify-formal-use.mjs
 node --check scripts/generate-model-eval-report.mjs
 node --check scripts/generate-smoke-checklist.mjs
-node --check scripts/generate-internal-trial-pack.mjs
+node --check scripts/generate-formal-use-pack.mjs
 node --check scripts/verify-mvp.mjs
 node --check scripts/verify-runtime.mjs
 node --check scripts/verify-traceability.mjs
@@ -99,10 +99,10 @@ node scripts/verify-evals.mjs
 node scripts/verify-exports.mjs
 node scripts/verify-summary.mjs
 node scripts/verify-data-package.mjs
-node scripts/verify-internal-trial.mjs
+node scripts/verify-formal-use.mjs
 node scripts/generate-model-eval-report.mjs
 node scripts/generate-smoke-checklist.mjs
-node scripts/generate-internal-trial-pack.mjs
+node scripts/generate-formal-use-pack.mjs
 node scripts/verify-mvp.mjs
 node scripts/verify-runtime.mjs
 node scripts/verify-traceability.mjs
@@ -112,7 +112,7 @@ node scripts/verify-hygiene.mjs
 ```
 
 当前环境不能访问 localhost 时，至少保留以上静态验收；可访问浏览器时再运行 `node scripts/generate-smoke-checklist.mjs`，按 `reports/manual-smoke-checklist-*.md` 补充导入、筛选、对比、导出、路线图和用量面板的人工冒烟测试。
-正式功能使用前运行 `node scripts/verify-internal-trial.mjs` 和 `node scripts/generate-internal-trial-pack.mjs`，并按 `docs/internal-trial-runbook.md` 与 `docs/formal-use-launch-checklist.md` 组织参与角色、使用任务、反馈记录和 Go/No-Go 结论；生成的 `reports/internal-trial-pack-*.md` 用于归档使用证据，网页内不增加单独试用模块。
+正式功能使用前运行 `node scripts/verify-formal-use.mjs` 和 `node scripts/generate-formal-use-pack.mjs`，并按 `docs/internal-trial-runbook.md` 与 `docs/formal-use-launch-checklist.md` 组织参与角色、使用任务、反馈记录和 Go/No-Go 结论；生成的 `reports/formal-use-pack-*.md` 用于归档使用证据，网页内不增加单独试用模块。
 启动前可先运行 `node scripts/check-local-env.mjs`，确认配置模板、数据目录、端口状态，以及已监听端口是否真的返回工作台健康接口和首页。
 提交前运行 `node scripts/verify-hygiene.mjs`，确认真实配置、本地数据和生成报告仍被 `.gitignore` 排除。
 
