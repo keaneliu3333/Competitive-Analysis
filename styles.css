@@ -1,22 +1,22 @@
 :root {
   color-scheme: light;
-  --bg: #f4f6f8;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-muted: #f8fafb;
-  --text: #17202a;
-  --muted: #667383;
-  --line: #dbe2e8;
-  --line-strong: #c8d2dc;
-  --primary: #0f766e;
-  --primary-dark: #0b5f59;
-  --primary-soft: #dff5f1;
-  --accent: #355c9d;
-  --warning: #b7791f;
+  --surface-muted: #f4f7fb;
+  --text: #172033;
+  --muted: #5f6f84;
+  --line: #dbeafe;
+  --line-strong: #bfd2ef;
+  --primary: #1e40af;
+  --primary-dark: #183588;
+  --primary-soft: #e8f0ff;
+  --accent: #d97706;
+  --warning: #b45309;
   --danger: #b42318;
   --success: #197a45;
-  --shadow: 0 18px 45px rgba(22, 32, 42, 0.09);
+  --shadow: 0 10px 28px rgba(30, 58, 138, 0.08);
   --radius: 8px;
-  --sidebar: 292px;
+  --sidebar: 286px;
 }
 
 * {
@@ -32,9 +32,11 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Fira Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   letter-spacing: 0;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 button,
@@ -69,7 +71,7 @@ textarea:focus-visible {
   overflow-y: auto;
   border-right: 1px solid var(--line);
   background: #fbfcfd;
-  padding: 22px;
+  padding: 18px;
 }
 
 .brand-block {
@@ -82,8 +84,8 @@ textarea:focus-visible {
 
 .brand-mark {
   display: grid;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: var(--radius);
   background: var(--primary);
@@ -100,7 +102,7 @@ textarea:focus-visible {
 }
 
 .brand-block h1 {
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.28;
 }
 
@@ -114,7 +116,7 @@ textarea:focus-visible {
 }
 
 .filter-group {
-  padding: 18px 0;
+  padding: 14px 0;
   border-top: 1px solid var(--line);
 }
 
@@ -136,7 +138,7 @@ textarea:focus-visible {
 
 .main-area {
   min-width: 0;
-  padding: 24px;
+  padding: 18px;
 }
 
 .topbar {
@@ -144,8 +146,8 @@ textarea:focus-visible {
 }
 
 .topbar h2 {
-  font-size: clamp(22px, 3vw, 32px);
-  line-height: 1.2;
+  font-size: clamp(20px, 2vw, 26px);
+  line-height: 1.25;
 }
 
 .topbar-actions,
@@ -181,7 +183,7 @@ input,
 select,
 textarea {
   width: 100%;
-  min-height: 42px;
+  min-height: 40px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
   background: #fff;
@@ -220,7 +222,7 @@ textarea {
 .secondary-button,
 .link-button,
 .icon-button {
-  min-height: 42px;
+  min-height: 40px;
   border-radius: var(--radius);
   border: 1px solid transparent;
   padding: 0 14px;
@@ -275,8 +277,8 @@ textarea {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
 .metric-card,
@@ -289,8 +291,8 @@ textarea {
 
 .metric-card {
   display: grid;
-  gap: 8px;
-  padding: 16px;
+  gap: 6px;
+  padding: 13px;
 }
 
 .metric-card span {
@@ -300,29 +302,32 @@ textarea {
 }
 
 .metric-card strong {
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1;
 }
 
 .panel {
   min-width: 0;
-  padding: 18px;
+  padding: 14px;
 }
 
 .panel-header {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .panel h2 {
-  font-size: 19px;
+  font-size: 17px;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .import-panel {
   display: none;
-  margin-bottom: 18px;
-}
-
-.review-panel {
   margin-bottom: 18px;
 }
 
@@ -334,20 +339,12 @@ textarea {
   margin-bottom: 18px;
 }
 
-.system-panel {
-  margin-bottom: 18px;
-}
-
 .system-status {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   color: var(--muted);
   font-size: 13px;
-}
-
-.quality-panel {
-  margin-bottom: 18px;
 }
 
 .quality-panel-body {
@@ -625,14 +622,14 @@ textarea {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 740px;
   background: #fff;
 }
 
 th,
 td {
   border-bottom: 1px solid var(--line);
-  padding: 11px 12px;
+  padding: 9px 10px;
   text-align: left;
   vertical-align: middle;
   font-size: 13px;
@@ -644,7 +641,7 @@ th {
   z-index: 1;
   background: var(--surface-muted);
   color: #3d4a57;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -683,15 +680,15 @@ tbody tr.is-selected {
 
 .product-cell {
   display: grid;
-  grid-template-columns: 52px 1fr;
-  gap: 10px;
+  grid-template-columns: 48px 1fr;
+  gap: 9px;
   align-items: center;
   min-width: 220px;
 }
 
 .product-image {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #f7f9fb;
@@ -963,6 +960,35 @@ tbody tr.is-selected {
   padding: 12px;
 }
 
+.comparison-history-panel summary {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.comparison-history-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.comparison-history-panel summary::before {
+  content: "展开";
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.comparison-history-panel[open] summary::before {
+  content: "收起";
+}
+
 .comparison-history {
   display: grid;
   gap: 8px;
@@ -1079,12 +1105,12 @@ tbody tr.is-selected {
 
 .mvp-checklist {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 8px;
 }
 
 .mvp-check-item {
-  min-height: 112px;
+  min-height: 96px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
@@ -1223,6 +1249,7 @@ tbody tr.is-selected {
   }
 
   .workspace-grid,
+  .ops-grid,
   .metrics-grid,
   .mvp-checklist {
     grid-template-columns: 1fr;

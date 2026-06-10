@@ -159,61 +159,63 @@
           </article>
         </section>
 
-        <section class="panel mvp-panel" aria-labelledby="mvpTitle">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">MVP readiness</p>
-              <h2 id="mvpTitle">交付状态</h2>
+        <section class="ops-grid" aria-label="运营状态">
+          <section class="panel mvp-panel" aria-labelledby="mvpTitle">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">MVP readiness</p>
+                <h2 id="mvpTitle">交付状态</h2>
+              </div>
+              <div class="panel-actions">
+                <button class="secondary-button" type="button" id="exportMvpChecklist">
+                  导出清单
+                </button>
+                <button class="secondary-button" type="button" id="exportHandoffReport">
+                  导出交接包
+                </button>
+              </div>
             </div>
-            <div class="panel-actions">
-              <button class="secondary-button" type="button" id="exportMvpChecklist">
-                导出清单
+            <div id="mvpReadiness" class="mvp-readiness"></div>
+          </section>
+
+          <section class="panel quality-panel" aria-labelledby="qualityTitle">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Data quality</p>
+                <h2 id="qualityTitle">数据质量检查</h2>
+              </div>
+              <button class="secondary-button" type="button" id="exportQualityCsv">
+                导出问题
               </button>
-              <button class="secondary-button" type="button" id="exportHandoffReport">
-                导出交接包
+            </div>
+            <div id="qualityPanel" class="quality-panel-body"></div>
+          </section>
+
+          <section class="panel system-panel" aria-labelledby="systemTitle">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">System status</p>
+                <h2 id="systemTitle">系统状态</h2>
+              </div>
+              <button class="secondary-button" type="button" id="refreshHealth">
+                刷新状态
               </button>
             </div>
-          </div>
-          <div id="mvpReadiness" class="mvp-readiness"></div>
-        </section>
+            <div class="system-status" id="systemStatus">正在检查本地服务和 OpenAI 配置。</div>
+          </section>
 
-        <section class="panel quality-panel" aria-labelledby="qualityTitle">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Data quality</p>
-              <h2 id="qualityTitle">数据质量检查</h2>
+          <section class="panel review-panel" aria-labelledby="reviewTitle">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Review queue</p>
+                <h2 id="reviewTitle">待确认队列</h2>
+              </div>
+              <button class="secondary-button" type="button" id="confirmAllReviews">
+                全部确认
+              </button>
             </div>
-            <button class="secondary-button" type="button" id="exportQualityCsv">
-              导出问题
-            </button>
-          </div>
-          <div id="qualityPanel" class="quality-panel-body"></div>
-        </section>
-
-        <section class="panel system-panel" aria-labelledby="systemTitle">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">System status</p>
-              <h2 id="systemTitle">系统状态</h2>
-            </div>
-            <button class="secondary-button" type="button" id="refreshHealth">
-              刷新状态
-            </button>
-          </div>
-          <div class="system-status" id="systemStatus">正在检查本地服务和 OpenAI 配置。</div>
-        </section>
-
-        <section class="panel review-panel" aria-labelledby="reviewTitle">
-          <div class="panel-header">
-            <div>
-              <p class="eyebrow">Review queue</p>
-              <h2 id="reviewTitle">待确认队列</h2>
-            </div>
-            <button class="secondary-button" type="button" id="confirmAllReviews">
-              全部确认
-            </button>
-          </div>
-          <div id="reviewQueue" class="review-queue"></div>
+            <div id="reviewQueue" class="review-queue"></div>
+          </section>
         </section>
 
         <section class="panel import-panel" id="importPanel" aria-labelledby="importTitle">
@@ -395,15 +397,15 @@
             <div class="comparison-summary" id="comparisonSummary">
               选择 2-5 个型号后生成竞争对标总结。
             </div>
-            <div class="comparison-history-panel">
-              <div class="compare-field-header">
-                <strong>总结历史</strong>
+            <details class="comparison-history-panel">
+              <summary>
+                <span>总结历史</span>
                 <button class="secondary-button" type="button" id="exportComparisonHistory">
                   导出总结记录
                 </button>
-              </div>
+              </summary>
               <div id="comparisonHistory" class="comparison-history"></div>
-            </div>
+            </details>
             <div class="table-wrap compact">
               <table>
                 <thead id="compareHead"></thead>
