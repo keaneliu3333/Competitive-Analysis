@@ -45,6 +45,8 @@ if (!existsSync(casesPath)) {
     const ids = new Set();
     const categories = new Set();
     const sourceTypes = new Set();
+    let hasLongImageFixture = false;
+    let hasPdfFixture = false;
 
     for (const [index, testCase] of cases.entries()) {
       const label = testCase.id || `case-${index}`;
@@ -61,6 +63,8 @@ if (!existsSync(casesPath)) {
       if (testCase.source?.type === "file") {
         if (!testCase.source.path) fail(`${label}: file source must include path`);
         if (testCase.source.path && !existsSync(join(root, testCase.source.path))) fail(`${label}: file source path must exist`);
+        if (/\.(svg|png|jpe?g|webp)$/i.test(testCase.source.path || "")) hasLongImageFixture = true;
+        if (/\.pdf$/i.test(testCase.source.path || "")) hasPdfFixture = true;
       }
       const sourceText = JSON.stringify(testCase.source || {});
       if (/example\.com|placeholder/i.test(sourceText)) fail(`${label}: source must not use placeholder URLs or notes`);
@@ -87,6 +91,8 @@ if (!existsSync(casesPath)) {
 
     assertIncludesAll(categories, payload.coverageTargets?.categories || ["扫地机", "洗地机", "吸尘器"], "sample-cases category coverage");
     assertIncludesAll(sourceTypes, payload.coverageTargets?.sourceTypes || ["url", "file"], "sample-cases source type coverage");
+    if (!hasLongImageFixture) fail("sample-cases must include at least one long-image file fixture");
+    if (!hasPdfFixture) fail("sample-cases must include at least one PDF file fixture");
     if (Number(payload.coverageTargets?.summaryMaxChars) !== 500) fail("coverageTargets.summaryMaxChars must be 500");
   }
 }

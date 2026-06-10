@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "description": "Calibration cases for cleaner competitive analysis extraction and comparison quality. Cases use approved real competitor product pages, reviews, or source-backed long-image fixtures.",
+  "description": "Calibration cases for cleaner competitive analysis extraction and comparison quality. Cases use approved real competitor product pages, reviews, source-backed long-image fixtures, and PDF fixtures.",
   "coverageTargets": {
     "minCases": 10,
     "categories": ["扫地机", "洗地机", "吸尘器"],
@@ -203,6 +203,30 @@
       },
       "acceptance": {
         "minConfidence": 70,
+        "summaryMaxChars": 500,
+        "requiresEvidence": true,
+        "requiresManualReviewWhenLowConfidence": true
+      }
+    },
+    {
+      "id": "vacuum-file-dyson-v15-detect-pdf-fixture",
+      "category": "吸尘器",
+      "source": {
+        "type": "file",
+        "format": "pdf",
+        "path": "evals/fixtures/dyson-v15-detect-spec-fixture.pdf",
+        "url": "https://www.dyson.com/vacuum-cleaners/cordless/v15/detect",
+        "notes": "Source-backed PDF fixture for validating PDF ingestion, structured extraction and manual review when price or redirected-page evidence is uncertain."
+      },
+      "expected": {
+        "brand": "Dyson",
+        "model": "V15 Detect",
+        "priceRange": { "min": 3500, "max": 6500, "currency": "CNY" },
+        "requiredFeatures": ["suction", "battery", "noise", "app"],
+        "topSellingPointKeywords": ["laser", "dust", "LCD", "filtration"]
+      },
+      "acceptance": {
+        "minConfidence": 68,
         "summaryMaxChars": 500,
         "requiresEvidence": true,
         "requiresManualReviewWhenLowConfidence": true
