@@ -1599,7 +1599,7 @@ function exportMvpChecklistCsv() {
   const headers = ["area", "ready", "evidence", "next"];
   const rows = mvpChecklistItems().map((item) => [item.area, item.ready ? "yes" : "no", item.evidence, item.next]);
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-  download(`mvp-readiness-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
+  download(`formal-readiness-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
 }
 
 function markdownLine(value) {
@@ -1678,7 +1678,7 @@ function handoffReportMarkdown() {
 
 function exportHandoffReport() {
   download(
-    `mvp-handoff-${new Date().toISOString().slice(0, 10)}.md`,
+    `formal-handoff-${new Date().toISOString().slice(0, 10)}.md`,
     handoffReportMarkdown(),
     "text/markdown;charset=utf-8",
   );

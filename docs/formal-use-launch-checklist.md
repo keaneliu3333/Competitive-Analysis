@@ -27,6 +27,7 @@
 - 型号对比：2-5 个型号、已选字段矩阵、差异高亮、500 字以内总结和对比表导出可用。
 - 路线图：品牌、品类、状态、季度筛选，Excel、SVG、当前 PDF 和各品牌分页 PDF 可用。
 - 数据包：完整 JSON 导出、导入前备份、导入恢复和保存视图恢复可用。
+- 正式导出：正式清单文件名包含 `formal-readiness`，Markdown 正式交接包文件名包含 `formal-handoff`。
 - 审计和用量：审计 CSV、AI 用量 CSV、provider、model、status、usage 和 estimatedCostUsd 可追溯。
 
 ## 使用反馈归档

@@ -40,6 +40,7 @@ const gitignore = readRequired(".gitignore");
 
 for (const topic of [
   "使用目标",
+  "当前版本",
   "参与角色",
   "使用前置条件",
   "使用数据建议",
@@ -47,6 +48,8 @@ for (const topic of [
   "反馈模板",
   "正式功能使用反馈",
   "网页内不增加单独试用模块",
+  "formal-readiness",
+  "formal-handoff",
   "Go/No-Go 标准",
   "回滚与备份",
   "不做事项",
@@ -70,6 +73,8 @@ for (const topic of [
   "addTrialFeedback",
   "exportTrialFeedback",
   "正式功能确认",
+  "formal-readiness",
+  "formal-handoff",
   "使用反馈归档",
 ]) {
   assertIncludes(launchChecklist, topic, "formal use launch checklist");
@@ -90,6 +95,7 @@ for (const topic of [
 for (const topic of [
   "正式功能使用",
   "网页内不增加单独试用模块",
+  "内部正式使用部署",
   "docs/formal-use-runbook.md",
   "docs/formal-use-launch-checklist.md",
   "reports/formal-use-pack",
@@ -132,6 +138,7 @@ for (const topic of [
   "formal-use-browser-smoke",
   "浏览器冒烟摘要",
   "响应式视口摘要",
+  "正式导出命名",
   "browserSmokeStatus",
   "responsiveRows",
 ]) {

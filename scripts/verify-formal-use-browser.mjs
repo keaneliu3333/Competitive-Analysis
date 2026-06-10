@@ -70,7 +70,7 @@ async function loadPlaywright() {
   throw new Error(`Playwright is required for Formal use browser smoke. Tried: ${errors.join(" | ")}`);
 }
 
-async function expectDownload(page, action, label) {
+async function expectDownload(page, action, label, expectedFilenamePart = "") {
   const downloadPromise = page.waitForEvent("download", { timeout: 10000 });
   await action();
   const download = await downloadPromise;
@@ -79,6 +79,12 @@ async function expectDownload(page, action, label) {
   downloads.push({ label, suggestedFilename, path });
   assert(path, `${label} download missing temp path`);
   assert(suggestedFilename, `${label} missing filename`);
+  if (expectedFilenamePart) {
+    assert(
+      suggestedFilename.includes(expectedFilenamePart),
+      `${label} filename ${suggestedFilename} missing ${expectedFilenamePart}`,
+    );
+  }
   return { path, suggestedFilename };
 }
 
@@ -353,8 +359,8 @@ async function main() {
     await expectDownload(page, () => page.locator("#exportQualityCsv").click(), "质量问题 CSV");
     await expectDownload(page, () => page.locator("#exportAuditCsv").click(), "审计 CSV");
     await expectDownload(page, () => page.locator("#exportUsageCsv").click(), "用量 CSV");
-    await expectDownload(page, () => page.locator("#exportMvpChecklist").click(), "正式清单 CSV");
-    await expectDownload(page, () => page.locator("#exportHandoffReport").click(), "Markdown 正式交接包");
+    await expectDownload(page, () => page.locator("#exportMvpChecklist").click(), "正式清单 CSV", "formal-readiness");
+    await expectDownload(page, () => page.locator("#exportHandoffReport").click(), "Markdown 正式交接包", "formal-handoff");
     const exportForImport = await expectDownload(page, () => page.locator("#exportDataPackage").click(), "导入用数据包");
     writeFileSync(dataPackageImportPath, readFileSync(exportForImport.path));
     const backupDownloadPromise = page.waitForEvent("download", { timeout: 10000 });

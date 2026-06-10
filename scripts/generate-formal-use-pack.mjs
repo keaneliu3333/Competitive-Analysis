@@ -78,6 +78,7 @@ const lines = [
   "| 型号对比 | 对比表和总结 | 500 字以内，总结覆盖功能、参数、使用感受、价格和 Top3 卖点 |",
   "| 路线图 | Excel/SVG/PDF | 卡片包含产品图、价格、Top3 卖点、状态和来源 |",
   "| 数据包 | JSON 和 backup-before-import | 导出、导入、备份、审计和保存视图可恢复 |",
+  "| 正式导出命名 | CSV / Markdown | 正式清单文件名包含 formal-readiness，Markdown 正式交接包文件名包含 formal-handoff |",
   "| 用量审计 | CSV | provider、model、status、usage、estimatedCostUsd 和错误摘要可追溯 |",
   "| 使用反馈 | 使用包记录 | 至少记录 1 条反馈或改进建议，并给出 Go/No-Go 建议 |",
   "",

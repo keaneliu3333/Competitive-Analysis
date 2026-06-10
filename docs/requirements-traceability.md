@@ -14,7 +14,7 @@
 | 自然语言理解功能参数 | 当前功能字段随请求发送给模型，返回 `customFeatures`、证据、置信度；低置信字段进入复核 | `analysisFeatureFields`、`mergeCustomFeatures`、`fieldReviewIssues` | `node scripts/verify-runtime.mjs` 检查 AI 失败兜底保留 customFeatures | 用真实详情页校准字段证据和人工确认 |
 | 产品型号对比 | 从已添加产品中选择 2-5 个型号，输出参数矩阵、差异高亮和导出表 | `selectedCompareProducts`、`compareFields`、`renderCompare`、`exportCompare` | `node scripts/verify-workbench.mjs` | 选择 2-5 个型号，确认矩阵和差异高亮 |
 | 500 字以内多维总结 | 总结覆盖产品功能、关键参数、价格梯度、Top3 卖点和使用感受，不超过 500 个中文字符 | `compareProducts`、`localSummary`、`normalizeComparisonSummary` | `node scripts/verify-summary.mjs`、`node scripts/verify-evals.mjs`、`node scripts/verify-runtime.mjs` | 生成总结，确认可读且不超过 500 字 |
-| 更完善的补充功能 | 已补充数据质量检查、审计日志、价格快照、AI 用量/成本、正式使用状态、Markdown 交接包、完整数据包导入导出和发布验收总入口 | `renderQualityPanel`、`renderAuditLog`、`renderUsage`、`handoffReportMarkdown`、`dataPackagePayload`、`scripts/verify-release.mjs` | `node scripts/verify-release.mjs`、`node scripts/verify-data-package.mjs`、`node scripts/verify-mvp.mjs` | 导出质量问题、审计、交接包和完整数据包；发布前运行总验收 |
+| 更完善的补充功能 | 已补充数据质量检查、审计日志、价格快照、AI 用量/成本、正式使用状态、Markdown 正式交接包、完整数据包导入导出和发布验收总入口 | `renderQualityPanel`、`renderAuditLog`、`renderUsage`、`handoffReportMarkdown`、`dataPackagePayload`、`scripts/verify-release.mjs` | `node scripts/verify-release.mjs`、`node scripts/verify-data-package.mjs`、`node scripts/verify-mvp.mjs` | 导出质量问题、审计、正式交接包和完整数据包；发布前运行总验收 |
 
 ## 验证命令
 
