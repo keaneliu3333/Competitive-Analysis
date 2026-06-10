@@ -7,7 +7,7 @@
 - 代码状态：`git status --short --branch` 无未提交业务变更。
 - 发布验收：`node scripts/verify-release.mjs` 通过。
 - 本地环境：`node scripts/check-local-env.mjs` 通过或只存在允许的本机开发警告。
-- 浏览器冒烟：启动服务后运行 `SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/verify-formal-use-browser.mjs`，生成 `reports/formal-use-browser-smoke-*.json`。
+- 浏览器冒烟：启动服务后运行 `SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/verify-formal-use-browser.mjs`，生成 `reports/formal-use-browser-smoke-*.json`，覆盖 375/768/1440 响应式视口。
 - 卫生检查：`node scripts/verify-hygiene.mjs` 通过，确认 `.env.local`、`data/`、`reports/` 不会被提交。
 - 页面约束：`index.html`、`script.js`、`styles.css` 不包含 `trialFeedback`、`trial-panel`、`addTrialFeedback`、`exportTrialFeedback` 或 `内部试用反馈`。
 

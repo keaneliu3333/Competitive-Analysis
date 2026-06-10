@@ -109,6 +109,7 @@ for (const topic of [
   "正式功能使用包",
   "verify-formal-use-browser.mjs",
   "formal-use-browser-smoke",
+  "375/768/1440",
   "已监听端口是否真的返回工作台健康接口和首页",
   "发布验收总入口",
 ]) {

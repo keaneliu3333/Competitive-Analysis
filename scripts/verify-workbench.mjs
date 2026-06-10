@@ -190,6 +190,8 @@ for (const token of [
   ".history-summary-copy",
   ".history-actions",
   "max-height: 640px",
+  "overscroll-behavior-x: contain",
+  "repeat(auto-fit, minmax(150px, 1fr))",
 ]) {
   assertIncludes(readRequired("styles.css"), token, "styles.css formal workbench layout");
 }
@@ -582,6 +584,10 @@ for (const topic of [
 for (const token of [
   "Formal use browser smoke",
   "SMOKE_BASE_URL",
+  "responsiveViewports",
+  "375",
+  "768",
+  "1440",
   "no in-page trial module",
   "formal-use-browser-smoke",
   "trialFeedback",

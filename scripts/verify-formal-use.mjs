@@ -142,6 +142,8 @@ for (const topic of [
   "Formal use browser smoke",
   "SMOKE_BASE_URL",
   "formal-use-browser-smoke",
+  "responsiveViewports",
+  "responsiveChecks",
   "no in-page trial module",
   "trialFeedback",
 ]) {

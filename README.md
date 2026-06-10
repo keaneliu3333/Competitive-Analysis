@@ -124,7 +124,7 @@ node scripts/verify-hygiene.mjs
 500 字总结专项验收可运行 `node scripts/verify-summary.mjs`，检查字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
 数据包交接专项验收可运行 `node scripts/verify-data-package.mjs`，检查完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
 人工浏览器冒烟清单可运行 `node scripts/generate-smoke-checklist.mjs` 生成到 `reports/`，用于记录筛选、自定义字段、AI 导入、对比、路线图、数据包和交接包的手工验收结果。
-启动本地服务后可运行 `SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/verify-formal-use-browser.mjs` 执行正式功能浏览器冒烟；报告会写入 `reports/formal-use-browser-smoke-*.json`，覆盖筛选、自定义字段、AI 失败兜底、500 字以内总结、路线图导出、数据包导入导出、审计/用量，以及网页内不出现试用模块。
+启动本地服务后可运行 `SMOKE_BASE_URL=http://127.0.0.1:4173 node scripts/verify-formal-use-browser.mjs` 执行正式功能浏览器冒烟；报告会写入 `reports/formal-use-browser-smoke-*.json`，覆盖筛选、自定义字段、AI 失败兜底、500 字以内总结、路线图导出、数据包导入导出、审计/用量、375/768/1440 响应式视口，以及网页内不出现试用模块。
 正式功能使用包可运行 `node scripts/generate-formal-use-pack.mjs` 生成到 `reports/`，用于组织使用任务、反馈模板、Go/No-Go 标准和使用证据；`node scripts/verify-formal-use.mjs` 会检查正式功能使用手册、发布门、反馈模板、环境安全和部署交接是否完整。
 多模型真实样例评估准备报告可运行 `node scripts/generate-model-eval-report.mjs` 生成到 `reports/`，用于对齐 OpenAI 抽取、DeepSeek 总结和本地兜底的校准口径。
 本地环境预检可运行 `node scripts/check-local-env.mjs`，检查 Node 版本、配置模板、数据目录、端口占用，以及已监听端口是否真的返回工作台健康接口和首页。

@@ -29,6 +29,12 @@ const results = [];
 const issues = [];
 const consoleErrors = [];
 const downloads = [];
+const responsiveChecks = [];
+const responsiveViewports = [
+  { name: "mobile", width: 375, height: 900 },
+  { name: "tablet", width: 768, height: 1024 },
+  { name: "desktop", width: 1440, height: 1100 },
+];
 
 function record(name, status, detail = "") {
   results.push({ name, status, detail });
@@ -98,6 +104,67 @@ function restoreStateFiles() {
       rmSync(backup.file);
     }
   }
+}
+
+async function verifyResponsiveViewports(browser) {
+  for (const viewport of responsiveViewports) {
+    const context = await browser.newContext({
+      viewport: { width: viewport.width, height: viewport.height },
+    });
+    const page = await context.newPage();
+    const viewportErrors = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") viewportErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => viewportErrors.push(error.message));
+
+    try {
+      await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
+      await page.locator("#productTableBody tr").first().waitFor({ state: "visible", timeout: 15000 });
+      for (const selector of [
+        "#keywordSearch",
+        "#openImport",
+        "#productTableBody",
+        "#compareTitle",
+        "#roadmapTitle",
+        "#exportDataPackage",
+      ]) {
+        assert(await page.locator(selector).isVisible(), `${viewport.name} 视口缺少 ${selector}`);
+      }
+      const layout = await page.evaluate(() => {
+        const rootElement = document.documentElement;
+        const body = document.body;
+        const main = document.querySelector(".main-area");
+        const sidebar = document.querySelector(".sidebar");
+        return {
+          viewportWidth: window.innerWidth,
+          documentScrollWidth: rootElement.scrollWidth,
+          bodyScrollWidth: body.scrollWidth,
+          mainRight: main?.getBoundingClientRect().right || 0,
+          sidebarRight: sidebar?.getBoundingClientRect().right || 0,
+          hasTrialText: body.innerText.includes("内部试用反馈"),
+          trialFeedbackCount: document.querySelectorAll("#trialFeedback, #addTrialFeedback, #exportTrialFeedback").length,
+        };
+      });
+      const maxBodyWidth = Math.max(layout.documentScrollWidth, layout.bodyScrollWidth);
+      assert(maxBodyWidth <= viewport.width + 4, `${viewport.name} 视口出现页面横向溢出 ${maxBodyWidth}/${viewport.width}`);
+      assert(layout.mainRight <= viewport.width + 4, `${viewport.name} 主内容越界 ${layout.mainRight}/${viewport.width}`);
+      assert(layout.sidebarRight <= viewport.width + 4, `${viewport.name} 筛选栏越界 ${layout.sidebarRight}/${viewport.width}`);
+      assert(!layout.hasTrialText && layout.trialFeedbackCount === 0, `${viewport.name} 视口出现试用模块`);
+      assert(viewportErrors.length === 0, `${viewport.name} console error: ${viewportErrors.slice(0, 3).join(" | ")}`);
+      responsiveChecks.push({
+        viewport: viewport.name,
+        width: viewport.width,
+        height: viewport.height,
+        status: "passed",
+        documentScrollWidth: layout.documentScrollWidth,
+        bodyScrollWidth: layout.bodyScrollWidth,
+      });
+    } finally {
+      await context.close().catch(() => {});
+    }
+  }
+  record("响应式视口", "passed", "375px、768px、1440px 无页面横向溢出，关键入口可见");
 }
 
 async function main() {
@@ -308,6 +375,8 @@ async function main() {
     );
     record("交接、数据包、审计和用量", "passed", "导出、导入前备份、审计和用量状态通过");
 
+    await verifyResponsiveViewports(browser);
+
     if (consoleErrors.length) {
       record("浏览器控制台", "failed", consoleErrors.slice(0, 5).join(" | "));
     } else {
@@ -322,6 +391,7 @@ async function main() {
       baseUrl,
       results,
       issues,
+      responsiveChecks,
       downloads: downloads.map(({ label, suggestedFilename }) => ({ label, suggestedFilename })),
       consoleErrors,
     };
