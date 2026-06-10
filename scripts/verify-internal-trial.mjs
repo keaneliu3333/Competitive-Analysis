@@ -19,9 +19,17 @@ function assertIncludes(content, expected, label) {
   if (!content.includes(expected)) failures.push(`${label} missing: ${expected}`);
 }
 
+function assertNotIncludes(content, forbidden, label) {
+  if (content.includes(forbidden)) failures.push(`${label} must not include: ${forbidden}`);
+}
+
 const runbook = readRequired("docs/internal-trial-runbook.md");
+const launchChecklist = readRequired("docs/formal-use-launch-checklist.md");
 const readme = readRequired("README.md");
 const deployment = readRequired("docs/deployment.md");
+const indexHtml = readRequired("index.html");
+const scriptJs = readRequired("script.js");
+const stylesCss = readRequired("styles.css");
 const releaseVerifier = readRequired("scripts/verify-release.mjs");
 const testReportGenerator = readRequired("scripts/generate-test-report.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
@@ -30,11 +38,11 @@ const envExample = readRequired(".env.example");
 const gitignore = readRequired(".gitignore");
 
 for (const topic of [
-  "试用目标",
+  "使用目标",
   "参与角色",
-  "试用前置条件",
-  "试用数据建议",
-  "试用任务",
+  "使用前置条件",
+  "使用数据建议",
+  "使用任务",
   "反馈模板",
   "正式功能使用反馈",
   "网页内不增加单独试用模块",
@@ -52,8 +60,24 @@ for (const topic of [
 }
 
 for (const topic of [
+  "正式功能使用启动清单",
+  "网页内不增加任何“试用”模块",
+  "node scripts/verify-release.mjs",
+  "node scripts/verify-hygiene.mjs",
+  "trialFeedback",
+  "trial-panel",
+  "addTrialFeedback",
+  "exportTrialFeedback",
+  "正式功能确认",
+  "使用反馈归档",
+]) {
+  assertIncludes(launchChecklist, topic, "formal use launch checklist");
+}
+
+for (const topic of [
   "正式功能使用运行手册",
   "正式功能使用",
+  "formal-use-launch-checklist.md",
   "generate-internal-trial-pack.mjs",
   "verify-internal-trial.mjs",
 ]) {
@@ -64,6 +88,7 @@ for (const topic of [
   "正式功能使用",
   "网页内不增加单独试用模块",
   "docs/internal-trial-runbook.md",
+  "docs/formal-use-launch-checklist.md",
   "reports/internal-trial-pack",
 ]) {
   assertIncludes(deployment, topic, "deployment internal trial coverage");
@@ -96,6 +121,7 @@ for (const topic of [
   "node scripts/verify-release.mjs",
   "Go/No-Go",
   "正式功能使用",
+  "正式功能使用启动清单",
   "provider",
   "500 字以内",
 ]) {
@@ -104,6 +130,18 @@ for (const topic of [
 
 for (const topic of ["正式功能使用", "Go/No-Go", "反馈"]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist internal trial coverage");
+}
+
+for (const forbidden of [
+  "trialFeedback",
+  "trial-panel",
+  "addTrialFeedback",
+  "exportTrialFeedback",
+  "内部试用反馈",
+]) {
+  assertNotIncludes(indexHtml, forbidden, "index.html no in-page trial module");
+  assertNotIncludes(scriptJs, forbidden, "script.js no in-page trial module");
+  assertNotIncludes(stylesCss, forbidden, "styles.css no in-page trial module");
 }
 
 if (failures.length) {

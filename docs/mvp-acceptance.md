@@ -32,7 +32,7 @@ node scripts/verify-mvp.mjs
 导出结构由 `node scripts/verify-exports.mjs` 专项检查，覆盖产品库 Excel、型号对比 Excel、路线图 Excel、路线图 SVG 和各品牌分页 PDF 的关键结构。
 500 字总结由 `node scripts/verify-summary.mjs` 专项检查，覆盖字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
 数据包交接由 `node scripts/verify-data-package.mjs` 专项检查，覆盖完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
-正式功能使用准备由 `node scripts/verify-internal-trial.mjs` 专项检查，覆盖使用运行手册、使用包、反馈模板、Go/No-Go 标准和部署交接。
+正式功能使用准备由 `node scripts/verify-internal-trial.mjs` 专项检查，覆盖使用运行手册、启动清单、使用包、反馈模板、Go/No-Go 标准、无网页试用模块约束和部署交接。
 人工冒烟清单可通过 `node scripts/generate-smoke-checklist.mjs` 生成到 `reports/`，用于记录浏览器验收环境、状态、证据和结论。
 正式功能使用包可通过 `node scripts/generate-internal-trial-pack.mjs` 生成到 `reports/`，用于组织使用任务和归档使用反馈。
 交付前可运行 `node scripts/generate-test-report.mjs`，在 `reports/` 生成带时间戳的 Markdown 测试报告。

@@ -66,6 +66,7 @@ const envExample = readRequired(".env.example");
 const readme = readRequired("README.md");
 const gitignore = readRequired(".gitignore");
 const deploymentDoc = readRequired("docs/deployment.md");
+const formalUseChecklist = readRequired("docs/formal-use-launch-checklist.md");
 const accessVerifier = readRequired("scripts/verify-access.mjs");
 const costVerifier = readRequired("scripts/verify-costs.mjs");
 const metadataVerifier = readRequired("scripts/verify-metadata.mjs");
@@ -587,6 +588,17 @@ for (const topic of [
 }
 
 for (const topic of [
+  "正式功能使用启动清单",
+  "网页内不增加任何“试用”模块",
+  "trialFeedback",
+  "trial-panel",
+  "正式功能确认",
+  "使用反馈归档",
+]) {
+  assertIncludes(formalUseChecklist, topic, "formal use launch checklist");
+}
+
+for (const topic of [
   "Access verification passed",
   "open local mode",
   "read/write split mode",
@@ -663,6 +675,7 @@ for (const topic of [
 for (const topic of [
   "Internal trial verification passed",
   "docs/internal-trial-runbook.md",
+  "docs/formal-use-launch-checklist.md",
   "Go/No-Go",
   "scripts/generate-internal-trial-pack.mjs",
 ]) {
@@ -744,6 +757,7 @@ for (const topic of [
 for (const topic of [
   "Internal trial pack generated",
   "清洁电器竞品分析正式功能使用包",
+  "正式功能使用启动清单",
   "node scripts/verify-release.mjs",
   "Go/No-Go",
 ]) {

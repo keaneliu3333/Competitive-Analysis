@@ -15,6 +15,7 @@ function readOptional(path) {
 }
 
 const runbook = readOptional("docs/internal-trial-runbook.md");
+const launchChecklist = readOptional("docs/formal-use-launch-checklist.md");
 const smokeChecklist = readOptional(`reports/manual-smoke-checklist-${dateStamp}.md`);
 const modelEval = readOptional(`reports/model-eval-readiness-${dateStamp}.md`);
 
@@ -29,7 +30,7 @@ const lines = [
   "- 当前版本是静态前端 + Node.js 内置服务，不是公开 SaaS。",
   "- 图片/PDF 结构化抽取默认走 OpenAI；文本总结可配置 DeepSeek，失败后回退 OpenAI 或本地兜底。",
   "",
-  "## 试用前必须通过",
+  "## 使用前必须通过",
   "",
   "```bash",
   "node scripts/verify-release.mjs",
@@ -38,7 +39,7 @@ const lines = [
   "node server.mjs",
   "```",
   "",
-  "## 试用任务摘要",
+  "## 使用任务摘要",
   "",
   "| 任务 | 证据 | 通过标准 |",
   "| --- | --- | --- |",
@@ -53,10 +54,10 @@ const lines = [
   "",
   "## 反馈记录",
   "",
-  "- 试用人：",
+  "- 使用人：",
   "- 日期：",
   "- 角色：",
-  "- 试用资料：URL / 长图 / PDF / CSV / 手工录入",
+  "- 使用资料：URL / 长图 / PDF / CSV / 手工录入",
   "- 阻塞问题：",
   "- UI 优化：",
   "- AI 抽取或总结问题：",
@@ -68,7 +69,12 @@ const lines = [
   "",
   `- 人工冒烟清单：${smokeChecklist ? `reports/manual-smoke-checklist-${dateStamp}.md` : "未生成"}`,
   `- 多模型评估准备报告：${modelEval ? `reports/model-eval-readiness-${dateStamp}.md` : "未生成"}`,
+  "- 正式功能使用启动清单：docs/formal-use-launch-checklist.md",
   "- MVP 测试报告：运行 `node scripts/generate-test-report.mjs` 后查看 `reports/mvp-test-report-*.md`。",
+  "",
+  "## 启动清单快照",
+  "",
+  launchChecklist || "未找到 docs/formal-use-launch-checklist.md",
   "",
   "## 运行手册快照",
   "",
