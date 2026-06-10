@@ -73,6 +73,15 @@ const checks = [
     ],
     expected: "产品、自定义模块、分析记录、审计日志、保存视图和比较历史可恢复；交接包包含状态、风险、命令和下一阶段建议。",
   },
+  {
+    area: "内部试用记录",
+    steps: [
+      "打开 `docs/internal-trial-runbook.md`，确认试用目标、角色、任务和 Go/No-Go 标准。",
+      "运行 `node scripts/generate-internal-trial-pack.mjs` 生成当天试用包。",
+      "按反馈模板记录 UI、AI、导出、数据恢复和权限问题。",
+    ],
+    expected: "试用人、资料类型、完成任务、阻塞问题、可后续优化和 Go/No-Go 建议都有记录。",
+  },
 ];
 
 const lines = [
@@ -86,6 +95,7 @@ const lines = [
   "- 浏览器：",
   "- 服务地址：",
   "- OpenAI 配置状态：",
+  "- DeepSeek 配置状态：",
   "- 访问令牌模式：未配置 / APP_ACCESS_TOKEN / APP_READ_TOKEN + APP_WRITE_TOKEN",
   "- 数据样例来源：内置样例 / 批量导入 / 真实 URL / 截图或 PDF",
   "",
@@ -113,6 +123,7 @@ const lines = [
   "## 结论",
   "",
   "- 总体结论：通过 / 未通过 / 阻塞",
+  "- 内部试用 Go/No-Go：Go / No-Go",
   "- 必须修复问题：",
   "- 可后续优化问题：",
   "- 交接人确认：",

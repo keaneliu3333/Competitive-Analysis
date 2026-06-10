@@ -26,6 +26,10 @@ const steps = [
     command: ["node", "scripts/verify-data-package.mjs"],
   },
   {
+    name: "内部试用准备验收",
+    command: ["node", "scripts/verify-internal-trial.mjs"],
+  },
+  {
     name: "正式化迁移计划验收",
     command: ["node", "scripts/verify-formalization-plan.mjs"],
   },
@@ -48,6 +52,10 @@ const steps = [
   {
     name: "生成人工冒烟清单",
     command: ["node", "scripts/generate-smoke-checklist.mjs"],
+  },
+  {
+    name: "生成内部试用包",
+    command: ["node", "scripts/generate-internal-trial-pack.mjs"],
   },
 ];
 

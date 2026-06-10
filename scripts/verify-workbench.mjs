@@ -78,12 +78,14 @@ const traceabilityDoc = readRequired("docs/requirements-traceability.md");
 const exportVerifier = readRequired("scripts/verify-exports.mjs");
 const summaryVerifier = readRequired("scripts/verify-summary.mjs");
 const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
+const internalTrialVerifier = readRequired("scripts/verify-internal-trial.mjs");
 const formalizationVerifier = readRequired("scripts/verify-formalization-plan.mjs");
 const apiMigrationVerifier = readRequired("scripts/verify-api-migration-map.mjs");
 const reportGenerator = readRequired("scripts/generate-test-report.mjs");
 const modelEvalGenerator = readRequired("scripts/generate-model-eval-report.mjs");
 const migrationReconciliationGenerator = readRequired("scripts/generate-migration-reconciliation.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
+const internalTrialPackGenerator = readRequired("scripts/generate-internal-trial-pack.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
 const hygieneVerifier = readRequired("scripts/verify-hygiene.mjs");
 const releaseVerifier = readRequired("scripts/verify-release.mjs");
@@ -542,8 +544,10 @@ for (const topic of [
   "verify-mvp.mjs",
   "verify-runtime.mjs",
   "verify-traceability.mjs",
+  "verify-internal-trial.mjs",
   "generate-test-report.mjs",
   "generate-model-eval-report.mjs",
+  "generate-internal-trial-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
 ]) {
@@ -572,8 +576,10 @@ for (const topic of [
   "verify-mvp.mjs",
   "verify-runtime.mjs",
   "verify-traceability.mjs",
+  "verify-internal-trial.mjs",
   "generate-test-report.mjs",
   "generate-model-eval-report.mjs",
+  "generate-internal-trial-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
 ]) {
@@ -655,6 +661,15 @@ for (const topic of [
 }
 
 for (const topic of [
+  "Internal trial verification passed",
+  "docs/internal-trial-runbook.md",
+  "Go/No-Go",
+  "scripts/generate-internal-trial-pack.mjs",
+]) {
+  assertIncludes(internalTrialVerifier, topic, "internal trial verifier");
+}
+
+for (const topic of [
   "Formalization plan verification passed",
   "Next.js/PostgreSQL/Prisma/Redis/BullMQ",
   "migration phases",
@@ -690,10 +705,12 @@ for (const topic of [
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
+  "scripts/verify-internal-trial.mjs",
   "scripts/verify-formalization-plan.mjs",
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-smoke-checklist.mjs",
+  "scripts/generate-internal-trial-pack.mjs",
   "process.execPath",
 ]) {
   assertIncludes(reportGenerator, topic, "test report generator");
@@ -719,8 +736,18 @@ for (const topic of [
   "型号对比",
   "路线图导出",
   "交接与审计",
+  "内部试用记录",
 ]) {
   assertIncludes(smokeChecklistGenerator, topic, "manual smoke checklist generator");
+}
+
+for (const topic of [
+  "Internal trial pack generated",
+  "清洁电器竞品分析内部试用包",
+  "node scripts/verify-release.mjs",
+  "Go/No-Go",
+]) {
+  assertIncludes(internalTrialPackGenerator, topic, "internal trial pack generator");
 }
 
 for (const topic of [
@@ -747,12 +774,14 @@ for (const topic of [
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
   "scripts/verify-data-package.mjs",
+  "scripts/verify-internal-trial.mjs",
   "scripts/verify-formalization-plan.mjs",
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-model-eval-report.mjs",
   "scripts/generate-test-report.mjs",
   "scripts/generate-smoke-checklist.mjs",
+  "scripts/generate-internal-trial-pack.mjs",
   "process.execPath",
 ]) {
   assertIncludes(releaseVerifier, topic, "release verifier");

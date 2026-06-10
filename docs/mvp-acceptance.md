@@ -13,7 +13,7 @@
 - 路线图：支持品牌、品类、状态、季度筛选；路线图卡片包含产品图、价格、Top3 优先级卖点、状态和来源。
 - 导出：支持产品库 Excel、型号对比 Excel、路线图 Excel、路线图 SVG、当前路线图打印/PDF、各品牌分页 PDF、数据包、CSV 模板、审计、用量、质量问题、MVP 验收清单和 Markdown 交接包导出。
 - 复核与追溯：AI 结果有置信度、待确认队列、字段级确认、分析记录、价格快照、审计日志和数据质量检查。
-- 内部部署：支持本地持久化、读写访问令牌、OpenAI 用量日志、成本估算和部署交接说明。
+- 内部部署与试用：支持本地持久化、读写访问令牌、OpenAI/DeepSeek 用量日志、成本估算、部署交接说明、内部试用运行手册和试用包生成。
 
 ## 验收命令
 
@@ -32,7 +32,9 @@ node scripts/verify-mvp.mjs
 导出结构由 `node scripts/verify-exports.mjs` 专项检查，覆盖产品库 Excel、型号对比 Excel、路线图 Excel、路线图 SVG 和各品牌分页 PDF 的关键结构。
 500 字总结由 `node scripts/verify-summary.mjs` 专项检查，覆盖字符上限、产品功能、关键参数、使用感受、价格梯度和 Top3 卖点口径。
 数据包交接由 `node scripts/verify-data-package.mjs` 专项检查，覆盖完整 JSON、保存视图、导入前备份和自定义字段历史值保留。
+内部试用准备由 `node scripts/verify-internal-trial.mjs` 专项检查，覆盖试用运行手册、试用包、反馈模板、Go/No-Go 标准和部署交接。
 人工冒烟清单可通过 `node scripts/generate-smoke-checklist.mjs` 生成到 `reports/`，用于记录浏览器验收环境、状态、证据和结论。
+内部试用包可通过 `node scripts/generate-internal-trial-pack.mjs` 生成到 `reports/`，用于组织试用任务和归档试用反馈。
 交付前可运行 `node scripts/generate-test-report.mjs`，在 `reports/` 生成带时间戳的 Markdown 测试报告。
 启动前可运行 `node scripts/check-local-env.mjs` 做本地环境预检。
 提交前可运行 `node scripts/verify-hygiene.mjs` 做密钥和本地生成物卫生检查。
