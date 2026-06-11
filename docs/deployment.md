@@ -84,6 +84,7 @@ node --check scripts/verify-data-package.mjs
 node --check scripts/verify-formal-use.mjs
 node --check scripts/verify-formal-use-browser.mjs
 node --check scripts/generate-model-eval-report.mjs
+node --check scripts/generate-eval-calibration-pack.mjs
 node --check scripts/generate-smoke-checklist.mjs
 node --check scripts/generate-formal-use-pack.mjs
 node --check scripts/verify-mvp.mjs
@@ -103,6 +104,7 @@ node scripts/verify-summary.mjs
 node scripts/verify-data-package.mjs
 node scripts/verify-formal-use.mjs
 node scripts/generate-model-eval-report.mjs
+node scripts/generate-eval-calibration-pack.mjs
 node scripts/generate-smoke-checklist.mjs
 node scripts/generate-formal-use-pack.mjs
 node scripts/verify-mvp.mjs
@@ -160,3 +162,4 @@ node scripts/verify-hygiene.mjs
 - 将 `APP_ACCESS_TOKEN` 替换为组织账号、角色权限和审计日志。
 - 增加真实样例集，用于评估型号、价格、Top3 卖点、参数抽取和 500 字以内对标总结质量。
 - `evals/sample-cases.json` 已进入真实样例校准，覆盖扫地机、洗地机、吸尘器以及 URL、长图、PDF 来源；后续补充更多真实样例即可。
+- `node scripts/generate-eval-calibration-pack.mjs` 会生成 Markdown 任务包和 CSV 记录模板，用于逐条归档 OpenAI 抽取、DeepSeek 总结、本地兜底、人工修订和 Go/No-Go 结论。

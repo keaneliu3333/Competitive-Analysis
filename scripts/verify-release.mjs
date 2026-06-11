@@ -46,6 +46,10 @@ const steps = [
     command: ["node", "scripts/generate-model-eval-report.mjs"],
   },
   {
+    name: "生成真实样例校准任务包",
+    command: ["node", "scripts/generate-eval-calibration-pack.mjs"],
+  },
+  {
     name: "生成 MVP 测试报告",
     command: ["node", "scripts/generate-test-report.mjs"],
   },

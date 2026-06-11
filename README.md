@@ -86,6 +86,7 @@ node --check scripts/verify-data-package.mjs
 node --check scripts/verify-formal-use.mjs
 node --check scripts/verify-formal-use-browser.mjs
 node --check scripts/generate-model-eval-report.mjs
+node --check scripts/generate-eval-calibration-pack.mjs
 node --check scripts/generate-smoke-checklist.mjs
 node --check scripts/generate-formal-use-pack.mjs
 node --check scripts/verify-mvp.mjs
@@ -105,6 +106,7 @@ node scripts/verify-summary.mjs
 node scripts/verify-data-package.mjs
 node scripts/verify-formal-use.mjs
 node scripts/generate-model-eval-report.mjs
+node scripts/generate-eval-calibration-pack.mjs
 node scripts/generate-smoke-checklist.mjs
 node scripts/generate-formal-use-pack.mjs
 node scripts/verify-mvp.mjs
@@ -214,4 +216,10 @@ node scripts/verify-evals.mjs
 
 ```bash
 node scripts/generate-model-eval-report.mjs
+```
+
+生成真实样例校准任务包和 CSV 记录模板：
+
+```bash
+node scripts/generate-eval-calibration-pack.mjs
 ```

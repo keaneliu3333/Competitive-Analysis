@@ -31,6 +31,7 @@ const browserSmokePath = `reports/formal-use-browser-smoke-${dateStamp}.json`;
 const browserSmoke = readOptional(browserSmokePath);
 const browserSmokeJson = parseOptionalJson(browserSmokePath);
 const modelEval = readOptional(`reports/model-eval-readiness-${dateStamp}.md`);
+const evalCalibrationPack = readOptional(`reports/eval-calibration-pack-${dateStamp}.md`);
 
 const browserSmokeStatus = browserSmokeJson
   ? browserSmokeJson.issues?.length
@@ -115,6 +116,7 @@ const lines = [
   `- 人工冒烟清单：${smokeChecklist ? `reports/manual-smoke-checklist-${dateStamp}.md` : "未生成"}`,
   `- 浏览器正式功能冒烟：${browserSmoke ? `${browserSmokePath}（${browserSmokeStatus}）` : "未生成"}`,
   `- 多模型评估准备报告：${modelEval ? `reports/model-eval-readiness-${dateStamp}.md` : "未生成"}`,
+  `- 真实样例校准任务包：${evalCalibrationPack ? `reports/eval-calibration-pack-${dateStamp}.md` : "未生成"}`,
   "- 正式功能使用启动清单：docs/formal-use-launch-checklist.md",
   "- MVP 测试报告：运行 `node scripts/generate-test-report.mjs` 后查看 `reports/mvp-test-report-*.md`。",
   "",

@@ -85,6 +85,7 @@ const formalizationVerifier = readRequired("scripts/verify-formalization-plan.mj
 const apiMigrationVerifier = readRequired("scripts/verify-api-migration-map.mjs");
 const reportGenerator = readRequired("scripts/generate-test-report.mjs");
 const modelEvalGenerator = readRequired("scripts/generate-model-eval-report.mjs");
+const evalCalibrationPackGenerator = readRequired("scripts/generate-eval-calibration-pack.mjs");
 const migrationReconciliationGenerator = readRequired("scripts/generate-migration-reconciliation.mjs");
 const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.mjs");
 const internalTrialPackGenerator = readRequired("scripts/generate-formal-use-pack.mjs");
@@ -583,6 +584,7 @@ for (const topic of [
   "verify-formal-use.mjs",
   "generate-test-report.mjs",
   "generate-model-eval-report.mjs",
+  "generate-eval-calibration-pack.mjs",
   "generate-formal-use-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
@@ -633,6 +635,7 @@ for (const topic of [
   "verify-formal-use.mjs",
   "generate-test-report.mjs",
   "generate-model-eval-report.mjs",
+  "generate-eval-calibration-pack.mjs",
   "generate-formal-use-pack.mjs",
   "check-local-env.mjs",
   "verify-hygiene.mjs",
@@ -785,6 +788,7 @@ for (const topic of [
   "scripts/verify-formalization-plan.mjs",
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
+  "scripts/generate-eval-calibration-pack.mjs",
   "scripts/generate-smoke-checklist.mjs",
   "scripts/generate-formal-use-pack.mjs",
   "process.execPath",
@@ -806,6 +810,20 @@ for (const topic of [
   "reports",
 ]) {
   assertIncludes(modelEvalGenerator, topic, "model eval report generator");
+}
+
+for (const topic of [
+  "真实样例校准任务包",
+  "eval-calibration-results",
+  "OpenAI 抽取",
+  "DeepSeek 总结",
+  "本地兜底",
+  "Go/No-Go",
+  "summaryCoversFunction",
+  "requiredFeaturesPass",
+  "topSellingPointsPass",
+]) {
+  assertIncludes(evalCalibrationPackGenerator, topic, "eval calibration pack generator");
 }
 
 for (const topic of [
@@ -833,6 +851,7 @@ for (const topic of [
   "浏览器冒烟摘要",
   "响应式视口摘要",
   "正式功能使用启动清单",
+  "真实样例校准任务包",
   "node scripts/verify-release.mjs",
   "Go/No-Go",
 ]) {
@@ -868,6 +887,7 @@ for (const topic of [
   "scripts/verify-api-migration-map.mjs",
   "scripts/generate-migration-reconciliation.mjs",
   "scripts/generate-model-eval-report.mjs",
+  "scripts/generate-eval-calibration-pack.mjs",
   "scripts/generate-test-report.mjs",
   "scripts/generate-smoke-checklist.mjs",
   "scripts/generate-formal-use-pack.mjs",
