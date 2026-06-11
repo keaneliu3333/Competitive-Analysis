@@ -78,17 +78,17 @@ const usage = await requestJson(server, "/api/usage");
 assert(Array.isArray(usage.recent), "/api/usage must return recent array");
 
 const html = await requestText(server, "/");
-for (const token of ["清洁电器竞品分析工作台", "formalReadiness", "exportFormalChecklist", "exportHandoffReport", "sourceImage", "comparePicker", "roadmapBoard"]) {
+for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
   assert(html.includes(token), `index page missing ${token}`);
 }
 
 const script = await requestText(server, "/script.js");
-for (const token of ["renderFormalReadiness", "handoffReportMarkdown", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
+for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
   assert(script.includes(token), `script.js missing ${token}`);
 }
 
 const styles = await requestText(server, "/styles.css");
-for (const token of [".formal-checklist", ".roadmap-board", ".comparison-summary"]) {
+for (const token of [".filter-summary", ".compare-status", ".compare-option input", ".roadmap-chart", ".roadmap-axis-tick", ".comparison-summary"]) {
   assert(styles.includes(token), `styles.css missing ${token}`);
 }
 

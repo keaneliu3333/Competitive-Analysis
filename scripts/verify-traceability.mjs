@@ -56,7 +56,7 @@ for (const token of [
   "sourceImage",
   "comparePicker",
   "roadmapBoard",
-  "exportHandoffReport",
+  "exportDataPackage",
 ]) {
   assertIncludes(index, token, "index.html traceability target");
 }
@@ -68,7 +68,7 @@ for (const token of [
   "mergeCustomFeatures",
   "normalizeComparisonSummary",
   "brandRoadmapReportHtml",
-  "handoffReportMarkdown",
+  "dataPackagePayload",
 ]) {
   assertIncludes(script, token, "script.js traceability target");
 }
@@ -85,7 +85,7 @@ for (const token of [
   assertIncludes(server, token, "server.mjs traceability target");
 }
 
-for (const token of ["AI fallback APIs", "customFeatures", "exportHandoffReport"]) {
+for (const token of ["AI fallback APIs", "customFeatures", "exportDataPackage"]) {
   assertIncludes(runtimeVerifier, token, "runtime verifier traceability");
 }
 

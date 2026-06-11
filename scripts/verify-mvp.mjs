@@ -100,7 +100,6 @@ for (const topic of [
   "500 字以内",
   "使用感受",
   "各品牌 PDF",
-  "正式使用状态",
   "数据质量检查",
   "读写访问令牌",
   "部署和运维交接",
@@ -121,10 +120,14 @@ for (const id of [
   "minPrice",
   "maxPrice",
   "featureFilterField",
+  "filterSummary",
   "sourceUrl",
   "sourceImage",
   "runAnalysis",
   "comparePicker",
+  "compareStatus",
+  "compareFilteredProducts",
+  "compareSimilarProducts",
   "compareFieldPicker",
   "generateSummary",
   "exportCompare",
@@ -136,17 +139,22 @@ for (const id of [
   "exportDataPackage",
   "downloadCsvTemplate",
   "exportQualityCsv",
-  "formalReadiness",
-  "exportFormalChecklist",
-  "exportHandoffReport",
 ]) {
   assertIncludes(files.index, `id="${id}"`, "index.html MVP control");
 }
 
 for (const fn of [
   "productSearchText",
+  "productSearchFingerprint",
   "featureFilterMatches",
   "getVisibleProducts",
+  "updateFilterSoon",
+  "filterSummaryItems",
+  "renderFilterSummary",
+  "renderCompareStatus",
+  "setCompareProducts",
+  "compareFilteredProducts",
+  "compareSimilarProducts",
   "addField",
   "filesToAnalysisAttachments",
   "sliceLongImageAttachment",
@@ -161,11 +169,9 @@ for (const fn of [
   "exportDataPackage",
   "importDataPackage",
   "exportQualityCsv",
-  "formalChecklistItems",
-  "renderFormalReadiness",
-  "exportFormalChecklistCsv",
-  "handoffReportMarkdown",
-  "exportHandoffReport",
+  "scrollToWorkspace",
+  "renderRoadmapTimeline",
+  "renderRoadmapBrandCompare",
 ]) {
   assertIncludes(files.script, `function ${fn}`, "script.js MVP function");
 }

@@ -42,7 +42,7 @@
 5. 路线图：按品牌、品类、状态和季度筛选，导出路线图 Excel、SVG 和各品牌分页 PDF。
 6. 数据包：导出完整 JSON 数据包，再导入同一数据包，确认导入前备份、审计日志和保存视图存在。
 7. 用量与审计：导出 AI 用量 CSV 和审计 CSV，确认 provider、model、status、usage、estimatedCostUsd 和关键操作可追溯。
-8. 正式导出命名：导出正式清单 CSV 和 Markdown 正式交接包，确认文件名包含 `formal-readiness` 和 `formal-handoff`。
+8. 数据包与审计导出：导出完整 JSON 数据包、AI 用量 CSV 和审计 CSV，确认数据可备份、可恢复、可追溯。
 9. 正式功能使用反馈：在 `reports/formal-use-pack-*.md` 的反馈记录区填写至少 1 条问题或改进建议，并给出 Go/No-Go 建议。
 
 ## 反馈模板

@@ -114,6 +114,13 @@
           <div>
             <p class="eyebrow">Internal research tool</p>
             <h2>产品库、AI 解析、型号对比与品牌路线图</h2>
+            <nav class="workspace-nav" aria-label="工作区跳转">
+              <button class="nav-chip" type="button" data-scroll-target="productsWorkspace">产品库</button>
+              <button class="nav-chip" type="button" data-scroll-target="importPanel">AI 解析</button>
+              <button class="nav-chip" type="button" data-scroll-target="compareWorkspace">型号对比</button>
+              <button class="nav-chip" type="button" data-scroll-target="roadmapPanel">品牌路线图</button>
+              <button class="nav-chip" type="button" data-scroll-target="qualityTitle">数据质量</button>
+            </nav>
           </div>
           <div class="topbar-actions">
             <button class="secondary-button" type="button" id="exportExcel">
@@ -160,24 +167,6 @@
         </section>
 
         <section class="ops-grid" aria-label="运营状态">
-          <section class="panel formal-panel" aria-labelledby="formalTitle">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Formal readiness</p>
-                <h2 id="formalTitle">正式使用状态</h2>
-              </div>
-              <div class="panel-actions">
-                <button class="secondary-button" type="button" id="exportFormalChecklist">
-                  导出正式清单
-                </button>
-                <button class="secondary-button" type="button" id="exportHandoffReport">
-                  导出正式交接包
-                </button>
-              </div>
-            </div>
-            <div id="formalReadiness" class="formal-readiness"></div>
-          </section>
-
           <section class="panel quality-panel" aria-labelledby="qualityTitle">
             <div class="panel-header">
               <div>
@@ -327,7 +316,7 @@
           </div>
         </section>
 
-        <section class="workspace-grid">
+        <section class="workspace-grid" id="productsWorkspace">
           <section class="panel products-panel" aria-labelledby="productsTitle">
             <div class="panel-header">
               <div>
@@ -341,6 +330,7 @@
                 <div class="popover" id="columnsPopover"></div>
               </div>
             </div>
+            <div id="filterSummary" class="filter-summary"></div>
             <div class="table-wrap product-table-wrap">
               <table class="product-table">
                 <thead>
@@ -364,7 +354,7 @@
           </aside>
         </section>
 
-        <section class="workspace-grid">
+        <section class="workspace-grid" id="compareWorkspace">
           <section class="panel compare-panel" aria-labelledby="compareTitle">
             <div class="panel-header">
               <div>
@@ -372,6 +362,12 @@
                 <h2 id="compareTitle">型号对比</h2>
               </div>
               <div class="panel-actions">
+                <button class="secondary-button" type="button" id="compareFilteredProducts">
+                  使用当前筛选结果
+                </button>
+                <button class="secondary-button" type="button" id="compareSimilarProducts">
+                  同品类相近价位
+                </button>
                 <button class="secondary-button" type="button" id="exportCompare">
                   导出对比表
                 </button>
@@ -380,6 +376,7 @@
                 </button>
               </div>
             </div>
+            <div id="compareStatus" class="compare-status"></div>
             <div id="comparePicker" class="compare-picker"></div>
             <div class="compare-field-panel" aria-label="对比字段选择">
               <div class="compare-field-header">
@@ -398,21 +395,6 @@
             <div class="comparison-summary" id="comparisonSummary">
               选择 2-5 个型号后生成竞争对标总结。
             </div>
-            <details class="comparison-history-panel">
-              <summary>
-                <span class="history-summary-copy">
-                  <span class="history-kicker">复盘与导出</span>
-                  <strong>对比总结历史</strong>
-                  <span>默认收起，保留历史记录用于复盘和 CSV 导出。</span>
-                </span>
-              </summary>
-              <div class="history-actions">
-                <button class="secondary-button" type="button" id="exportComparisonHistory">
-                  导出总结记录
-                </button>
-              </div>
-              <div id="comparisonHistory" class="comparison-history"></div>
-            </details>
             <div class="table-wrap compact">
               <table>
                 <thead id="compareHead"></thead>
@@ -448,7 +430,7 @@
           </section>
         </section>
 
-        <section class="panel roadmap-panel" aria-labelledby="roadmapTitle">
+        <section class="panel roadmap-panel" id="roadmapPanel" aria-labelledby="roadmapTitle">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Brand roadmap</p>
@@ -459,6 +441,10 @@
                 品牌
                 <select id="roadmapBrandFilter"></select>
               </label>
+              <div class="segmented-control" role="group" aria-label="路线图模式">
+                <button class="segment-button" type="button" data-roadmap-mode="single">单品牌时间</button>
+                <button class="segment-button" type="button" data-roadmap-mode="compare">品牌对比</button>
+              </div>
               <label class="inline-control">
                 品类
                 <select id="roadmapCategoryFilter"></select>

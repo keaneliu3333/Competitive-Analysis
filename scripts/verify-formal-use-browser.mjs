@@ -341,8 +341,18 @@ async function main() {
     await page.locator("#roadmapCategoryFilter").selectOption(roadmapProduct.category);
     await page.locator("#roadmapStatusFilter").selectOption(roadmapProduct.status);
     if (roadmapProduct.quarter) await page.locator("#roadmapQuarterFilter").selectOption(roadmapProduct.quarter);
+    await page.locator("#roadmapBrandFilter").selectOption("全部");
+    assert((await page.locator("#roadmapBrandFilter").evaluate((select) => select.value)) === "全部", "路线图品牌筛选不能选择全部");
+    await page.locator("#roadmapBrandFilter").selectOption(roadmapProduct.brand);
+    assert((await page.locator("[data-roadmap-mode=\"single\"]").count()) === 1, "缺少单品牌路线图模式");
+    assert((await page.locator("[data-roadmap-mode=\"compare\"]").count()) === 1, "缺少品牌对比路线图模式");
     const roadmapText = await page.locator("#roadmapBoard").innerText();
-    assert(roadmapText.includes("¥") && roadmapText.includes("来源"), "路线图卡片缺少价格或来源");
+    assert(roadmapText.includes("¥") && (roadmapProduct.sellingPoints || []).some((point) => roadmapText.includes(point.title)), "路线图卡片缺少价格或 Top3 卖点");
+    assert((await page.locator(".roadmap-axis").count()) === 1, "路线图缺少价格轴");
+    assert((await page.locator(".roadmap-axis-tick").count()) >= 2, "路线图缺少 500/1000 价格档位刻度");
+    await page.locator("[data-roadmap-mode=\"compare\"]").click();
+    assert((await page.locator(".roadmap-lane").count()) >= 1, "品牌对比路线图缺少品牌列");
+    await page.locator("[data-roadmap-mode=\"single\"]").click();
     await expectDownload(page, () => page.locator("#exportRoadmap").click(), "路线图 Excel");
     await expectDownload(page, () => page.locator("#exportRoadmapSvg").click(), "路线图 SVG");
     const popupPromise = page.waitForEvent("popup", { timeout: 10000 });
@@ -359,8 +369,6 @@ async function main() {
     await expectDownload(page, () => page.locator("#exportQualityCsv").click(), "质量问题 CSV");
     await expectDownload(page, () => page.locator("#exportAuditCsv").click(), "审计 CSV");
     await expectDownload(page, () => page.locator("#exportUsageCsv").click(), "用量 CSV");
-    await expectDownload(page, () => page.locator("#exportFormalChecklist").click(), "正式清单 CSV", "formal-readiness");
-    await expectDownload(page, () => page.locator("#exportHandoffReport").click(), "Markdown 正式交接包", "formal-handoff");
     const exportForImport = await expectDownload(page, () => page.locator("#exportDataPackage").click(), "导入用数据包");
     writeFileSync(dataPackageImportPath, readFileSync(exportForImport.path));
     const backupDownloadPromise = page.waitForEvent("download", { timeout: 10000 });

@@ -332,10 +332,12 @@ const defaultState = {
   compareFieldKeys: [],
   comparisonRuns: [],
   editingProductId: "",
+  qualitySeverity: "high",
   roadmapBrand: "全部",
   roadmapCategory: "全部",
   roadmapStatus: "全部",
   roadmapQuarter: "全部",
+  roadmapMode: "single",
 };
 
 const columns = [
@@ -358,6 +360,8 @@ let state = loadState();
 let savedViews = loadSavedViews();
 let selectedSavedViewIndex = "";
 let persistTimer = 0;
+let filterRenderTimer = 0;
+const searchTextCache = new WeakMap();
 let sourceMetadata = null;
 let usageState = { count: 0, recent: [], estimatedTotalCostUsd: null, costPricingConfigured: false, loaded: false, error: "" };
 let healthState = {
@@ -431,20 +435,22 @@ const els = {
   featureFilterValue: document.querySelector("#featureFilterValue"),
   productTableHead: document.querySelector("#productTableHead"),
   productTableBody: document.querySelector("#productTableBody"),
+  filterSummary: document.querySelector("#filterSummary"),
   productDetail: document.querySelector("#productDetail"),
   metricProducts: document.querySelector("#metricProducts"),
   metricAvgPrice: document.querySelector("#metricAvgPrice"),
   metricReview: document.querySelector("#metricReview"),
   metricBrands: document.querySelector("#metricBrands"),
-  formalReadiness: document.querySelector("#formalReadiness"),
   qualityPanel: document.querySelector("#qualityPanel"),
   systemStatus: document.querySelector("#systemStatus"),
   reviewQueue: document.querySelector("#reviewQueue"),
   columnsPopover: document.querySelector("#columnsPopover"),
   comparePicker: document.querySelector("#comparePicker"),
+  compareStatus: document.querySelector("#compareStatus"),
   compareFieldPicker: document.querySelector("#compareFieldPicker"),
   comparisonSummary: document.querySelector("#comparisonSummary"),
-  comparisonHistory: document.querySelector("#comparisonHistory"),
+  generateSummary: document.querySelector("#generateSummary"),
+  exportCompare: document.querySelector("#exportCompare"),
   compareHead: document.querySelector("#compareHead"),
   compareBody: document.querySelector("#compareBody"),
   moduleList: document.querySelector("#moduleList"),
@@ -672,6 +678,12 @@ function queuePersist() {
       // Keep the UI usable when the local server is not available.
     }
   }, 350);
+}
+
+function updateFilterSoon(key, value) {
+  state.filters[key] = value;
+  window.clearTimeout(filterRenderTimer);
+  filterRenderTimer = window.setTimeout(renderAll, 220);
 }
 
 function unique(values) {
@@ -966,26 +978,6 @@ function exportUsageCsv() {
   download(`ai-usage-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
 }
 
-function exportComparisonHistory() {
-  const records = state.comparisonRuns || [];
-  if (!records.length) {
-    window.alert("暂无可导出的对比总结记录。");
-    return;
-  }
-  const headers = ["createdAt", "source", "models", "fields", "summary", "model", "usage"];
-  const rows = records.map((record) => [
-    record.createdAt || "",
-    record.source || "",
-    (record.productModels || []).join(" vs "),
-    (record.fieldLabels || []).join("；"),
-    record.summary || "",
-    record.model || "",
-    record.usage ? JSON.stringify(record.usage) : "",
-  ]);
-  const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-  download(`comparison-summaries-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
-}
-
 function auditRecords(limit = 80) {
   return state.products
     .flatMap((product) =>
@@ -1264,7 +1256,7 @@ function renderSourceMetadataEvidence(product) {
 function renderProductCell(product) {
   return `
     <div class="product-cell">
-      <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
+      <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" loading="lazy" />
       <div>
         <p class="product-name">${escapeHtml(product.name)}</p>
         <p class="product-meta">${escapeHtml(product.model)}</p>
@@ -1319,7 +1311,30 @@ function featureFilterMatches(product) {
   return normalized.includes(expected);
 }
 
+function productSearchFingerprint(product) {
+  const metadata = product.sourceMetadata || {};
+  return JSON.stringify([
+    product.brand,
+    product.name,
+    product.model,
+    product.category,
+    product.channel,
+    product.status,
+    product.quarter,
+    product.sourceUrl,
+    product.features || {},
+    product.sellingPoints || [],
+    metadata.title,
+    metadata.description,
+    metadata.textSnippets || [],
+    metadata.priceCandidates || [],
+  ]);
+}
+
 function productSearchText(product) {
+  const fingerprint = productSearchFingerprint(product);
+  const cached = searchTextCache.get(product);
+  if (cached?.fingerprint === fingerprint) return cached.text;
   const featureText = Object.entries(product.features || {})
     .map(([key, value]) => `${key} ${formatBool(value)}`)
     .join(" ");
@@ -1332,7 +1347,7 @@ function productSearchText(product) {
     ...(metadata.textSnippets || []),
     ...(metadata.priceCandidates || []).map((item) => `${item.price || ""} ${item.source || ""}`),
   ].join(" ");
-  return [
+  const text = [
     product.brand,
     product.name,
     product.model,
@@ -1346,6 +1361,8 @@ function productSearchText(product) {
   ]
     .join(" ")
     .toLowerCase();
+  searchTextCache.set(product, { fingerprint, text });
+  return text;
 }
 
 function keywordMatches(product) {
@@ -1504,184 +1521,31 @@ function renderMetrics(products) {
   els.metricBrands.textContent = unique(products.map((p) => p.brand)).length;
 }
 
-function formalChecklistItems() {
-  const categories = new Set(state.products.map((product) => product.category));
-  const hasAllCategories = ["扫地机", "洗地机", "吸尘器"].every((category) => categories.has(category));
-  const hasFeatureFields = allFields().length >= 8;
-  const hasConfirmedProduct = state.products.some((product) => !product.reviewRequired && Number(product.confidence || 0) >= 80);
-  const hasAnalysisHistory = state.products.some((product) => product.analysisRuns?.length);
-  const hasEvidence = state.products.some((product) => product.sourceUrl || product.sourceMetadata?.title || product.sourceMetadata?.textSnippets?.length);
-  const hasComparison = selectedCompareProducts().length >= 2 && compareFields().length > 4;
-  const hasRoadmap = getRoadmapProducts().length > 0;
-  const hasExports = Boolean(document.querySelector("#exportExcel") && document.querySelector("#exportCompare") && document.querySelector("#exportRoadmap") && document.querySelector("#printAllBrandRoadmaps"));
-  const hasAudit = state.products.some((product) => product.auditLog?.length);
-  const qualityIssues = productQualityIssues();
-
-  return [
-    {
-      area: "产品库",
-      ready: state.products.length >= 6 && hasAllCategories,
-      evidence: `${state.products.length} 个产品，覆盖 ${Array.from(categories).join("、") || "无"}`,
-      next: hasAllCategories ? "继续补充真实竞品样例" : "补齐扫地机、洗地机、吸尘器三类样例",
-    },
-    {
-      area: "筛选与自定义字段",
-      ready: hasFeatureFields,
-      evidence: `${allFields().length} 个功能字段，支持关键词、价格段和参数筛选`,
-      next: hasFeatureFields ? "按业务口径增删字段" : "补充更多功能字段和枚举选项",
-    },
-    {
-      area: "AI 详情页分析",
-      ready: hasAnalysisHistory && hasEvidence,
-      evidence: `${hasAnalysisHistory ? "已有分析记录" : "暂无分析记录"}，${hasEvidence ? "已有来源证据" : "暂无来源证据"}`,
-      next: hasAnalysisHistory && hasEvidence ? "用真实详情页校准抽取质量" : "导入 URL、长图或 PDF 形成证据样例",
-    },
-    {
-      area: "人工复核",
-      ready: hasConfirmedProduct,
-      evidence: `${state.products.filter((product) => product.reviewRequired).length} 个待确认，${state.products.filter((product) => !product.reviewRequired).length} 个已确认`,
-      next: hasConfirmedProduct ? "持续处理低置信字段" : "至少确认一个高置信产品",
-    },
-    {
-      area: "型号对比",
-      ready: hasComparison,
-      evidence: `${selectedCompareProducts().length} 个已选型号，${compareFields().length} 个对比字段，500 字以内总结已配置`,
-      next: hasComparison ? "用真实竞品生成总结并复核" : "选择 2-5 个型号并配置对比字段",
-    },
-    {
-      area: "品牌路线图",
-      ready: hasRoadmap,
-      evidence: `${getRoadmapProducts().length} 个路线图产品，支持品牌/品类/状态/季度筛选`,
-      next: hasRoadmap ? "补齐季度和状态口径" : "给产品填写路线图季度",
-    },
-    {
-      area: "导出交接",
-      ready: hasExports,
-      evidence: "产品库、对比表、路线图、各品牌 PDF、数据包、审计和用量均有导出入口",
-      next: hasExports ? "交付前人工检查导出文件版式" : "补齐缺失导出入口",
-    },
-    {
-      area: "质量与审计",
-      ready: hasAudit && qualityIssues.length < state.products.length * 2,
-      evidence: `${qualityIssues.length} 个质量问题，${hasAudit ? "已有审计记录" : "暂无审计记录"}`,
-      next: hasAudit ? "导出质量问题并逐项处理" : "通过编辑、导入或确认产生审计记录",
-    },
-  ];
+function filterSummaryItems(products) {
+  const filters = state.filters;
+  const items = [];
+  if (filters.keyword) items.push(`关键词：${filters.keyword}`);
+  if (filters.categories.length) items.push(`品类：${filters.categories.join("、")}`);
+  if (filters.minPrice !== "" || filters.maxPrice !== "") {
+    items.push(`价格：${filters.minPrice || "不限"}-${filters.maxPrice || "不限"}`);
+  }
+  if (filters.brand !== "全部") items.push(`品牌：${filters.brand}`);
+  if (filters.channel !== "全部") items.push(`渠道：${filters.channel}`);
+  if (filters.status !== "全部") items.push(`状态：${filters.status}`);
+  if (Number(filters.confidence) > 0) items.push(`置信度：${filters.confidence}% 以上`);
+  if (filters.featureField && filters.featureField !== "全部") {
+    const field = allFields().find((item) => item.key === filters.featureField);
+    const value = filters.featureValue ? ` ${filters.featureValue}` : "";
+    items.push(`功能：${field ? `${field.module} · ${field.name}` : filters.featureField}${value}`);
+  }
+  return [`结果：${products.length}/${state.products.length} 个产品`, ...(items.length ? items : ["未设置筛选条件"])];
 }
 
-function renderFormalReadiness() {
-  const items = formalChecklistItems();
-  const readyCount = items.filter((item) => item.ready).length;
-  const percent = Math.round((readyCount / items.length) * 100);
-  els.formalReadiness.innerHTML = `
-    <div class="formal-summary">
-      <span class="status-badge ${percent >= 80 ? "is-ok" : "is-warning"}">正式使用就绪度 ${percent}%</span>
-      <span class="status-badge">通过 ${readyCount}/${items.length}</span>
-      <span class="status-badge">运行 node scripts/verify-release.mjs 做发布验收</span>
-    </div>
-    <div class="formal-checklist">
-      ${items
-        .map(
-          (item) => `
-        <article class="formal-check-item ${item.ready ? "is-ready" : "is-gap"}">
-          <strong>${item.ready ? "通过" : "待补"} · ${escapeHtml(item.area)}</strong>
-          <p>${escapeHtml(item.evidence)}</p>
-          <small>${escapeHtml(item.next)}</small>
-        </article>
-      `,
-        )
-        .join("")}
-    </div>
-  `;
-}
-
-function exportFormalChecklistCsv() {
-  const headers = ["area", "ready", "evidence", "next"];
-  const rows = formalChecklistItems().map((item) => [item.area, item.ready ? "yes" : "no", item.evidence, item.next]);
-  const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-  download(`formal-readiness-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${csv}`, "text/csv;charset=utf-8");
-}
-
-function markdownLine(value) {
-  return String(value ?? "").replace(/\r?\n/g, " ").trim() || "-";
-}
-
-function handoffReportMarkdown() {
-  const categories = unique(state.products.map((product) => product.category));
-  const brands = unique(state.products.map((product) => product.brand));
-  const reviewProducts = getReviewProducts();
-  const qualityIssues = productQualityIssues();
-  const readyItems = formalChecklistItems();
-  const readyCount = readyItems.filter((item) => item.ready).length;
-  const generatedAt = new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date());
-  const topQualityIssues = qualityIssues.slice(0, 8);
-  const roadmapProducts = getRoadmapProducts();
-  const lines = [
-    "# 清洁电器竞品分析正式使用交接包",
-    "",
-    `生成时间：${generatedAt}`,
-    "",
-    "## 当前状态",
-    "",
-    `- 正式使用就绪度：${Math.round((readyCount / readyItems.length) * 100)}% (${readyCount}/${readyItems.length})`,
-    `- 产品数：${state.products.length}`,
-    `- 覆盖品牌：${brands.length} (${markdownLine(brands.join("、"))})`,
-    `- 覆盖品类：${categories.length} (${markdownLine(categories.join("、"))})`,
-    `- 自定义字段：${allFields().length}`,
-    `- 待人工确认：${reviewProducts.length}`,
-    `- 数据质量问题：${qualityIssues.length}`,
-    `- 当前路线图产品：${roadmapProducts.length}`,
-    "",
-    "## 正式使用验收清单",
-    "",
-    "| 模块 | 状态 | 证据 | 下一步 |",
-    "| --- | --- | --- | --- |",
-    ...readyItems.map((item) => `| ${markdownLine(item.area)} | ${item.ready ? "通过" : "待补"} | ${markdownLine(item.evidence)} | ${markdownLine(item.next)} |`),
-    "",
-    "## 质量风险 Top 8",
-    "",
-    ...(topQualityIssues.length
-      ? topQualityIssues.map((issue, index) => `${index + 1}. [${issue.severity}] ${markdownLine(issue.type)} - ${markdownLine(issue.product.brand)} ${markdownLine(issue.product.model)}：${markdownLine(issue.detail)}`)
-      : ["- 当前没有明显数据质量问题。"]),
-    "",
-    "## 交付命令",
-    "",
-    "```bash",
-    "node scripts/verify-release.mjs",
-    "node scripts/verify-formal-use.mjs",
-    "node scripts/verify-mvp.mjs",
-    "node scripts/verify-runtime.mjs",
-    "node scripts/verify-workbench.mjs",
-    "```",
-    "",
-    "## 导出物建议",
-    "",
-    "- 产品库 Excel：导出当前筛选结果、来源证据和所有自定义字段。",
-    "- 对比表 Excel：导出已选型号、500 字以内总结、Top3 卖点和参数矩阵。",
-    "- 品牌路线图：导出 Excel、SVG、当前视图 PDF 和各品牌分页 PDF。",
-    "- 数据包 JSON：交接前导出完整产品库、模块配置、分析记录、审计记录和保存视图。",
-    "",
-    "## 下一阶段建议",
-    "",
-    "- 用批准使用的真实官网、电商详情页、长图和 PDF 替换离线 eval 占位样例。",
-    "- 将 LocalStorage 与 JSON 文件迁移到 PostgreSQL + Prisma。",
-    "- 用 Playwright + BullMQ/Redis 做异步详情页截图和解析队列。",
-    "- 将访问令牌升级为组织账号、角色权限和审计后台。",
-    "- 按真实 token 单价配置成本估算，并建立批量导入前后的数据备份流程。",
-    "",
-  ];
-  return lines.join("\n");
-}
-
-function exportHandoffReport() {
-  download(
-    `formal-handoff-${new Date().toISOString().slice(0, 10)}.md`,
-    handoffReportMarkdown(),
-    "text/markdown;charset=utf-8",
-  );
+function renderFilterSummary(products) {
+  if (!els.filterSummary) return;
+  els.filterSummary.innerHTML = filterSummaryItems(products)
+    .map((item, index) => `<span class="${index === 0 ? "is-primary" : ""}">${escapeHtml(item)}</span>`)
+    .join("");
 }
 
 function duplicateProductGroups() {
@@ -1745,15 +1609,32 @@ function renderQualityPanel() {
     medium: issues.filter((issue) => issue.severity === "medium").length,
     low: issues.filter((issue) => issue.severity === "low").length,
   };
+  const severityLabels = {
+    high: "高优先级",
+    medium: "中优先级",
+    low: "低优先级",
+  };
+  const availableSeverities = ["high", "medium", "low"].filter((severity) => counts[severity] > 0);
+  if (!availableSeverities.includes(state.qualitySeverity)) {
+    state.qualitySeverity = availableSeverities[0] || "high";
+  }
+  const selectedIssues = issues.filter((issue) => issue.severity === state.qualitySeverity);
+  const visibleIssues = selectedIssues.slice(0, 4);
   els.qualityPanel.innerHTML = `
     <div class="quality-summary">
-      <span class="status-badge is-warning">高优先级 ${counts.high}</span>
-      <span class="status-badge">中优先级 ${counts.medium}</span>
-      <span class="status-badge">低优先级 ${counts.low}</span>
+      ${["high", "medium", "low"]
+        .map(
+          (severity) => `
+        <button class="quality-priority ${state.qualitySeverity === severity ? "is-active" : ""}" type="button" data-quality-severity="${severity}">
+          ${severityLabels[severity]} ${counts[severity]}
+        </button>
+      `,
+        )
+        .join("")}
     </div>
+    <p class="quality-focus-note">${severityLabels[state.qualitySeverity]}处理 · 显示 ${visibleIssues.length}/${selectedIssues.length}</p>
     <div class="quality-list">
-      ${issues
-        .slice(0, 8)
+      ${visibleIssues
         .map(
           (issue) => `
         <article class="quality-item is-${escapeHtml(issue.severity)}">
@@ -2037,6 +1918,39 @@ function compareFields() {
   return allCompareFields().filter((field) => selectedKeys.has(field.key));
 }
 
+function renderCompareStatus(selected, fields) {
+  if (!els.compareStatus) return;
+  const selectedCount = selected.length;
+  const ready = selectedCount >= 2;
+  if (els.generateSummary) els.generateSummary.disabled = !ready;
+  if (els.exportCompare) els.exportCompare.disabled = !ready;
+  const categories = unique(selected.map((product) => product.category));
+  const categoryHint = selectedCount < 2
+    ? "建议选择同品类、相近价格带的 2-5 个型号，结论更容易复核。"
+    : categories.length > 1
+      ? `当前跨品类对比：${categories.join("、")}。建议只做粗略参考。`
+      : `当前同品类对比：${categories[0]}。`;
+  const message = ready
+    ? `可以生成总结 · 已选 ${selectedCount}/5 个型号 · 已选 ${fields.length} 个字段`
+    : `还需选择 ${2 - selectedCount} 个型号 · 已选 ${selectedCount}/5 个型号 · 已选 ${fields.length} 个字段`;
+  els.compareStatus.innerHTML = `
+    <span class="status-badge ${ready ? "is-ok" : "is-warning"}">${escapeHtml(message)}</span>
+    <span class="small-muted">${escapeHtml(categoryHint)}</span>
+  `;
+}
+
+function setCompareProducts(products, emptyMessage) {
+  const nextProducts = products.slice(0, 5);
+  if (nextProducts.length < 2) {
+    window.alert(emptyMessage);
+    return false;
+  }
+  state.compareIds = nextProducts.map((product) => product.id);
+  renderAll();
+  scrollToWorkspace("compareWorkspace");
+  return true;
+}
+
 function renderCompare() {
   const products = state.products;
   els.comparePicker.innerHTML = products
@@ -2065,6 +1979,7 @@ function renderCompare() {
 
   const selected = selectedCompareProducts();
   const fields = compareFields();
+  renderCompareStatus(selected, fields);
 
   els.compareHead.innerHTML = `<tr><th>模块</th><th>字段</th>${selected
     .map((product) => `<th>${escapeHtml(product.model)}</th>`)
@@ -2081,6 +1996,34 @@ function renderCompare() {
       </tr>`;
     })
     .join("");
+}
+
+function compareFilteredProducts() {
+  setCompareProducts(
+    getVisibleProducts(),
+    "当前筛选结果少于 2 个产品。请先放宽筛选条件，再生成对比选择。",
+  );
+}
+
+function compareSimilarProducts() {
+  const reference =
+    state.products.find((product) => product.id === state.selectedProductId) ||
+    selectedCompareProducts()[0] ||
+    getVisibleProducts()[0];
+  if (!reference) {
+    window.alert("当前没有可用于对比的产品。请先添加或筛选产品。");
+    return;
+  }
+  const products = state.products
+    .filter((product) => product.category === reference.category)
+    .sort((a, b) => {
+      const priceDiff = Math.abs(Number(a.price || 0) - Number(reference.price || 0)) - Math.abs(Number(b.price || 0) - Number(reference.price || 0));
+      return priceDiff || String(a.model || "").localeCompare(String(b.model || ""), "zh-CN", { numeric: true, sensitivity: "base" });
+    })
+  setCompareProducts(
+    products,
+    `当前只有 ${products.length} 个 ${reference.category} 产品，暂时无法生成同品类对比。`,
+  );
 }
 
 function renderModules() {
@@ -2235,58 +2178,147 @@ function renderRoadmapBrandFilter() {
   state.roadmapCategory = renderRoadmapSelect(els.roadmapCategoryFilter, state.products.map((product) => product.category), state.roadmapCategory);
   state.roadmapStatus = renderRoadmapSelect(els.roadmapStatusFilter, state.products.map((product) => product.status), state.roadmapStatus);
   state.roadmapQuarter = renderRoadmapSelect(els.roadmapQuarterFilter, state.products.map((product) => product.quarter || "未规划"), state.roadmapQuarter);
+  document.querySelectorAll("[data-roadmap-mode]").forEach((button) => {
+    const active = button.dataset.roadmapMode === (state.roadmapMode || "single");
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function roadmapLaneOffset(product, index) {
+  const basis = Number(product.price || 0) + index * 137;
+  return ((basis % 3) - 1) * 12;
+}
+
+function roadmapPriceScale(products) {
+  const prices = products.map((product) => Number(product.price || 0)).filter(Number.isFinite);
+  const rawMin = Math.min(...prices);
+  const rawMax = Math.max(...prices);
+  const safeMin = Number.isFinite(rawMin) ? rawMin : 0;
+  const safeMax = Number.isFinite(rawMax) ? rawMax : 0;
+  const range = Math.max(safeMax - safeMin, 1);
+  const step = range <= 3500 ? 500 : 1000;
+  const min = Math.max(0, Math.floor(safeMin / step) * step);
+  const max = Math.ceil(safeMax / step) * step || step;
+  const ticks = [];
+  for (let value = max; value >= min; value -= step) {
+    ticks.push(value);
+  }
+  return {
+    min,
+    max,
+    step,
+    ticks: ticks.length ? ticks : [max, min],
+  };
+}
+
+function roadmapCard(product, priceScale, index) {
+  const range = Math.max(priceScale.max - priceScale.min, 1);
+  const normalized = (priceScale.max - Number(product.price || 0)) / range;
+  const y = Math.max(8, Math.min(78, 8 + normalized * 70));
+  const x = roadmapLaneOffset(product, index);
+  return `
+    <article class="roadmap-card" style="--roadmap-y: ${y}%; --roadmap-x: ${x}px">
+      <div>
+        <h4>${escapeHtml(product.name || product.model)}</h4>
+        <p class="roadmap-price">${formatCurrency(product.price)}</p>
+        <ul>
+          ${(product.sellingPoints || [])
+            .slice(0, 3)
+            .map((point) => `<li>${escapeHtml(point.title)}</li>`)
+            .join("")}
+        </ul>
+      </div>
+    </article>
+  `;
+}
+
+function roadmapAxis(priceScale) {
+  const range = Math.max(priceScale.max - priceScale.min, 1);
+  return priceScale.ticks
+    .map((tick) => {
+      const y = Math.max(4, Math.min(92, 8 + ((priceScale.max - tick) / range) * 70));
+      return `<div class="roadmap-axis-tick" style="--tick-y: ${y}%"><span>${formatCurrency(tick)}</span></div>`;
+    })
+    .join("");
+}
+
+function renderRoadmapTimeline(products) {
+  const brandProducts = [...products].sort((a, b) => String(a.quarter || "未规划").localeCompare(String(b.quarter || "未规划"), "zh-CN") || Number(b.price || 0) - Number(a.price || 0));
+  const brands = unique(brandProducts.map((product) => product.brand));
+  const selectedBrand = state.roadmapBrand && (state.roadmapBrand === "全部" || brands.includes(state.roadmapBrand)) ? state.roadmapBrand : "全部";
+  const scopedProducts = selectedBrand === "全部" ? brandProducts : brandProducts.filter((product) => product.brand === selectedBrand);
+  const lanes = unique(scopedProducts.map((product) => product.quarter || "未规划"));
+  const priceScale = roadmapPriceScale(scopedProducts);
+  const chartHeight = Math.max(360, Math.min(620, priceScale.ticks.length * 54));
+  return `
+    <div class="roadmap-mode-note">单品牌时间 · ${escapeHtml(selectedBrand)} · 横轴为发布时间，纵轴按 ${priceScale.step} 元价格档位。</div>
+    <div class="roadmap-chart" style="--roadmap-lanes: ${Math.max(lanes.length, 1)}; --roadmap-height: ${chartHeight}px">
+      <div class="roadmap-axis" aria-hidden="true">${roadmapAxis(priceScale)}</div>
+      <div class="roadmap-lanes">
+        ${lanes
+          .map((quarter) => {
+            const laneProducts = scopedProducts.filter((product) => (product.quarter || "未规划") === quarter);
+            return `<section class="roadmap-lane">
+              <h3>${escapeHtml(quarter)}</h3>
+              ${laneProducts.map((product, index) => roadmapCard(product, priceScale, index)).join("")}
+            </section>`;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderRoadmapBrandCompare(products) {
+  const lanes = unique(products.map((product) => product.brand));
+  const priceScale = roadmapPriceScale(products);
+  const chartHeight = Math.max(360, Math.min(620, priceScale.ticks.length * 54));
+  return `
+    <div class="roadmap-mode-note">品牌对比 · 横轴为所选品牌，纵轴按 ${priceScale.step} 元价格档位。</div>
+    <div class="roadmap-chart" style="--roadmap-lanes: ${Math.max(lanes.length, 1)}; --roadmap-height: ${chartHeight}px">
+      <div class="roadmap-axis" aria-hidden="true">${roadmapAxis(priceScale)}</div>
+      <div class="roadmap-lanes">
+        ${lanes
+          .map((brand) => {
+            const laneProducts = products
+              .filter((product) => product.brand === brand)
+              .sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+            return `<section class="roadmap-lane">
+              <h3>${escapeHtml(brand)}</h3>
+              ${laneProducts.map((product, index) => roadmapCard(product, priceScale, index)).join("")}
+            </section>`;
+          })
+          .join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderRoadmap() {
   renderRoadmapBrandFilter();
   const roadmapProducts = getRoadmapProducts();
-  const quarters = unique(roadmapProducts.map((product) => product.quarter || "未规划"));
   if (!roadmapProducts.length) {
-    els.roadmapBoard.innerHTML = `<div class="review-empty">当前品牌没有路线图产品。</div>`;
+    els.roadmapBoard.innerHTML = `<div class="review-empty">当前条件下没有路线图产品。</div>`;
     return;
   }
-  els.roadmapBoard.innerHTML = quarters
-    .map((quarter) => {
-      const products = roadmapProducts.filter((product) => (product.quarter || "未规划") === quarter);
-      return `<section class="roadmap-column">
-        <h3>${escapeHtml(quarter)}</h3>
-        ${products
-          .map(
-            (product) => `
-          <article class="roadmap-card">
-            <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
-            <div>
-              <h4>${escapeHtml(product.brand)} ${escapeHtml(product.model)}</h4>
-              <p class="small-muted">${formatCurrency(product.price)} · ${escapeHtml(product.category)} · ${escapeHtml(product.status)}</p>
-              <p class="small-muted">来源：${escapeHtml(roadmapSourceLabel(product))}</p>
-              <ul>
-                ${(product.sellingPoints || [])
-                  .slice(0, 3)
-                  .map((point) => `<li>${escapeHtml(point.title)}</li>`)
-                  .join("")}
-              </ul>
-            </div>
-          </article>
-        `,
-          )
-          .join("")}
-      </section>`;
-    })
-    .join("");
+  const mode = state.roadmapMode || "single";
+  els.roadmapBoard.innerHTML = mode === "compare"
+    ? renderRoadmapBrandCompare(roadmapProducts)
+    : renderRoadmapTimeline(roadmapProducts);
 }
 
 function renderAll() {
   const filteredProducts = getVisibleProducts();
   renderFilters();
+  renderFilterSummary(filteredProducts);
   renderMetrics(filteredProducts);
-  renderFormalReadiness();
   renderQualityPanel();
   renderReviewQueue();
   renderProductTable(filteredProducts);
   renderColumnsPopover();
   renderDetail();
   renderCompare();
-  renderComparisonHistory();
   renderModules();
   renderRoadmap();
   renderAuditLog();
@@ -2338,6 +2370,12 @@ function focusReviewProduct(productId) {
   state.editingProductId = "";
   renderAll();
   document.querySelector(".detail-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function scrollToWorkspace(targetId) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function deleteProduct(productId) {
@@ -2395,11 +2433,13 @@ function createProduct() {
   state.selectedProductId = product.id;
   state.editingProductId = product.id;
   renderAll();
+  scrollToWorkspace("productsWorkspace");
 }
 
 function startEditProduct(productId) {
   state.editingProductId = productId;
   renderAll();
+  document.querySelector(".detail-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function cancelEditProduct() {
@@ -2487,6 +2527,7 @@ function workspaceViewPayload(name) {
     roadmapCategory: state.roadmapCategory || "全部",
     roadmapStatus: state.roadmapStatus || "全部",
     roadmapQuarter: state.roadmapQuarter || "全部",
+    roadmapMode: state.roadmapMode || "single",
     savedAt: nowIso(),
   };
 }
@@ -2525,6 +2566,9 @@ function applyWorkspaceView(view) {
   }
   if (view.roadmapQuarter) {
     state.roadmapQuarter = view.roadmapQuarter;
+  }
+  if (view.roadmapMode) {
+    state.roadmapMode = view.roadmapMode;
   }
 }
 
@@ -3056,28 +3100,6 @@ function addComparisonRun({ products, summary, source, analysisMeta = null }) {
     usage: analysisMeta?.usage || null,
   });
   state.comparisonRuns = state.comparisonRuns.slice(0, 30);
-}
-
-function renderComparisonHistory() {
-  if (!els.comparisonHistory) return;
-  const runs = (state.comparisonRuns || []).slice(0, 5);
-  if (!runs.length) {
-    els.comparisonHistory.innerHTML = `<div class="review-empty">暂无总结历史。</div>`;
-    return;
-  }
-  els.comparisonHistory.innerHTML = runs
-    .map(
-      (run) => `
-      <article class="comparison-history-item">
-        <div>
-          <strong>${escapeHtml((run.productModels || []).join(" vs ") || "未记录型号")}</strong>
-          <span>${formatDateTime(run.createdAt)} · ${escapeHtml(run.source || "-")} · 字段 ${Number(run.fieldKeys?.length || 0)}</span>
-        </div>
-        <p>${escapeHtml(run.summary || "")}</p>
-      </article>
-    `,
-    )
-    .join("");
 }
 
 async function generateSummary() {
@@ -3865,6 +3887,12 @@ async function importCsvProducts(file) {
 }
 
 function bindEvents() {
+  document.querySelector(".workspace-nav")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-scroll-target]");
+    if (!button) return;
+    scrollToWorkspace(button.dataset.scrollTarget);
+  });
+
   els.categoryFilters.addEventListener("click", (event) => {
     const button = event.target.closest("[data-category]");
     if (!button) return;
@@ -3879,10 +3907,10 @@ function bindEvents() {
   els.brandFilter.addEventListener("change", () => updateFilter("brand", els.brandFilter.value));
   els.channelFilter.addEventListener("change", () => updateFilter("channel", els.channelFilter.value));
   els.statusFilter.addEventListener("change", () => updateFilter("status", els.statusFilter.value));
-  els.minPrice.addEventListener("input", () => updateFilter("minPrice", els.minPrice.value));
-  els.maxPrice.addEventListener("input", () => updateFilter("maxPrice", els.maxPrice.value));
-  els.confidenceFilter.addEventListener("input", () => updateFilter("confidence", Number(els.confidenceFilter.value)));
-  els.keywordSearch.addEventListener("input", () => updateFilter("keyword", els.keywordSearch.value));
+  els.minPrice.addEventListener("input", () => updateFilterSoon("minPrice", els.minPrice.value));
+  els.maxPrice.addEventListener("input", () => updateFilterSoon("maxPrice", els.maxPrice.value));
+  els.confidenceFilter.addEventListener("input", () => updateFilterSoon("confidence", Number(els.confidenceFilter.value)));
+  els.keywordSearch.addEventListener("input", () => updateFilterSoon("keyword", els.keywordSearch.value));
   els.featureFilterField.addEventListener("change", () => {
     state.filters.featureField = els.featureFilterField.value;
     state.filters.featureValue = "";
@@ -3892,7 +3920,7 @@ function bindEvents() {
     state.filters.featureOperator = els.featureFilterOperator.value;
     renderAll();
   });
-  els.featureFilterValue.addEventListener("input", () => updateFilter("featureValue", els.featureFilterValue.value));
+  els.featureFilterValue.addEventListener("input", () => updateFilterSoon("featureValue", els.featureFilterValue.value));
   els.sourceUrl.addEventListener("input", () => {
     sourceMetadata = null;
     renderSourcePreview(null);
@@ -3908,8 +3936,6 @@ function bindEvents() {
   });
 
   document.querySelector("#confirmAllReviews").addEventListener("click", confirmAllReviews);
-  document.querySelector("#exportFormalChecklist").addEventListener("click", exportFormalChecklistCsv);
-  document.querySelector("#exportHandoffReport").addEventListener("click", exportHandoffReport);
   document.querySelector("#exportQualityCsv").addEventListener("click", exportQualityCsv);
 
   els.columnsPopover.addEventListener("change", (event) => {
@@ -3934,6 +3960,12 @@ function bindEvents() {
   });
 
   els.qualityPanel.addEventListener("click", (event) => {
+    const severityButton = event.target.closest("[data-quality-severity]");
+    if (severityButton) {
+      state.qualitySeverity = severityButton.dataset.qualitySeverity;
+      renderQualityPanel();
+      return;
+    }
     const button = event.target.closest("[data-focus-quality]");
     if (!button) return;
     focusReviewProduct(button.dataset.focusQuality);
@@ -4015,6 +4047,9 @@ function bindEvents() {
     renderAll();
   });
 
+  document.querySelector("#compareFilteredProducts").addEventListener("click", compareFilteredProducts);
+  document.querySelector("#compareSimilarProducts").addEventListener("click", compareSimilarProducts);
+
   els.moduleList.addEventListener("click", (event) => {
     const moveModuleButton = event.target.closest("[data-move-module]");
     if (moveModuleButton) {
@@ -4051,7 +4086,6 @@ function bindEvents() {
   els.fieldType.addEventListener("change", updateFieldOptionsState);
   document.querySelector("#generateSummary").addEventListener("click", generateSummary);
   document.querySelector("#exportCompare").addEventListener("click", exportCompare);
-  document.querySelector("#exportComparisonHistory").addEventListener("click", exportComparisonHistory);
   document.querySelector("#refreshUsage").addEventListener("click", loadUsage);
   document.querySelector("#exportUsageCsv").addEventListener("click", exportUsageCsv);
   document.querySelector("#exportAuditCsv").addEventListener("click", exportAuditCsv);
@@ -4061,6 +4095,13 @@ function bindEvents() {
   document.querySelector("#exportRoadmapSvg").addEventListener("click", exportRoadmapSvg);
   document.querySelector("#printRoadmap").addEventListener("click", printRoadmap);
   document.querySelector("#printAllBrandRoadmaps").addEventListener("click", printAllBrandRoadmaps);
+  document.querySelectorAll("[data-roadmap-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.roadmapMode = button.dataset.roadmapMode || "single";
+      renderAll();
+      scrollToWorkspace("roadmapPanel");
+    });
+  });
   els.roadmapBrandFilter.addEventListener("change", () => {
     state.roadmapBrand = els.roadmapBrandFilter.value;
     renderAll();
@@ -4086,7 +4127,10 @@ function bindEvents() {
   document.querySelector("#runAnalysis").addEventListener("click", runAnalysis);
   document.querySelector("#fetchSourceMetadata").addEventListener("click", fetchSourceMetadata);
   document.querySelector("#createProduct").addEventListener("click", createProduct);
-  document.querySelector("#openImport").addEventListener("click", () => els.importPanel.classList.add("is-open"));
+  document.querySelector("#openImport").addEventListener("click", () => {
+    els.importPanel.classList.add("is-open");
+    scrollToWorkspace("importPanel");
+  });
   document.querySelector("#closeImport").addEventListener("click", () => els.importPanel.classList.remove("is-open"));
 
   document.querySelector("#saveView").addEventListener("click", saveCurrentView);

@@ -48,8 +48,8 @@ for (const topic of [
   "反馈模板",
   "正式功能使用反馈",
   "网页内不增加单独试用模块",
-  "formal-readiness",
-  "formal-handoff",
+  "导出完整 JSON 数据包",
+  "导出 AI 用量 CSV 和审计 CSV",
   "Go/No-Go 标准",
   "回滚与备份",
   "不做事项",
@@ -73,8 +73,8 @@ for (const topic of [
   "addTrialFeedback",
   "exportTrialFeedback",
   "正式功能确认",
-  "formal-readiness",
-  "formal-handoff",
+  "完整 JSON 数据包",
+  "AI 用量 CSV",
   "使用反馈归档",
 ]) {
   assertIncludes(launchChecklist, topic, "formal use launch checklist");
@@ -138,7 +138,7 @@ for (const topic of [
   "formal-use-browser-smoke",
   "浏览器冒烟摘要",
   "响应式视口摘要",
-  "正式导出命名",
+  "数据包与审计导出",
   "browserSmokeStatus",
   "responsiveRows",
 ]) {
