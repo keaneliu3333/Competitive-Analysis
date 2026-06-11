@@ -33,7 +33,9 @@ function loadEnv() {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
     const [key, ...rest] = trimmed.split("=");
-    result[key] = rest.join("=").replace(/^["']|["']$/g, "");
+    if (!(key in result)) {
+      result[key] = rest.join("=").replace(/^["']|["']$/g, "");
+    }
   }
   return result;
 }

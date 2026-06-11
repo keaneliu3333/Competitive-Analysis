@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
+import { existsSync } from "node:fs";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Readable } from "node:stream";
-import { createAppServer } from "../server.mjs";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -65,38 +67,50 @@ async function postJson(server, path, payload) {
   return JSON.parse(response.body);
 }
 
+const root = process.cwd();
+const usagePath = join(root, "data", "api-usage.json");
+const usageBackup = existsSync(usagePath) ? await readFile(usagePath, "utf8") : null;
+
+process.env.COMPARE_AI_PROVIDER = "deepseek";
+process.env.DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "runtime-verifier-deepseek-key";
+process.env.DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-runtime-verifier";
+
+const { createAppServer } = await import("../server.mjs");
+
 const server = createAppServer();
-
-const health = await requestJson(server, "/api/health");
-assert(health.ok === true, "health.ok must be true");
-assert(typeof health.model === "string" && health.model.length > 0, "health.model is required");
-
-const state = await requestJson(server, "/api/state");
-assert("savedViews" in state, "/api/state must return savedViews");
-
-const usage = await requestJson(server, "/api/usage");
-assert(Array.isArray(usage.recent), "/api/usage must return recent array");
-
-const html = await requestText(server, "/");
-for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
-  assert(html.includes(token), `index page missing ${token}`);
-}
-
-const script = await requestText(server, "/script.js");
-for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
-  assert(script.includes(token), `script.js missing ${token}`);
-}
-
-const styles = await requestText(server, "/styles.css");
-for (const token of [".filter-summary", ".compare-status", ".compare-option input", ".roadmap-chart", ".roadmap-axis-tick", ".comparison-summary"]) {
-  assert(styles.includes(token), `styles.css missing ${token}`);
-}
-
 const originalFetch = globalThis.fetch;
-globalThis.fetch = async () => {
-  throw new Error("runtime verifier blocks external model calls");
-};
+
 try {
+  const health = await requestJson(server, "/api/health");
+  assert(health.ok === true, "health.ok must be true");
+  assert(typeof health.model === "string" && health.model.length > 0, "health.model is required");
+  assert(health.compareProvider === "deepseek", "health.compareProvider should expose DeepSeek compare provider in runtime verification");
+  assert(health.deepseekConfigured === true, "health.deepseekConfigured should be true when DEEPSEEK_API_KEY is set");
+
+  const state = await requestJson(server, "/api/state");
+  assert("savedViews" in state, "/api/state must return savedViews");
+
+  const usage = await requestJson(server, "/api/usage");
+  assert(Array.isArray(usage.recent), "/api/usage must return recent array");
+
+  const html = await requestText(server, "/");
+  for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
+    assert(html.includes(token), `index page missing ${token}`);
+  }
+
+  const script = await requestText(server, "/script.js");
+  for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
+    assert(script.includes(token), `script.js missing ${token}`);
+  }
+
+  const styles = await requestText(server, "/styles.css");
+  for (const token of [".filter-summary", ".compare-status", ".compare-option input", ".roadmap-chart", ".roadmap-axis-tick", ".comparison-summary"]) {
+    assert(styles.includes(token), `styles.css missing ${token}`);
+  }
+
+  globalThis.fetch = async () => {
+    throw new Error("runtime verifier blocks external model calls");
+  };
   const analysis = await postJson(server, "/api/analyze", {
     sourceUrl: "https://example.com/floor-washer",
     notes: "洗地机详情页，重点关注自清洁和贴边能力。",
@@ -110,16 +124,73 @@ try {
   assert(analysis.product?.customFeatures?.length === 2, "/api/analyze fallback should preserve custom feature fields");
   assert(analysis.analysisMeta?.status === "fallback", "/api/analyze must return fallback status when model call fails");
 
+  globalThis.fetch = async (url, options = {}) => {
+    const requestUrl = String(url);
+    assert(requestUrl.includes("/chat/completions"), "DeepSeek compare summary should use chat completions endpoint");
+    const body = JSON.parse(options.body || "{}");
+    assert(body.model === process.env.DEEPSEEK_MODEL, "DeepSeek compare summary should use configured model");
+    assert(body.response_format?.type === "json_object", "DeepSeek compare summary should request JSON object output");
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          id: "deepseek-runtime-response",
+          model: body.model,
+          usage: { prompt_tokens: 120, completion_tokens: 80, total_tokens: 200 },
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary:
+                    "A1 与 B1 都面向扫地机核心清洁场景。功能上，A1 的全能基站和热水洗拖布更适合少维护、重体验的旗舰定位；B1 主打高吸力和基础基站，适合价格敏感用户。参数上两者价差约 1000 元，应重点核对基站能力、拖布清洁和避障表现。使用感受上，A1 更强调省心，B1 更强调性价比，短板需回到详情页证据复核。",
+                }),
+              },
+            },
+          ],
+        };
+      },
+    };
+  };
+
   const comparison = await postJson(server, "/api/compare", {
     products: [
       { brand: "A", model: "A1", category: "扫地机", price: 3999, topSellingPoints: ["热水洗拖布"], differenceFields: [{ name: "基站", value: "全能" }] },
       { brand: "B", model: "B1", category: "扫地机", price: 2999, topSellingPoints: ["高吸力"], differenceFields: [{ name: "基站", value: "基础" }] },
     ],
   });
-  assert(comparison.summary === "", "/api/compare fallback should return an empty summary for local UI fallback");
+  assert(comparison.summary.includes("产品功能") || comparison.summary.includes("功能上"), "/api/compare should return DeepSeek summary text");
+  assert(Array.from(comparison.summary).length <= 500, "/api/compare summary must stay within 500 Chinese characters");
+  assert(comparison.analysisMeta?.provider === "deepseek", "/api/compare should return DeepSeek analysis provider");
+  assert(comparison.analysisMeta?.model === process.env.DEEPSEEK_MODEL, "/api/compare should return configured DeepSeek model");
+  assert(comparison.analysisMeta?.usage?.total_tokens === 200, "/api/compare should return DeepSeek usage");
+
+  const usageAfterCompare = await requestJson(server, "/api/usage");
+  const usageRecord = usageAfterCompare.recent.find((record) => record.responseId === "deepseek-runtime-response");
+  assert(usageRecord?.provider === "deepseek", "/api/usage should include DeepSeek provider record");
+  assert(usageRecord?.model === process.env.DEEPSEEK_MODEL, "/api/usage should include DeepSeek model");
+  assert(usageRecord?.usage?.total_tokens === 200, "/api/usage should include DeepSeek token usage");
+
+  globalThis.fetch = async () => {
+    throw new Error("runtime verifier blocks external model calls");
+  };
+  const fallbackComparison = await postJson(server, "/api/compare", {
+    products: [
+      { brand: "A", model: "A1", category: "扫地机", price: 3999, topSellingPoints: ["热水洗拖布"] },
+      { brand: "B", model: "B1", category: "扫地机", price: 2999, topSellingPoints: ["高吸力"] },
+    ],
+  });
+  assert(fallbackComparison.summary === "", "/api/compare fallback should return an empty summary for local UI fallback");
+
 } finally {
   globalThis.fetch = originalFetch;
+  if (usageBackup == null) {
+    await rm(usagePath, { force: true });
+  } else {
+    await mkdir(join(root, "data"), { recursive: true });
+    await writeFile(usagePath, usageBackup);
+  }
 }
 
 console.log("Runtime verification passed.");
-console.log("- Checked local HTTP app, static assets, read APIs, and AI fallback APIs through in-memory request injection.");
+console.log("- Checked local HTTP app, static assets, read APIs, AI fallback APIs, and DeepSeek compare usage logging through in-memory request injection.");
