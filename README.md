@@ -209,3 +209,9 @@ CSV 导入会校验品牌、型号、品类和价格。缺少品牌/型号、品
 ```bash
 node scripts/verify-evals.mjs
 ```
+
+生成多模型真实样例评估准备报告后，可按报告里的 Case ID 逐条记录 OpenAI 抽取、DeepSeek 总结、本地兜底、人工修订和 Go/No-Go 结论：
+
+```bash
+node scripts/generate-model-eval-report.mjs
+```

@@ -797,6 +797,11 @@ for (const topic of [
   "DeepSeek",
   "OpenAI 抽取结果",
   "本地兜底结果",
+  "人工校准清单",
+  "校准记录模板",
+  "Case ID",
+  "Top3 卖点关键词",
+  "Go / No-Go",
   "provider",
   "reports",
 ]) {

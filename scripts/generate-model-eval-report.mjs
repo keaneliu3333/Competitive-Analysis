@@ -52,6 +52,54 @@ const providerRows = Object.entries(providers).length
   ? Object.entries(providers).map(([provider, stats]) => `| ${provider} | ${stats.total} | ${stats.ok} | ${stats.error} | ${stats.tokens || "-"} |`)
   : ["| - | 0 | 0 | 0 | - |"];
 
+function markdownCell(value) {
+  return String(value ?? "-")
+    .replace(/\r?\n/g, " ")
+    .replace(/\|/g, "/")
+    .trim() || "-";
+}
+
+function sourceLabel(testCase) {
+  const source = testCase.source || {};
+  if (source.type === "url") return `URL：${source.url || "-"}`;
+  const format = source.format || (/\.(pdf)$/i.test(source.path || "") ? "pdf" : "long-image");
+  return `文件：${source.path || "-"} (${format})`;
+}
+
+function featureList(testCase) {
+  return Array.isArray(testCase.expected?.requiredFeatures) ? testCase.expected.requiredFeatures.join("、") : "-";
+}
+
+function sellingPointKeywords(testCase) {
+  return Array.isArray(testCase.expected?.topSellingPointKeywords) ? testCase.expected.topSellingPointKeywords.join("、") : "-";
+}
+
+function priceRangeLabel(testCase) {
+  const range = testCase.expected?.priceRange;
+  if (!range) return "-";
+  return `${range.currency || "CNY"} ${range.min}-${range.max}`;
+}
+
+const caseRows = cases.map((testCase) => [
+  "|",
+  markdownCell(testCase.id),
+  "|",
+  markdownCell(testCase.category),
+  "|",
+  markdownCell(sourceLabel(testCase)),
+  "|",
+  markdownCell(`${testCase.expected?.brand || "-"} ${testCase.expected?.model || "-"}`),
+  "|",
+  markdownCell(priceRangeLabel(testCase)),
+  "|",
+  markdownCell(featureList(testCase)),
+  "|",
+  markdownCell(sellingPointKeywords(testCase)),
+  "|",
+  markdownCell(`置信度>=${testCase.acceptance?.minConfidence ?? "-"}，总结<=${testCase.acceptance?.summaryMaxChars ?? 500}字，证据可追溯`),
+  "|",
+].join(" "));
+
 const lines = [
   "# 多模型真实样例评估准备报告",
   "",
@@ -76,6 +124,18 @@ const lines = [
   "- DeepSeek：用于 500 字以内型号对比总结和低成本文本复核评估。",
   "- 本地兜底：用于 API 缺失或失败时的可用性下限评估。",
   "- 每个真实样例至少检查品牌、型号、品类、价格区间、Top3 卖点证据、自定义字段和总结质量。",
+  "",
+  "## 人工校准清单",
+  "",
+  "| Case ID | 品类 | 来源 | 期望品牌/型号 | 价格区间 | 必查功能字段 | Top3 卖点关键词 | 验收门槛 |",
+  "| --- | --- | --- | --- | --- | --- | --- | --- |",
+  ...caseRows,
+  "",
+  "## 校准记录模板",
+  "",
+  "| Case ID | OpenAI 抽取结论 | DeepSeek 总结结论 | 本地兜底表现 | 人工修订 | 结论 |",
+  "| --- | --- | --- | --- | --- | --- |",
+  ...cases.map((testCase) => `| ${markdownCell(testCase.id)} | 待记录 | 待记录 | 待记录 | 待记录 | Go / No-Go |`),
   "",
   "## 下一步",
   "",
