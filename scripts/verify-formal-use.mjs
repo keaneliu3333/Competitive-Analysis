@@ -56,8 +56,8 @@ for (const topic of [
   "node scripts/verify-release.mjs",
   "node scripts/check-local-env.mjs",
   "node server.mjs",
-  "OPENAI_API_KEY",
   "DEEPSEEK_API_KEY",
+  "QWEN_API_KEY",
   "backup-before-import",
 ]) {
   assertIncludes(runbook, topic, "formal use runbook");
@@ -107,8 +107,11 @@ for (const topic of [
 
 for (const token of [
   "OPENAI_API_KEY=",
+  "OPENAI_BASE_URL=https://api.openai.com/v1",
   "COMPARE_AI_PROVIDER=deepseek",
+  "VISION_PROVIDER=qwen",
   "DEEPSEEK_API_KEY=",
+  "QWEN_API_KEY=",
   "APP_READ_TOKEN=",
   "APP_WRITE_TOKEN=",
 ]) {

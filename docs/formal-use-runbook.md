@@ -20,8 +20,8 @@
 ## 使用前置条件
 
 1. 拉取最新代码后运行 `node scripts/verify-release.mjs`，必须通过。
-2. 复制 `.env.example` 为 `.env.local`，至少确认 `PORT` 和访问令牌；图片/PDF AI 抽取需要 `OPENAI_API_KEY`。
-3. 如需 DeepSeek 文本总结，配置 `COMPARE_AI_PROVIDER=deepseek` 和 `DEEPSEEK_API_KEY`；不配置时不影响 OpenAI 图片/PDF 抽取。
+2. 复制 `.env.example` 为 `.env.local`，至少确认 `PORT`、访问令牌、`AI_PROVIDER=deepseek`、`VISION_PROVIDER=qwen`、`DEEPSEEK_API_KEY` 和 `QWEN_API_KEY`。
+3. 当前 DeepSeek 负责文本型结构化抽取和总结；Qwen-VL 负责图片、长图和 URL 图片候选识别；原始 PDF 未转图片时进入人工复核兜底，不做虚假视觉识别。
 4. 运行 `node scripts/check-local-env.mjs`，确认 `data/` 可写、端口空闲或当前端口返回工作台首页。
 5. 启动 `node server.mjs`，打开 `http://localhost:4173`。
 6. 导出一次完整数据包作为正式使用前基线；正式导入数据包前系统会自动下载备份。

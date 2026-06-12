@@ -10,6 +10,10 @@ const steps = [
     command: ["node", "scripts/check-local-env.mjs"],
   },
   {
+    name: "AI 连通性预检",
+    command: ["node", "scripts/check-ai-connectivity.mjs"],
+  },
+  {
     name: "完整 MVP 自动验收",
     command: ["node", "scripts/verify-mvp.mjs"],
   },

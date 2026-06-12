@@ -71,9 +71,19 @@ const root = process.cwd();
 const usagePath = join(root, "data", "api-usage.json");
 const usageBackup = existsSync(usagePath) ? await readFile(usagePath, "utf8") : null;
 
+process.env.AI_PROVIDER = "deepseek";
 process.env.COMPARE_AI_PROVIDER = "deepseek";
+process.env.VISION_PROVIDER = "qwen";
 process.env.DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "runtime-verifier-deepseek-key";
 process.env.DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-runtime-verifier";
+process.env.QWEN_API_KEY = process.env.QWEN_API_KEY || "runtime-verifier-qwen-key";
+process.env.QWEN_MODEL = process.env.QWEN_MODEL || "qwen-runtime-verifier";
+process.env.QWEN_BASE_URL = process.env.QWEN_BASE_URL || "https://dashscope.aliyuncs.com/compatible-mode/v1";
+process.env.AI_HTTPS_PROXY = "";
+process.env.HTTPS_PROXY = "";
+process.env.https_proxy = "";
+process.env.HTTP_PROXY = "";
+process.env.http_proxy = "";
 
 const { createAppServer } = await import("../server.mjs");
 
@@ -85,7 +95,10 @@ try {
   assert(health.ok === true, "health.ok must be true");
   assert(typeof health.model === "string" && health.model.length > 0, "health.model is required");
   assert(health.compareProvider === "deepseek", "health.compareProvider should expose DeepSeek compare provider in runtime verification");
+  assert(health.visionProvider === "qwen", "health.visionProvider should expose Qwen vision provider in runtime verification");
   assert(health.deepseekConfigured === true, "health.deepseekConfigured should be true when DEEPSEEK_API_KEY is set");
+  assert(health.qwenConfigured === true, "health.qwenConfigured should be true when QWEN_API_KEY is set");
+  assert(health.qwenModel === process.env.QWEN_MODEL, "health.qwenModel should expose configured Qwen model");
 
   const state = await requestJson(server, "/api/state");
   assert("savedViews" in state, "/api/state must return savedViews");
@@ -123,6 +136,86 @@ try {
   assert(analysis.product?.category === "洗地机", "/api/analyze fallback should infer floor washer category");
   assert(analysis.product?.customFeatures?.length === 2, "/api/analyze fallback should preserve custom feature fields");
   assert(analysis.analysisMeta?.status === "fallback", "/api/analyze must return fallback status when model call fails");
+
+  globalThis.fetch = async (url, options = {}) => {
+    const requestUrl = String(url);
+    assert(requestUrl.includes("/chat/completions"), "Qwen vision analysis should use chat completions endpoint");
+    const body = JSON.parse(options.body || "{}");
+    assert(body.model === process.env.QWEN_MODEL, "Qwen vision analysis should use configured model");
+    const userMessage = body.messages?.find((message) => message.role === "user");
+    assert(Array.isArray(userMessage?.content), "Qwen vision analysis should send multimodal user content");
+    assert(userMessage.content.some((item) => item.type === "image_url"), "Qwen vision analysis should include image_url input");
+    assert(body.response_format?.type === "json_object", "Qwen vision analysis should request JSON object output");
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          id: "qwen-runtime-response",
+          model: body.model,
+          usage: { prompt_tokens: 180, completion_tokens: 90, total_tokens: 270 },
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  brand: "QwenTest",
+                  name: "Qwen 视觉测试扫地机",
+                  model: "QV1",
+                  category: "扫地机",
+                  price: 3999,
+                  channel: "电商",
+                  status: "在售",
+                  image: "",
+                  confidence: 88,
+                  reviewRequired: false,
+                  sourceUrl: "https://example.com/qwen-vision",
+                  quarter: "2026 Q2",
+                  features: {
+                    suction: "12000Pa",
+                    mopPressure: "待确认",
+                    edgeCleaning: true,
+                    navigation: "LDS",
+                    obstacle: "AI 识别",
+                    base: "全能基站",
+                    hotWash: true,
+                    dustCollection: true,
+                    battery: "180min",
+                    noise: "约 63dB",
+                    app: "地图分区",
+                  },
+                  customFeatures: [
+                    { key: "hotWash", value: true, evidence: "详情页图片显示热水洗", confidence: 88 },
+                  ],
+                  sellingPoints: [
+                    { title: "热水洗拖布", evidence: "详情页图片参数" },
+                    { title: "高吸力", evidence: "详情页图片参数" },
+                    { title: "全能基站", evidence: "详情页图片参数" },
+                  ],
+                }),
+              },
+            },
+          ],
+        };
+      },
+    };
+  };
+
+  const qwenAnalysis = await postJson(server, "/api/analyze", {
+    sourceUrl: "https://example.com/qwen-vision",
+    sourceMetadata: { title: "Qwen 视觉测试扫地机", imageCandidates: [] },
+    imageDataUrls: ["data:image/png;base64,iVBORw0KGgo="],
+    featureFields: [{ key: "hotWash", name: "热水洗", type: "boolean" }],
+  });
+  assert(qwenAnalysis.product?.model === "QV1", "/api/analyze should return Qwen vision analysis product");
+  assert(qwenAnalysis.analysisMeta?.provider === "qwen", "/api/analyze should return Qwen analysis provider for image input");
+  assert(qwenAnalysis.analysisMeta?.model === process.env.QWEN_MODEL, "/api/analyze should return configured Qwen model");
+  assert(qwenAnalysis.analysisMeta?.usage?.total_tokens === 270, "/api/analyze should return Qwen usage");
+
+  const usageAfterQwen = await requestJson(server, "/api/usage");
+  const qwenUsageRecord = usageAfterQwen.recent.find((record) => record.responseId === "qwen-runtime-response");
+  assert(qwenUsageRecord?.provider === "qwen", "/api/usage should include Qwen provider record");
+  assert(qwenUsageRecord?.model === process.env.QWEN_MODEL, "/api/usage should include Qwen model");
+  assert(qwenUsageRecord?.inputModalities?.some((item) => item === "qwen:image"), "/api/usage should include Qwen image modality");
 
   globalThis.fetch = async (url, options = {}) => {
     const requestUrl = String(url);
@@ -193,4 +286,4 @@ try {
 }
 
 console.log("Runtime verification passed.");
-console.log("- Checked local HTTP app, static assets, read APIs, AI fallback APIs, and DeepSeek compare usage logging through in-memory request injection.");
+console.log("- Checked local HTTP app, static assets, read APIs, AI fallback APIs, Qwen vision routing, and DeepSeek compare usage logging through in-memory request injection.");

@@ -368,10 +368,16 @@ let healthState = {
   ok: false,
   openaiConfigured: false,
   deepseekConfigured: false,
+  qwenConfigured: false,
+  openaiBaseUrlConfigured: false,
+  qwenBaseUrlConfigured: false,
+  aiRequestTimeoutMs: 60000,
   model: "-",
   deepseekModel: "-",
-  aiProvider: "openai",
-  compareProvider: "openai",
+  qwenModel: "-",
+  aiProvider: "deepseek",
+  compareProvider: "deepseek",
+  visionProvider: "qwen",
   accessTokenRequired: false,
   readTokenRequired: false,
   writeTokenRequired: false,
@@ -387,6 +393,12 @@ function getAccessToken() {
 
 function setAccessToken(token) {
   if (token) sessionStorage.setItem(TOKEN_KEY, token);
+}
+
+function healthModelForProvider(provider) {
+  if (provider === "deepseek") return healthState.deepseekModel || "-";
+  if (provider === "qwen") return healthState.qwenModel || "-";
+  return healthState.model || "-";
 }
 
 async function apiFetch(url, options = {}) {
@@ -1046,8 +1058,13 @@ function renderHealth() {
     <span class="status-badge ${healthState.ok ? "is-ok" : "is-warning"}">服务 ${healthState.ok ? "正常" : "待检查"}</span>
     <span class="status-badge ${healthState.openaiConfigured ? "is-ok" : "is-warning"}">OpenAI ${healthState.openaiConfigured ? "已配置" : "未配置"}</span>
     <span class="status-badge ${healthState.deepseekConfigured ? "is-ok" : "is-warning"}">DeepSeek ${healthState.deepseekConfigured ? "已配置" : "未配置"}</span>
-    <span class="status-badge">抽取 ${escapeHtml(healthState.aiProvider || "openai")} / ${escapeHtml(healthState.model || "-")}</span>
-    <span class="status-badge">总结 ${escapeHtml(healthState.compareProvider || "openai")} / ${escapeHtml(healthState.compareProvider === "deepseek" ? healthState.deepseekModel || "-" : healthState.model || "-")}</span>
+    <span class="status-badge ${healthState.qwenConfigured ? "is-ok" : "is-warning"}">Qwen-VL ${healthState.qwenConfigured ? "已配置" : "未配置"}</span>
+    <span class="status-badge ${healthState.openaiBaseUrlConfigured ? "is-ok" : "is-warning"}">OpenAI 网关 ${healthState.openaiBaseUrlConfigured ? "已自定义" : "默认官方"}</span>
+    <span class="status-badge ${healthState.qwenBaseUrlConfigured ? "is-ok" : "is-warning"}">Qwen 网关 ${healthState.qwenBaseUrlConfigured ? "已自定义" : "默认百炼"}</span>
+    <span class="status-badge">AI 超时 ${Math.round(Number(healthState.aiRequestTimeoutMs || 60000) / 1000)}s</span>
+    <span class="status-badge">抽取 ${escapeHtml(healthState.aiProvider || "deepseek")} / ${escapeHtml(healthModelForProvider(healthState.aiProvider))}</span>
+    <span class="status-badge">视觉 ${escapeHtml(healthState.visionProvider || "qwen")} / ${escapeHtml(healthModelForProvider(healthState.visionProvider))}</span>
+    <span class="status-badge">总结 ${escapeHtml(healthState.compareProvider || "deepseek")} / ${escapeHtml(healthModelForProvider(healthState.compareProvider))}</span>
     <span class="status-badge ${healthState.accessTokenRequired ? "is-ok" : "is-warning"}">访问令牌 ${healthState.accessTokenRequired ? "已启用" : "未启用"}</span>
     <span class="status-badge ${healthState.readWriteSplitEnabled ? "is-ok" : "is-warning"}">读写分离 ${healthState.readWriteSplitEnabled ? "已启用" : "未启用"}</span>
     <span class="status-badge ${healthState.writeTokenRequired ? "is-ok" : "is-warning"}">写权限 ${healthState.writeTokenRequired ? "受保护" : "开放"}</span>
@@ -1064,10 +1081,16 @@ async function loadHealth() {
       ok: Boolean(payload.ok),
       openaiConfigured: Boolean(payload.openaiConfigured),
       deepseekConfigured: Boolean(payload.deepseekConfigured),
+      qwenConfigured: Boolean(payload.qwenConfigured),
+      openaiBaseUrlConfigured: Boolean(payload.openaiBaseUrlConfigured),
+      qwenBaseUrlConfigured: Boolean(payload.qwenBaseUrlConfigured),
+      aiRequestTimeoutMs: Number(payload.aiRequestTimeoutMs || 60000),
       model: payload.model || "-",
       deepseekModel: payload.deepseekModel || "-",
-      aiProvider: payload.aiProvider || "openai",
-      compareProvider: payload.compareProvider || "openai",
+      qwenModel: payload.qwenModel || "-",
+      aiProvider: payload.aiProvider || "deepseek",
+      compareProvider: payload.compareProvider || "deepseek",
+      visionProvider: payload.visionProvider || "qwen",
       accessTokenRequired: Boolean(payload.accessTokenRequired),
       readTokenRequired: Boolean(payload.readTokenRequired),
       writeTokenRequired: Boolean(payload.writeTokenRequired),
@@ -1080,10 +1103,16 @@ async function loadHealth() {
       ok: false,
       openaiConfigured: false,
       deepseekConfigured: false,
+      qwenConfigured: false,
+      openaiBaseUrlConfigured: false,
+      qwenBaseUrlConfigured: false,
+      aiRequestTimeoutMs: 60000,
       model: "-",
       deepseekModel: "-",
-      aiProvider: "openai",
-      compareProvider: "openai",
+      qwenModel: "-",
+      aiProvider: "deepseek",
+      compareProvider: "deepseek",
+      visionProvider: "qwen",
       accessTokenRequired: false,
       readTokenRequired: false,
       writeTokenRequired: false,
@@ -3114,7 +3143,7 @@ async function generateSummary() {
     const payload = await response.json();
     const summary = normalizeComparisonSummary(payload.summary) || localSummary(products);
     els.comparisonSummary.textContent = summary;
-    addComparisonRun({ products, summary, source: payload.analysisMeta?.provider || (payload.summary ? "openai" : "local"), analysisMeta: payload.analysisMeta || null });
+    addComparisonRun({ products, summary, source: payload.analysisMeta?.provider || (payload.summary ? "deepseek" : "local"), analysisMeta: payload.analysisMeta || null });
   } catch {
     const summary = localSummary(products);
     els.comparisonSummary.textContent = summary;

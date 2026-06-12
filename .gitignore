@@ -31,6 +31,7 @@ __pycache__/
 coverage/
 .nyc_output/
 reports/
+.tmp/
 
 # Runtime state
 data/workbench-state.json

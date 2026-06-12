@@ -59,6 +59,8 @@ const commands = [
   ["node", "--check", "scripts/generate-eval-calibration-pack.mjs"],
   ["node", "--check", "scripts/generate-smoke-checklist.mjs"],
   ["node", "--check", "scripts/generate-formal-use-pack.mjs"],
+  ["node", "--check", "scripts/check-ai-connectivity.mjs"],
+  ["node", "--check", "scripts/run-eval-calibration.mjs"],
   ["node", "scripts/verify-access.mjs"],
   ["node", "scripts/verify-mvp.mjs"],
   ["node", "scripts/verify-runtime.mjs"],

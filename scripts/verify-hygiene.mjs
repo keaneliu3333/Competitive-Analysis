@@ -12,7 +12,7 @@ function assertIncludes(content, expected, label) {
   }
 }
 
-for (const entry of [".env.local", ".env.*.local", "!.env.example", "data/*.json", "reports/"]) {
+for (const entry of [".env.local", ".env.*.local", "!.env.example", "data/*.json", "reports/", ".tmp/"]) {
   assertIncludes(gitignore, entry, ".gitignore");
 }
 
@@ -26,6 +26,7 @@ const ignoredDirs = new Set([
   "dist",
   "node_modules",
   "reports",
+  ".tmp",
 ]);
 const ignoredFiles = new Set([".DS_Store", ".env", ".env.local"]);
 const allowedPlaceholderFiles = new Set([".env.example"]);

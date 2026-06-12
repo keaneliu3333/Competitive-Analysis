@@ -95,12 +95,42 @@ const envLocalPath = join(root, ".env.local");
 const envExample = readEnvFile(envExamplePath);
 const envLocal = readEnvFile(envLocalPath);
 addCheck(".env.example", existsSync(envExamplePath), "可复制为 .env.local");
-for (const key of ["OPENAI_API_KEY", "OPENAI_MODEL", "APP_ACCESS_TOKEN", "APP_READ_TOKEN", "APP_WRITE_TOKEN", "PORT"]) {
+for (const key of [
+  "OPENAI_API_KEY",
+  "OPENAI_MODEL",
+  "OPENAI_BASE_URL",
+  "AI_REQUEST_TIMEOUT_MS",
+  "HTTPS_PROXY",
+  "AI_PROVIDER",
+  "COMPARE_AI_PROVIDER",
+  "VISION_PROVIDER",
+  "DEEPSEEK_API_KEY",
+  "DEEPSEEK_MODEL",
+  "DEEPSEEK_BASE_URL",
+  "QWEN_API_KEY",
+  "QWEN_MODEL",
+  "QWEN_BASE_URL",
+  "QWEN_REQUEST_TIMEOUT_MS",
+  "APP_ACCESS_TOKEN",
+  "APP_READ_TOKEN",
+  "APP_WRITE_TOKEN",
+  "PORT",
+]) {
   addCheck(`.env.example ${key}`, Object.prototype.hasOwnProperty.call(envExample, key));
 }
 addCheck(".env.local", existsSync(envLocalPath), existsSync(envLocalPath) ? "已存在，本脚本不会输出密钥值" : "未创建；可从 .env.example 复制");
 if (existsSync(envLocalPath)) {
   addCheck("OPENAI_API_KEY 配置", Boolean(envLocal.OPENAI_API_KEY), envLocal.OPENAI_API_KEY ? "已配置" : "未配置，AI 会走待确认兜底");
+  addCheck("OPENAI_BASE_URL 配置", Boolean(envLocal.OPENAI_BASE_URL || envExample.OPENAI_BASE_URL), envLocal.OPENAI_BASE_URL ? "已自定义" : "使用默认官方地址");
+  addCheck("HTTPS_PROXY 配置", Boolean(envLocal.HTTPS_PROXY || envLocal.AI_HTTPS_PROXY || process.env.HTTPS_PROXY || process.env.https_proxy), envLocal.HTTPS_PROXY || envLocal.AI_HTTPS_PROXY ? "已为本项目配置代理" : "未配置，终端需能直连 API");
+  addCheck("COMPARE_AI_PROVIDER 配置", Boolean(envLocal.COMPARE_AI_PROVIDER || envExample.COMPARE_AI_PROVIDER), envLocal.COMPARE_AI_PROVIDER ? `当前 ${envLocal.COMPARE_AI_PROVIDER}` : "使用模板默认值");
+  addCheck("VISION_PROVIDER 配置", Boolean(envLocal.VISION_PROVIDER || envExample.VISION_PROVIDER), envLocal.VISION_PROVIDER ? `当前 ${envLocal.VISION_PROVIDER}` : "使用模板默认值");
+  addCheck("DEEPSEEK_API_KEY 配置", Boolean(envLocal.DEEPSEEK_API_KEY), envLocal.DEEPSEEK_API_KEY ? "已配置" : "未配置，型号对比会走兜底或 OpenAI");
+  addCheck("DEEPSEEK_MODEL 配置", Boolean(envLocal.DEEPSEEK_MODEL || envExample.DEEPSEEK_MODEL), envLocal.DEEPSEEK_MODEL ? `当前 ${envLocal.DEEPSEEK_MODEL}` : "使用模板默认值");
+  addCheck("DEEPSEEK_BASE_URL 配置", Boolean(envLocal.DEEPSEEK_BASE_URL || envExample.DEEPSEEK_BASE_URL), envLocal.DEEPSEEK_BASE_URL ? "已自定义" : "使用默认官方地址");
+  addCheck("QWEN_API_KEY 配置", Boolean(envLocal.QWEN_API_KEY), envLocal.QWEN_API_KEY ? "已配置" : "未配置，图片/长图会走待确认兜底");
+  addCheck("QWEN_MODEL 配置", Boolean(envLocal.QWEN_MODEL || envExample.QWEN_MODEL), envLocal.QWEN_MODEL ? `当前 ${envLocal.QWEN_MODEL}` : "使用模板默认值");
+  addCheck("QWEN_BASE_URL 配置", Boolean(envLocal.QWEN_BASE_URL || envExample.QWEN_BASE_URL), envLocal.QWEN_BASE_URL ? "已自定义" : "使用默认百炼兼容地址");
   addCheck("访问令牌配置", Boolean(envLocal.APP_ACCESS_TOKEN || envLocal.APP_READ_TOKEN || envLocal.APP_WRITE_TOKEN), "未配置时适合本机开发");
 }
 
@@ -139,6 +169,16 @@ for (const check of checks) {
 const allowedWarnings = new Set([
   ".env.local",
   "OPENAI_API_KEY 配置",
+  "OPENAI_BASE_URL 配置",
+  "HTTPS_PROXY 配置",
+  "COMPARE_AI_PROVIDER 配置",
+  "VISION_PROVIDER 配置",
+  "DEEPSEEK_API_KEY 配置",
+  "DEEPSEEK_MODEL 配置",
+  "DEEPSEEK_BASE_URL 配置",
+  "QWEN_API_KEY 配置",
+  "QWEN_MODEL 配置",
+  "QWEN_BASE_URL 配置",
   "访问令牌配置",
   `端口 ${port}`,
   `端口 ${port} 健康接口`,

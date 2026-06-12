@@ -1,7 +1,10 @@
 import { createServer } from "node:http";
+import { request as httpRequest } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
+import { connect as tlsConnect } from "node:tls";
 import { fileURLToPath } from "node:url";
 
 const modulePath = fileURLToPath(import.meta.url);
@@ -94,6 +97,175 @@ function accessStatus() {
   };
 }
 
+function configuredBaseUrl(key, fallback) {
+  return String(env[key] || fallback).replace(/\/+$/, "");
+}
+
+function openAIResponsesUrl() {
+  return `${configuredBaseUrl("OPENAI_BASE_URL", "https://api.openai.com/v1")}/responses`;
+}
+
+function deepSeekChatUrl() {
+  return `${configuredBaseUrl("DEEPSEEK_BASE_URL", "https://api.deepseek.com")}/chat/completions`;
+}
+
+function qwenChatUrl() {
+  return `${configuredBaseUrl("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")}/chat/completions`;
+}
+
+function aiRequestTimeoutMs(provider = "") {
+  const value = Number(provider === "qwen" ? env.QWEN_REQUEST_TIMEOUT_MS || env.AI_REQUEST_TIMEOUT_MS || 60000 : env.AI_REQUEST_TIMEOUT_MS || 60000);
+  if (!Number.isFinite(value) || value <= 0) return 60000;
+  return Math.min(Math.max(value, 5000), 180000);
+}
+
+function aiProxyUrl() {
+  return env.AI_HTTPS_PROXY || env.HTTPS_PROXY || env.https_proxy || env.HTTP_PROXY || env.http_proxy || "";
+}
+
+function proxyStatus() {
+  const proxy = aiProxyUrl();
+  if (!proxy) return { configured: false };
+  try {
+    const url = new URL(proxy);
+    return { configured: true, protocol: url.protocol.replace(":", ""), host: url.hostname, port: url.port || "80" };
+  } catch {
+    return { configured: true, protocol: "invalid", host: "", port: "" };
+  }
+}
+
+function responseLike(statusCode, body) {
+  return {
+    ok: statusCode >= 200 && statusCode < 300,
+    status: statusCode,
+    json: async () => JSON.parse(body || "{}"),
+  };
+}
+
+function collectResponse(response) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    response.on("data", (chunk) => chunks.push(chunk));
+    response.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    response.on("error", reject);
+  });
+}
+
+function proxyAuthHeader(proxyUrl) {
+  if (!proxyUrl.username && !proxyUrl.password) return "";
+  return `Basic ${Buffer.from(`${decodeURIComponent(proxyUrl.username)}:${decodeURIComponent(proxyUrl.password)}`).toString("base64")}`;
+}
+
+function fetchJsonViaHttpProxy(url, options, proxy, signal) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(url);
+    const proxyUrl = new URL(proxy);
+    if (target.protocol !== "https:" || !["http:", "https:"].includes(proxyUrl.protocol)) {
+      reject(new Error("Only HTTPS targets through HTTP(S) proxy are supported"));
+      return;
+    }
+    const targetPort = target.port || "443";
+    const proxyPort = proxyUrl.port || (proxyUrl.protocol === "https:" ? "443" : "80");
+    const connectRequest = httpRequest({
+      host: proxyUrl.hostname,
+      port: proxyPort,
+      method: "CONNECT",
+      path: `${target.hostname}:${targetPort}`,
+      headers: {
+        Host: `${target.hostname}:${targetPort}`,
+        ...(proxyAuthHeader(proxyUrl) ? { "Proxy-Authorization": proxyAuthHeader(proxyUrl) } : {}),
+      },
+    });
+    let settled = false;
+    const cleanup = () => {
+      signal?.removeEventListener("abort", onAbort);
+    };
+    const onAbort = () => {
+      connectRequest.destroy(new Error("AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    connectRequest.on("connect", (response, socket) => {
+      if (response.statusCode !== 200) {
+        cleanup();
+        socket.destroy();
+        reject(new Error(`Proxy CONNECT failed with HTTP ${response.statusCode}`));
+        return;
+      }
+      const tlsSocket = tlsConnect({ socket, servername: target.hostname });
+      tlsSocket.once("secureConnect", () => {
+        const request = httpsRequest({
+          host: target.hostname,
+          port: targetPort,
+          method: options.method || "GET",
+          path: `${target.pathname}${target.search}`,
+          headers: options.headers || {},
+          createConnection: () => tlsSocket,
+        }, async (providerResponse) => {
+          try {
+            const body = await collectResponse(providerResponse);
+            cleanup();
+            settled = true;
+            resolve(responseLike(providerResponse.statusCode || 0, body));
+          } catch (error) {
+            cleanup();
+            reject(error);
+          }
+        });
+        request.on("error", (error) => {
+          cleanup();
+          if (!settled) reject(error);
+        });
+        if (options.body) request.write(options.body);
+        request.end();
+      });
+      tlsSocket.on("error", (error) => {
+        cleanup();
+        reject(error);
+      });
+    });
+    connectRequest.on("error", (error) => {
+      cleanup();
+      reject(error);
+    });
+    connectRequest.end();
+  });
+}
+
+function providerNetworkMessage(provider, url, error) {
+  const service = provider === "deepseek" ? "DeepSeek" : provider === "qwen" ? "Qwen-VL" : "OpenAI";
+  const baseUrlKey = provider === "deepseek" ? "DEEPSEEK_BASE_URL" : provider === "qwen" ? "QWEN_BASE_URL" : "OPENAI_BASE_URL";
+  const proxyHint = aiProxyUrl() ? "当前已配置代理，请确认代理程序正在运行。" : "如浏览器能访问但终端不行，可在 .env.local 配置 HTTPS_PROXY=http://127.0.0.1:9090。";
+  const endpoint = (() => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return url;
+    }
+  })();
+  const raw = error?.cause?.code || error?.code || error?.message || "network error";
+  if (error?.name === "AbortError") {
+    return `${service} 请求超时（${aiRequestTimeoutMs(provider)}ms）：无法连接 ${endpoint}。请检查网络、代理，或在 .env.local 配置可访问的 ${baseUrlKey}。${proxyHint}`;
+  }
+  return `${service} 网络请求失败：无法连接 ${endpoint}（${raw}）。请检查当前网络是否能访问该服务，或在 .env.local 配置可访问的 ${baseUrlKey}。${proxyHint}`;
+}
+
+async function fetchProviderJson(provider, url, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), aiRequestTimeoutMs(provider));
+  try {
+    const proxy = aiProxyUrl();
+    const response = proxy
+      ? await fetchJsonViaHttpProxy(url, options, proxy, controller.signal)
+      : await fetch(url, { ...options, signal: controller.signal });
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  } catch (error) {
+    throw new Error(providerNetworkMessage(provider, url, error));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function requireAccess(request, response, scope = "read") {
   const authorized = scope === "write" ? isWriteAuthorized(request) : isReadAuthorized(request);
   if (authorized) return true;
@@ -164,6 +336,7 @@ function enrichUsageRecord(record) {
 function providerFromModel(model = "") {
   const normalized = String(model || "").toLowerCase();
   if (normalized.includes("deepseek")) return "deepseek";
+  if (normalized.includes("qwen") || normalized.includes("dashscope")) return "qwen";
   if (normalized.includes("gpt") || normalized.includes("o1") || normalized.includes("o3") || normalized.includes("o4")) return "openai";
   return "unknown";
 }
@@ -284,11 +457,11 @@ function fallbackProduct(input = {}) {
     customFeatures: sanitizeFeatureFields(input.featureFields).map((field) => ({
       key: field.key,
       value: field.type === "boolean" ? null : "待确认",
-      evidence: "OpenAI 分析不可用或未找到字段证据",
+      evidence: "AI 分析不可用或未找到字段证据",
       confidence: 35,
     })),
     sellingPoints: [
-      { title: "待确认核心卖点", evidence: "OpenAI 分析不可用或输入信息不足" },
+      { title: "待确认核心卖点", evidence: "AI 分析不可用或输入信息不足" },
       { title: "待确认价格策略", evidence: "需要人工核对详情页价格口径" },
       { title: "待确认功能差异", evidence: "建议补充清晰详情页图片或截图" },
     ],
@@ -602,10 +775,13 @@ function sanitizeAnalysisExamples(examples) {
 function modelProviderStatus() {
   const openaiModel = env.OPENAI_MODEL || "gpt-5.4-mini";
   const deepseekModel = env.DEEPSEEK_MODEL || "deepseek-v4-flash";
-  const compareProvider = normalizeProvider(env.COMPARE_AI_PROVIDER || env.AI_PROVIDER || (env.DEEPSEEK_API_KEY ? "deepseek" : "openai"));
+  const qwenModel = env.QWEN_MODEL || "qwen-vl-max";
+  const compareProvider = normalizeTextProvider(env.COMPARE_AI_PROVIDER || env.AI_PROVIDER || "deepseek");
+  const visionProvider = normalizeVisionProvider(env.VISION_PROVIDER || "qwen");
   return {
-    defaultProvider: normalizeProvider(env.AI_PROVIDER || "openai"),
+    defaultProvider: normalizeTextProvider(env.AI_PROVIDER || "deepseek"),
     compareProvider,
+    visionProvider,
     providers: {
       openai: {
         configured: Boolean(env.OPENAI_API_KEY),
@@ -617,16 +793,28 @@ function modelProviderStatus() {
         model: deepseekModel,
         supportsVisionFile: false,
       },
+      qwen: {
+        configured: Boolean(env.QWEN_API_KEY),
+        model: qwenModel,
+        supportsVisionFile: true,
+        supportsDirectPdf: false,
+      },
     },
   };
 }
 
-function normalizeProvider(provider) {
-  return String(provider || "").toLowerCase() === "deepseek" ? "deepseek" : "openai";
+function normalizeTextProvider(provider) {
+  return String(provider || "").toLowerCase() === "openai" ? "openai" : "deepseek";
+}
+
+function normalizeVisionProvider(provider) {
+  return String(provider || "").toLowerCase() === "openai" ? "openai" : "qwen";
 }
 
 function providerModel(provider) {
-  return provider === "deepseek" ? env.DEEPSEEK_MODEL || "deepseek-v4-flash" : env.OPENAI_MODEL || "gpt-5.4-mini";
+  if (provider === "deepseek") return env.DEEPSEEK_MODEL || "deepseek-v4-flash";
+  if (provider === "qwen") return env.QWEN_MODEL || "qwen-vl-max";
+  return env.OPENAI_MODEL || "gpt-5.4-mini";
 }
 
 function usageInputModalities({ imageDataUrls, remoteImageUrls, fileAttachment, provider }) {
@@ -665,27 +853,39 @@ async function callOpenAIJson({ prompt, imageDataUrl, imageDataUrls, remoteImage
     });
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input: [{ role: "user", content }],
-      text: {
-        format: {
-          type: "json_schema",
-          name: schemaName,
-          schema,
-          strict: true,
-        },
+  let response;
+  let data;
+  try {
+    ({ response, data } = await fetchProviderJson(provider, openAIResponsesUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-    }),
-  });
-
-  const data = await response.json();
+      body: JSON.stringify({
+        model,
+        input: [{ role: "user", content }],
+        text: {
+          format: {
+            type: "json_schema",
+            name: schemaName,
+            schema,
+            strict: true,
+          },
+        },
+      }),
+    }));
+  } catch (error) {
+    await appendApiUsage({
+      provider,
+      schemaName,
+      model,
+      status: "error",
+      error: error.message,
+      inputModalities: usageInputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment, provider }),
+    });
+    throw error;
+  }
   if (!response.ok) {
     const message = data.error?.message || `OpenAI request failed with ${response.status}`;
     await appendApiUsage({
@@ -724,27 +924,39 @@ async function callDeepSeekJson({ prompt, schemaName, schema }) {
   const provider = "deepseek";
   const apiKey = env.DEEPSEEK_API_KEY;
   const model = providerModel(provider);
-  const baseUrl = String(env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
   if (!apiKey) {
     throw new Error("DEEPSEEK_API_KEY is not configured");
   }
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  let response;
+  let data;
+  try {
+    ({ response, data } = await fetchProviderJson(provider, deepSeekChatUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "你是清洁电器竞品分析助手，只输出严格 JSON。" },
+          { role: "user", content: schemaPrompt(prompt, schemaName, schema) },
+        ],
+        response_format: { type: "json_object" },
+        stream: false,
+      }),
+    }));
+  } catch (error) {
+    await appendApiUsage({
+      provider,
+      schemaName,
       model,
-      messages: [
-        { role: "system", content: "你是清洁电器竞品分析助手，只输出严格 JSON。" },
-        { role: "user", content: schemaPrompt(prompt, schemaName, schema) },
-      ],
-      response_format: { type: "json_object" },
-      stream: false,
-    }),
-  });
-  const data = await response.json();
+      status: "error",
+      error: error.message,
+      inputModalities: ["deepseek:text"],
+    });
+    throw error;
+  }
   if (!response.ok) {
     const message = data.error?.message || `DeepSeek request failed with ${response.status}`;
     await appendApiUsage({
@@ -779,21 +991,112 @@ async function callDeepSeekJson({ prompt, schemaName, schema }) {
   };
 }
 
+async function callQwenVisionJson({ prompt, imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment, schemaName, schema }) {
+  const provider = "qwen";
+  const apiKey = env.QWEN_API_KEY;
+  const model = providerModel(provider);
+  if (!apiKey) {
+    throw new Error("QWEN_API_KEY is not configured");
+  }
+
+  const pdfAttachment = validatePdfAttachment(fileAttachment);
+  const imageUrls = normalizeImageDataUrls({ imageDataUrl, imageDataUrls });
+  const sourceImageUrls = normalizeRemoteImageUrls(remoteImageUrls);
+  if (pdfAttachment && imageUrls.length === 0 && sourceImageUrls.length === 0) {
+    throw new Error("Qwen-VL 当前只接收图片输入；请把 PDF 页面转成长图/截图上传，或进入人工复核。");
+  }
+
+  const content = [{ type: "text", text: schemaPrompt(prompt, schemaName, schema) }];
+  for (const imageUrl of [...imageUrls, ...sourceImageUrls]) {
+    content.push({ type: "image_url", image_url: { url: imageUrl } });
+  }
+
+  let response;
+  let data;
+  try {
+    ({ response, data } = await fetchProviderJson(provider, qwenChatUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "你是清洁电器竞品分析视觉助手，擅长从中文电商详情页图片中抽取参数，只输出严格 JSON。" },
+          { role: "user", content },
+        ],
+        response_format: { type: "json_object" },
+        stream: false,
+      }),
+    }));
+  } catch (error) {
+    await appendApiUsage({
+      provider,
+      schemaName,
+      model,
+      status: "error",
+      error: error.message,
+      inputModalities: usageInputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment, provider }),
+    });
+    throw error;
+  }
+  if (!response.ok) {
+    const message = data.error?.message || `Qwen-VL request failed with ${response.status}`;
+    await appendApiUsage({
+      provider,
+      schemaName,
+      model,
+      status: "error",
+      error: message,
+      inputModalities: usageInputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment, provider }),
+    });
+    throw new Error(message);
+  }
+  const text = data.choices?.[0]?.message?.content || "";
+  await appendApiUsage({
+    provider,
+    schemaName,
+    model: data.model || model,
+    status: "ok",
+    responseId: data.id || "",
+    usage: data.usage || null,
+    inputModalities: usageInputModalities({ imageDataUrls: imageUrls, remoteImageUrls: sourceImageUrls, fileAttachment: pdfAttachment, provider }),
+  });
+  return {
+    json: JSON.parse(text),
+    meta: {
+      responseId: data.id || "",
+      model: data.model || model,
+      provider,
+      usage: data.usage || null,
+      schemaName,
+    },
+  };
+}
+
 async function callModelJson({ task = "analysis_with_vision_file", prompt, imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment, schemaName, schema }) {
-  const needsVisionOrFile = Boolean(fileAttachment || imageDataUrl || imageDataUrls?.length || remoteImageUrls?.length);
+  const uploadedImageUrls = normalizeImageDataUrls({ imageDataUrl, imageDataUrls });
+  const sourceImageUrls = normalizeRemoteImageUrls(remoteImageUrls);
+  const hasVisionInput = Boolean(fileAttachment || uploadedImageUrls.length || sourceImageUrls.length);
+  const providerStatus = modelProviderStatus();
   const preferredProvider =
     task === "compare_summary_text"
-      ? modelProviderStatus().compareProvider
-      : "openai";
-  if (preferredProvider === "deepseek" && !needsVisionOrFile) {
-    try {
-      return await callDeepSeekJson({ prompt, schemaName, schema });
-    } catch (error) {
-      if (env.OPENAI_API_KEY) {
-        return callOpenAIJson({ prompt, schemaName, schema });
-      }
-      throw error;
+      ? providerStatus.compareProvider
+      : hasVisionInput
+        ? providerStatus.visionProvider
+        : providerStatus.defaultProvider;
+  if (preferredProvider === "deepseek") {
+    if (hasVisionInput) {
+      throw new Error("DeepSeek 当前配置只处理文本 JSON 分析，不能直接读取图片或 PDF；请配置 Qwen-VL 视觉 provider，或进入人工复核。");
     }
+    return callDeepSeekJson({ prompt, schemaName, schema });
+  }
+  if (preferredProvider === "qwen") {
+    if (!hasVisionInput) {
+      throw new Error("Qwen-VL 当前只用于图片、长图或详情页图片候选识别；纯文本任务请使用 DeepSeek。");
+    }
+    return callQwenVisionJson({ prompt, imageDataUrl, imageDataUrls, remoteImageUrls: sourceImageUrls, fileAttachment, schemaName, schema });
   }
   return callOpenAIJson({ prompt, imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment, schemaName, schema });
 }
@@ -1013,10 +1316,19 @@ async function handleApi(request, response, pathname) {
       ok: true,
       openaiConfigured: Boolean(env.OPENAI_API_KEY),
       deepseekConfigured: Boolean(env.DEEPSEEK_API_KEY),
+      qwenConfigured: Boolean(env.QWEN_API_KEY),
+      openaiBaseUrlConfigured: Boolean(env.OPENAI_BASE_URL),
+      qwenBaseUrlConfigured: Boolean(env.QWEN_BASE_URL),
+      aiProxyConfigured: proxyStatus().configured,
+      aiProxy: proxyStatus(),
+      aiRequestTimeoutMs: aiRequestTimeoutMs(),
+      qwenRequestTimeoutMs: aiRequestTimeoutMs("qwen"),
       model: providerStatus.providers.openai.model,
       deepseekModel: providerStatus.providers.deepseek.model,
+      qwenModel: providerStatus.providers.qwen.model,
       aiProvider: providerStatus.defaultProvider,
       compareProvider: providerStatus.compareProvider,
+      visionProvider: providerStatus.visionProvider,
       providers: providerStatus.providers,
       ...accessStatus(),
       costPricingConfigured: costPricingConfig().configured,
@@ -1061,11 +1373,18 @@ async function handleApi(request, response, pathname) {
     try {
       sendJson(response, 200, await analyzeProduct(input));
     } catch (error) {
+      const providerStatus = modelProviderStatus();
+      const hasVisionInput = Boolean(
+        sanitizeFileAttachment(input.fileAttachment) ||
+          normalizeImageDataUrls(input).length ||
+          analysisSourceImageUrls(input.sourceMetadata || {}).length,
+      );
+      const fallbackProvider = hasVisionInput ? providerStatus.visionProvider : providerStatus.defaultProvider;
       sendJson(response, 200, {
         product: fallbackProduct(input),
         analysisMeta: {
-          model: env.OPENAI_MODEL || "gpt-5.4-mini",
-          provider: "openai",
+          model: providerModel(fallbackProvider),
+          provider: fallbackProvider,
           status: "fallback",
           usage: null,
         },

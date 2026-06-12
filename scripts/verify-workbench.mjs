@@ -91,6 +91,8 @@ const smokeChecklistGenerator = readRequired("scripts/generate-smoke-checklist.m
 const internalTrialPackGenerator = readRequired("scripts/generate-formal-use-pack.mjs");
 const formalUseBrowserVerifier = readRequired("scripts/verify-formal-use-browser.mjs");
 const localEnvChecker = readRequired("scripts/check-local-env.mjs");
+const aiConnectivityChecker = readRequired("scripts/check-ai-connectivity.mjs");
+const evalCalibrationRunner = readRequired("scripts/run-eval-calibration.mjs");
 const hygieneVerifier = readRequired("scripts/verify-hygiene.mjs");
 const releaseVerifier = readRequired("scripts/verify-release.mjs");
 
@@ -329,6 +331,10 @@ for (const name of requiredClientFunctions) {
   assertRegex(scriptJs, new RegExp(`function\\s+${name}\\s*\\(|async\\s+function\\s+${name}\\s*\\(`), `script.js function ${name}`);
 }
 
+for (const token of ["openaiBaseUrlConfigured", "qwenBaseUrlConfigured", "aiRequestTimeoutMs", "qwenModel", "visionProvider", "OpenAI 网关", "Qwen 网关", "AI 超时"]) {
+  assertIncludes(scriptJs, token, "script.js health status");
+}
+
 for (const route of [
   "/api/health",
   "/api/state",
@@ -357,10 +363,15 @@ for (const token of [
   "callOpenAIJson",
   "callModelJson",
   "callDeepSeekJson",
+  "callQwenVisionJson",
   "modelProviderStatus",
   "compareProvider",
+  "visionProvider",
   "DEEPSEEK_API_KEY",
   "DEEPSEEK_MODEL",
+  "QWEN_API_KEY",
+  "QWEN_MODEL",
+  "QWEN_BASE_URL",
   "HttpError",
   "maxJsonBodyBytes",
   "Invalid JSON request body",
@@ -375,8 +386,8 @@ for (const token of [
   "priceFromJsonLd",
   "priceFromMeta",
   "priceFromText",
-  "input_file",
-  "file_data",
+  "callQwenVisionJson",
+  "Qwen-VL 当前只接收图片输入",
   "validatePdfAttachment",
   "sanitizeFeatureFields",
   "sanitizeAnalysisExamples",
@@ -486,17 +497,25 @@ assertIncludes(indexHtml, "multiple", "index.html multi-file upload");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
 
-for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/"]) {
+for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {
   assertIncludes(gitignore, ignore, ".gitignore entry");
 }
 
 for (const token of [
   "OPENAI_API_KEY=",
   "OPENAI_MODEL=gpt-5.4-mini",
-  "AI_PROVIDER=openai",
+  "OPENAI_BASE_URL=https://api.openai.com/v1",
+  "AI_REQUEST_TIMEOUT_MS=60000",
+  "HTTPS_PROXY=",
+  "AI_PROVIDER=deepseek",
   "COMPARE_AI_PROVIDER=deepseek",
+  "VISION_PROVIDER=qwen",
   "DEEPSEEK_API_KEY=",
   "DEEPSEEK_MODEL=deepseek-v4-flash",
+  "QWEN_API_KEY=",
+  "QWEN_MODEL=qwen-vl-max",
+  "QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "QWEN_REQUEST_TIMEOUT_MS=60000",
   "APP_READ_TOKEN=",
   "APP_WRITE_TOKEN=",
   "PORT=4173",
@@ -530,9 +549,12 @@ for (const topic of [
   "OPENAI_OUTPUT_USD_PER_1M",
   "OPENAI_TOTAL_USD_PER_1M",
   "DeepSeek",
+  "Qwen-VL",
   "AI_PROVIDER",
   "COMPARE_AI_PROVIDER",
+  "VISION_PROVIDER",
   "DEEPSEEK_API_KEY",
+  "QWEN_API_KEY",
   "provider",
   "导出最近调用",
   "token usage",
@@ -571,7 +593,7 @@ for (const topic of [
   "所有自定义功能字段列",
   "导入替换前会自动下载",
   "PDF",
-  "input_file",
+  "Qwen-VL",
   "customFeatures",
   "样例校准",
   "verify-evals.mjs",
@@ -587,8 +609,11 @@ for (const topic of [
   "generate-eval-calibration-pack.mjs",
   "generate-formal-use-pack.mjs",
   "check-local-env.mjs",
+  "check-ai-connectivity.mjs",
+  "run-eval-calibration.mjs",
   "verify-hygiene.mjs",
   "verify-formal-use-browser.mjs",
+  "ai-connectivity-check",
 ]) {
   assertIncludes(readme, topic, "README capability");
 }
@@ -612,12 +637,17 @@ for (const token of [
 
 for (const topic of [
   "OPENAI_API_KEY",
+  "OPENAI_BASE_URL",
+  "check-ai-connectivity.mjs",
+  "run-eval-calibration.mjs",
   "APP_ACCESS_TOKEN",
   "APP_READ_TOKEN",
   "APP_WRITE_TOKEN",
   "OPENAI_INPUT_USD_PER_1M",
   "OPENAI_TOTAL_USD_PER_1M",
   "DEEPSEEK_API_KEY",
+  "QWEN_API_KEY",
+  "VISION_PROVIDER",
   "COMPARE_AI_PROVIDER",
   "provider",
   "估算成本",
@@ -799,7 +829,9 @@ for (const topic of [
 for (const topic of [
   "多模型真实样例评估准备报告",
   "DeepSeek",
-  "OpenAI 抽取结果",
+  "Qwen-VL",
+  "DeepSeek 抽取结果",
+  "Qwen-VL 视觉结论",
   "本地兜底结果",
   "人工校准清单",
   "校准记录模板",
@@ -815,7 +847,8 @@ for (const topic of [
 for (const topic of [
   "真实样例校准任务包",
   "eval-calibration-results",
-  "OpenAI 抽取",
+  "DeepSeek 文本抽取",
+  "Qwen-VL 视觉识别",
   "DeepSeek 总结",
   "本地兜底",
   "Go/No-Go",
@@ -867,17 +900,55 @@ for (const topic of [
   "端口 ${port} 健康接口",
   "端口 ${port} 首页",
   "清洁电器竞品分析工作台",
+  "HTTPS_PROXY 配置",
+  "COMPARE_AI_PROVIDER 配置",
+  "VISION_PROVIDER 配置",
+  "DEEPSEEK_API_KEY 配置",
+  "DEEPSEEK_MODEL 配置",
+  "DEEPSEEK_BASE_URL 配置",
+  "QWEN_API_KEY 配置",
+  "QWEN_MODEL 配置",
+  "QWEN_BASE_URL 配置",
 ]) {
   assertIncludes(localEnvChecker, topic, "local environment checker");
 }
 
-for (const topic of ["Hygiene verification passed", "data/*.json", "reports/", "potential secret"]) {
+for (const topic of [
+  "AI connectivity check",
+  "OPENAI_BASE_URL",
+  "AI_REQUEST_TIMEOUT_MS",
+  "HTTPS_PROXY",
+  "DEEPSEEK_BASE_URL",
+  "QWEN_BASE_URL",
+  "QWEN_API_KEY",
+  "missing-key",
+  "network-error",
+  "Report:",
+]) {
+  assertIncludes(aiConnectivityChecker, topic, "AI connectivity checker");
+}
+
+for (const topic of [
+  "Eval calibration started",
+  "prepare-dir",
+  "prepare-compare-dir",
+  "finalize-dir",
+  "eval-calibration-results",
+  "manualReviewRequired",
+  "summaryCoversFunction",
+  "request-error",
+]) {
+  assertIncludes(evalCalibrationRunner, topic, "eval calibration runner");
+}
+
+for (const topic of ["Hygiene verification passed", "data/*.json", "reports/", ".tmp/", "potential secret"]) {
   assertIncludes(hygieneVerifier, topic, "hygiene verifier");
 }
 
 for (const topic of [
   "Release readiness verification",
   "scripts/check-local-env.mjs",
+  "scripts/check-ai-connectivity.mjs",
   "scripts/verify-mvp.mjs",
   "scripts/verify-exports.mjs",
   "scripts/verify-summary.mjs",
