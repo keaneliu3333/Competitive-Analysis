@@ -162,7 +162,7 @@ node scripts/verify-hygiene.mjs
 - 当前访问控制是单个共享令牌，不是多用户账号体系。
 - 详情页抓取不绕过登录、付费墙、验证码或反爬限制。
 - PDF 原文不会写入兜底结果；产品记录只保存文件名、类型和大小。
-- 服务端 JSON 请求体限制 70MB，PDF 文件限制 50MB。
+- 服务端 JSON 请求体限制 140MB，单个上传文件限制 100MB。
 - API 用量日志不记录 API key 和完整 prompt。
 
 ## 故障检查
@@ -177,7 +177,7 @@ node scripts/verify-hygiene.mjs
 - API 返回 401：确认页面输入的访问令牌与 `APP_READ_TOKEN`、`APP_WRITE_TOKEN` 或 `APP_ACCESS_TOKEN` 一致。
 - API 返回 403：当前令牌没有写权限，输入 `APP_WRITE_TOKEN` 或兼容的 `APP_ACCESS_TOKEN`。
 - 端口已占用但页面 404：运行 `node scripts/check-local-env.mjs`，确认该端口的健康接口和首页是否都来自当前工作台；如果健康接口正常但首页异常，换 `PORT` 启动或停止旧服务。
-- 上传 PDF 失败：确认文件小于 50MB，且是 PDF；大文件可先拆页或上传截图。
+- 上传 PDF 失败：确认文件小于 100MB，且是 PDF；大文件可先拆页或上传截图。
 - URL 预抓取失败：可改用截图/PDF 上传；电商平台页面结构和访问限制可能导致 metadata 不稳定。
 - URL 预抓取结果异常：检查导入面板里的图片候选、价格候选和文案证据片段；证据不足时补充上传详情页长图或 PDF。
 - 分析结果低置信度：进入待确认队列，人工修订产品字段和 Top3 卖点。

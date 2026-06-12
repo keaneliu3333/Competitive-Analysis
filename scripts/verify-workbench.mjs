@@ -496,6 +496,8 @@ for (const token of [
 assertIncludes(indexHtml, "multiple", "index.html multi-file upload");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
+assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis action");
+assertIncludes(scriptJs, "await runAnalysis();", "script.js auto analysis after metadata fetch");
 
 for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {
   assertIncludes(gitignore, ignore, ".gitignore entry");
@@ -558,7 +560,7 @@ for (const topic of [
   "provider",
   "导出最近调用",
   "token usage",
-  "70MB",
+  "140MB",
   "可命名保存/删除",
   "工作视图",
   "对比字段",

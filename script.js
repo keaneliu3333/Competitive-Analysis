@@ -385,7 +385,7 @@ let healthState = {
   costPricingConfigured: false,
   error: "",
 };
-const MAX_ANALYSIS_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_ANALYSIS_FILE_BYTES = 100 * 1024 * 1024;
 
 function getAccessToken() {
   return sessionStorage.getItem(TOKEN_KEY) || "";
@@ -2819,7 +2819,7 @@ async function fileToAnalysisAttachment(file) {
     throw new Error("仅支持图片或 PDF 详情页文件。");
   }
   if (file.size > MAX_ANALYSIS_FILE_BYTES) {
-    throw new Error("上传文件不能超过 50MB。");
+    throw new Error("上传文件不能超过 100MB。");
   }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3046,7 +3046,8 @@ async function fetchSourceMetadata() {
     if (!response.ok) throw new Error(metadata.error || "预抓取失败");
     sourceMetadata = { ...metadata, url, fetchedAt: nowIso() };
     renderSourcePreview(sourceMetadata);
-    setAnalysisStatus("预抓取完成，可继续上传图片或直接开始分析。", "success");
+    setAnalysisStatus("预抓取完成，正在自动分析详情页内容...", "success");
+    await runAnalysis();
   } catch (error) {
     sourceMetadata = null;
     renderSourcePreview(null);

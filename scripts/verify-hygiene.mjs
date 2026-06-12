@@ -28,13 +28,17 @@ const ignoredDirs = new Set([
   "reports",
   ".tmp",
 ]);
-const ignoredFiles = new Set([".DS_Store", ".env", ".env.local"]);
+const ignoredFiles = new Set([".DS_Store"]);
 const allowedPlaceholderFiles = new Set([".env.example"]);
+
+function isIgnoredFile(name) {
+  return ignoredFiles.has(name) || (name.startsWith(".env") && !allowedPlaceholderFiles.has(name));
+}
 
 function walk(dir) {
   const files = [];
   for (const name of readdirSync(dir)) {
-    if (ignoredFiles.has(name)) continue;
+    if (isIgnoredFile(name)) continue;
     const fullPath = join(dir, name);
     const relPath = relative(root, fullPath);
     const stat = statSync(fullPath);

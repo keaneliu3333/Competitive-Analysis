@@ -13,8 +13,8 @@ const port = Number(process.env.PORT || 4173);
 const env = loadEnv();
 const statePath = join(root, "data", "workbench-state.json");
 const usagePath = join(root, "data", "api-usage.json");
-const maxAnalysisFileBytes = 50 * 1024 * 1024;
-const maxJsonBodyBytes = 70 * 1024 * 1024;
+const maxAnalysisFileBytes = 100 * 1024 * 1024;
+const maxJsonBodyBytes = 140 * 1024 * 1024;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -347,7 +347,7 @@ async function readJson(request) {
   for await (const chunk of request) {
     totalBytes += chunk.length;
     if (totalBytes > maxJsonBodyBytes) {
-      throw new HttpError(413, "JSON request body exceeds the 70MB limit.");
+      throw new HttpError(413, "JSON request body exceeds the 140MB limit.");
     }
     chunks.push(chunk);
   }
@@ -695,7 +695,7 @@ function validatePdfAttachment(fileAttachment) {
     throw new Error("Only PDF file attachments are supported.");
   }
   if (sanitized.size > maxAnalysisFileBytes) {
-    throw new Error("PDF attachment exceeds the 50MB limit.");
+    throw new Error("PDF attachment exceeds the 100MB limit.");
   }
   if (!String(fileAttachment.fileDataUrl).startsWith("data:application/pdf;base64,")) {
     throw new Error("PDF attachment must be a base64 data URL.");
