@@ -246,7 +246,9 @@
             </label>
           </div>
           <div class="panel-actions">
-            <p id="analysisStatus" class="status-text">AI 会输出结构化参数、Top3 卖点和置信度。</p>
+            <p id="analysisStatus" class="status-text" role="status" aria-live="polite">
+              AI 会输出结构化参数、Top3 卖点和置信度。
+            </p>
             <button class="primary-button" type="button" id="runAnalysis">
               开始分析
             </button>
@@ -482,6 +484,6 @@
     <input id="dataPackageFile" type="file" accept="application/json,.json" hidden />
     <input id="csvImportFile" type="file" accept=".csv,text/csv" hidden />
 
-    <script src="script.js"></script>
+    <script src="script.js?v=long-image-adaptive-20260613"></script>
   </body>
 </html>

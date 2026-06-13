@@ -15,6 +15,8 @@ const statePath = join(root, "data", "workbench-state.json");
 const usagePath = join(root, "data", "api-usage.json");
 const maxAnalysisFileBytes = 100 * 1024 * 1024;
 const maxJsonBodyBytes = 140 * 1024 * 1024;
+const maxModelImageDataUrlChars = 4_000_000;
+const maxModelImageCount = 32;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -423,11 +425,11 @@ function fallbackProduct(input = {}) {
       : "扫地机";
   return {
     brand: "待确认品牌",
-    name: "AI 待确认产品",
-    model: "待确认型号",
+    name: sourceMetadata.title || (sourceMetadata.itemId ? `${sourceMetadata.platform || "电商"}商品 ${sourceMetadata.itemId}` : "AI 待确认产品"),
+    model: sourceMetadata.itemId ? `商品ID ${sourceMetadata.itemId}` : "待确认型号",
     category,
     price: 0,
-    channel: source.includes("jd") ? "京东" : source.includes("tmall") ? "天猫" : "官网",
+    channel: sourceMetadata.channel || (source.includes("jd") ? "京东" : source.includes("tmall") ? "天猫" : "官网"),
     status: "待确认",
     image: sourceMetadata.image || sourceMetadata.imageCandidates?.[0] || "",
     confidence: 52,
@@ -470,13 +472,26 @@ function fallbackProduct(input = {}) {
 
 async function fetchMetadata(url) {
   if (!url) return {};
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 CompetitiveAnalysisBot/1.0",
-      Accept: "text/html,application/xhtml+xml",
-    },
-    redirect: "follow",
-  });
+  const commerceFallback = metadataFromCommerceUrl(url);
+  let response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 CompetitiveAnalysisBot/1.0",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "follow",
+    });
+  } catch (error) {
+    if (commerceFallback) {
+      return {
+        ...commerceFallback,
+        fetchMode: "commerce-url-fallback",
+        fetchWarning: `页面抓取失败，已保留 URL 可识别信息：${error.message}`,
+      };
+    }
+    throw error;
+  }
   const html = await response.text();
   const title = decodeHtml(
     html.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]?.replace(/\s+/g, " ").trim() ||
@@ -490,18 +505,78 @@ async function fetchMetadata(url) {
   const imageCandidates = extractImageCandidates(html, url);
   const priceCandidates = uniquePriceCandidates([structuredPrice, metaPrice, textPrice, ...pricesFromText(html)]);
   const priceCandidate = priceCandidates[0];
+  const textSnippets = uniqueStrings([...extractTextSnippets(html), ...(commerceFallback?.textSnippets || [])], 12);
   return {
-    title,
-    description,
+    ...(commerceFallback || {}),
+    title: title || commerceFallback?.title || "",
+    description: description || commerceFallback?.description || "",
     image: imageCandidates[0] || "",
     imageCandidates,
     price: priceCandidate?.price ?? null,
     currency: priceCandidate?.currency || "CNY",
     priceSource: priceCandidate?.source || "",
     priceCandidates,
-    textSnippets: extractTextSnippets(html),
+    textSnippets,
     htmlBytes: Buffer.byteLength(html, "utf8"),
+    fetchMode: commerceFallback && !title && !description && !textSnippets.length ? "commerce-url-fallback" : "html",
+    url,
   };
+}
+
+function metadataFromCommerceUrl(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.hostname.toLowerCase();
+    const itemId = parsed.searchParams.get("id") || parsed.searchParams.get("itemId") || "";
+    const skuId = parsed.searchParams.get("skuId") || "";
+    const platform = host.includes("tmall")
+      ? "天猫"
+      : host.includes("taobao")
+        ? "淘宝"
+        : host.includes("jd.")
+          ? "京东"
+          : "";
+    if (!platform || (!itemId && !skuId)) return null;
+    const canonicalUrl =
+      platform === "京东"
+        ? `https://item.jd.com/${itemId || skuId}.html`
+        : `${parsed.origin}${parsed.pathname}?${new URLSearchParams(
+            Object.fromEntries(
+              [
+                ["id", itemId],
+                ["skuId", skuId],
+              ].filter(([, value]) => value),
+            ),
+          ).toString()}`;
+    const textSnippets = uniqueStrings(
+      [
+        `平台：${platform}`,
+        itemId ? `商品 ID：${itemId}` : "",
+        skuId ? `SKU ID：${skuId}` : "",
+        "页面可能需要登录或动态加载；如未抓到价格、参数和详情图，请上传详情页截图或长图补充分析。",
+      ],
+      8,
+    );
+    return {
+      title: `${platform}商品${itemId ? ` ${itemId}` : ""}`,
+      description: `${platform}详情页链接已识别；动态详情、价格和图片可能需要截图或长图兜底。`,
+      image: "",
+      imageCandidates: [],
+      price: null,
+      currency: "CNY",
+      priceSource: "",
+      priceCandidates: [],
+      textSnippets,
+      platform,
+      channel: platform,
+      itemId,
+      skuId,
+      canonicalUrl,
+      url: rawUrl,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function uniqueStrings(values, limit = 12) {
@@ -708,7 +783,7 @@ function validatePdfAttachment(fileAttachment) {
 
 function normalizeImageDataUrls({ imageDataUrl, imageDataUrls }) {
   const urls = Array.isArray(imageDataUrls) ? imageDataUrls : imageDataUrl ? [imageDataUrl] : [];
-  return urls.filter((url) => typeof url === "string" && url.startsWith("data:image/")).slice(0, 8);
+  return urls.filter((url) => typeof url === "string" && url.startsWith("data:image/")).slice(0, maxModelImageCount);
 }
 
 function normalizeRemoteImageUrls(values, limit = 4) {
@@ -1107,6 +1182,10 @@ async function analyzeProduct(input) {
   const featureFields = sanitizeFeatureFields(input.featureFields);
   const analysisExamples = sanitizeAnalysisExamples(input.analysisExamples);
   const imageUrls = normalizeImageDataUrls(input);
+  const oversizedImageUrl = imageUrls.find((imageUrl) => imageUrl.length > maxModelImageDataUrlChars);
+  if (oversizedImageUrl) {
+    throw new Error("上传图片超过 AI 接口单张图片限制，请把详情页拆成多张截图，或压缩图片宽度后重新上传。");
+  }
   const sourceImageUrls = analysisSourceImageUrls(metadata);
   const prompt = [
     "你是清洁电器竞品分析师，请从官网或电商详情页信息中抽取结构化产品资料。",
@@ -1435,6 +1514,7 @@ async function serveStatic(request, response, pathname) {
     const file = await readFile(filePath);
     response.writeHead(200, {
       "Content-Type": mimeTypes[extname(filePath)] || "application/octet-stream",
+      "Cache-Control": "no-store",
     });
     response.end(file);
   } catch {
@@ -1475,6 +1555,7 @@ export {
   extractTextSnippets,
   isReadAuthorized,
   isWriteAuthorized,
+  metadataFromCommerceUrl,
   normalizeComparisonSummary,
   pricesFromText,
   usageTokens,

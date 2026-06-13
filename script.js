@@ -386,6 +386,11 @@ let healthState = {
   error: "",
 };
 const MAX_ANALYSIS_FILE_BYTES = 100 * 1024 * 1024;
+const MAX_ANALYSIS_IMAGE_DATA_URL_CHARS = 3_000_000;
+const MAX_ANALYSIS_IMAGE_WIDTH = 1400;
+const MAX_ANALYSIS_IMAGE_SLICE_HEIGHT = 1100;
+const MAX_ANALYSIS_IMAGE_COUNT = 32;
+const MIN_ANALYSIS_IMAGE_SLICE_SOURCE_HEIGHT = 96;
 
 function getAccessToken() {
   return sessionStorage.getItem(TOKEN_KEY) || "";
@@ -2821,78 +2826,216 @@ async function fileToAnalysisAttachment(file) {
   if (file.size > MAX_ANALYSIS_FILE_BYTES) {
     throw new Error("上传文件不能超过 100MB。");
   }
+  if (isImage) {
+    return {
+      filename: file.name || "detail-image",
+      mimeType: file.type || "image/png",
+      size: file.size,
+      kind: "image",
+      objectUrl: URL.createObjectURL(file),
+    };
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () =>
       resolve({
-        filename: file.name || (isPdf ? "detail.pdf" : "detail-image"),
-        mimeType: isPdf ? "application/pdf" : file.type,
+        filename: file.name || "detail.pdf",
+        mimeType: "application/pdf",
         size: file.size,
-        kind: isPdf ? "pdf" : "image",
+        kind: "pdf",
         dataUrl: reader.result,
       });
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error(`浏览器读取文件失败：${file.name || "未命名文件"}。请确认文件未损坏，或重新截图后上传。`));
     reader.readAsDataURL(file);
   });
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!Number.isFinite(value) || value <= 0) return "0B";
+  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(value >= 10 * 1024 * 1024 ? 0 : 1)}MB`;
+  return `${Math.max(1, Math.round(value / 1024))}KB`;
+}
+
+function normalizeErrorMessage(error, fallback = "操作失败，请稍后重试。") {
+  if (error?.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error.trim();
+  if (error?.target?.error?.message) return error.target.error.message;
+  if (error?.type) return `${fallback}（${error.type}）`;
+  return fallback;
 }
 
 function imageDataUrlSize(dataUrl) {
   return Math.ceil((String(dataUrl).split(",")[1]?.length || 0) * 0.75);
 }
 
-function loadImageElement(dataUrl) {
+function compressedCanvasDataUrl(canvas) {
+  const qualities = [0.76, 0.64, 0.52, 0.42, 0.34, 0.28];
+  for (const quality of qualities) {
+    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+    if (dataUrl.length <= MAX_ANALYSIS_IMAGE_DATA_URL_CHARS) return dataUrl;
+  }
+  return "";
+}
+
+function drawCompressedSlice({ image, sourceY, sourceHeight }) {
+  const widthCandidates = [MAX_ANALYSIS_IMAGE_WIDTH, 1200, 1000, 800, 640, 520, 420, 360, 320];
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  for (const widthLimit of widthCandidates) {
+    const scale = Math.min(1, widthLimit / Math.max(1, image.width));
+    const targetWidth = Math.max(1, Math.round(image.width * scale));
+    const targetHeight = Math.max(1, Math.round(sourceHeight * scale));
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, sourceY, image.width, sourceHeight, 0, 0, targetWidth, targetHeight);
+    const dataUrl = compressedCanvasDataUrl(canvas);
+    if (dataUrl) return { dataUrl, targetWidth, targetHeight };
+  }
+  return null;
+}
+
+function assertImageDataUrlWithinModelLimit(attachment) {
+  if (String(attachment.dataUrl || "").length <= MAX_ANALYSIS_IMAGE_DATA_URL_CHARS) return;
+  throw new Error(
+    `${attachment.filename || "详情页图片"} 压缩后仍超过 AI 接口单张图片限制。请改为上传关键参数/卖点区域截图。`,
+  );
+}
+
+function loadImageElement(sourceUrl, filename = "详情页图片") {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = dataUrl;
+    image.onerror = () =>
+      reject(
+        new Error(
+          `浏览器无法解析图片：${filename}。如果是 HEIC、AVIF、超大长图或从 App 保存的特殊格式，请先转成 JPG/PNG/WebP，或直接上传截图。`,
+        ),
+      );
+    image.src = sourceUrl;
   });
 }
 
 async function sliceLongImageAttachment(attachment) {
   if (attachment.kind !== "image") return [attachment];
-  const image = await loadImageElement(attachment.dataUrl);
-  const maxSliceHeight = 1800;
-  if (image.height <= maxSliceHeight * 1.35) return [attachment];
-  const sliceCount = Math.min(4, Math.ceil(image.height / maxSliceHeight));
-  const sliceHeight = Math.ceil(image.height / sliceCount);
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
-  canvas.width = image.width;
-  canvas.height = sliceHeight;
+  const imageSource = attachment.objectUrl || attachment.dataUrl;
+  const image = await loadImageElement(imageSource, attachment.filename);
+  const scale = Math.min(1, MAX_ANALYSIS_IMAGE_WIDTH / Math.max(1, image.width));
+  const initialSliceHeight = Math.max(1, Math.floor(MAX_ANALYSIS_IMAGE_SLICE_HEIGHT / Math.max(scale, 0.01)));
   const slices = [];
-  for (let index = 0; index < sliceCount; index += 1) {
-    const sourceY = index * sliceHeight;
-    const height = Math.min(sliceHeight, image.height - sourceY);
-    canvas.height = height;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, sourceY, image.width, height, 0, 0, image.width, height);
-    const dataUrl = canvas.toDataURL(attachment.mimeType || "image/jpeg", 0.88);
+
+  function pushAdaptiveSlice(sourceY, sourceHeight, depth = 0) {
+    const compressed = drawCompressedSlice({ image, sourceY, sourceHeight });
+    if (!compressed && sourceHeight > MIN_ANALYSIS_IMAGE_SLICE_SOURCE_HEIGHT && depth < 12) {
+      const firstHeight = Math.ceil(sourceHeight / 2);
+      pushAdaptiveSlice(sourceY, firstHeight, depth + 1);
+      pushAdaptiveSlice(sourceY + firstHeight, sourceHeight - firstHeight, depth + 1);
+      return;
+    }
+    if (!compressed) {
+      throw new Error(
+        `${attachment.filename || "详情页图片"} 的局部区域压缩后仍超过 AI 接口限制，请截取更小的关键参数/卖点区域上传。`,
+      );
+    }
     slices.push({
       ...attachment,
-      filename: `${attachment.filename}-part-${index + 1}`,
-      size: imageDataUrlSize(dataUrl),
-      dataUrl,
+      filename: attachment.filename,
+      mimeType: "image/jpeg",
+      size: imageDataUrlSize(compressed.dataUrl),
+      dataUrl: compressed.dataUrl,
       slicedFrom: attachment.filename,
+      sourceY,
+      sourceHeight,
+      originalSize: attachment.size,
+      originalMimeType: attachment.mimeType,
+      compressedWidth: compressed.targetWidth,
+      compressedHeight: compressed.targetHeight,
     });
   }
-  return slices;
+
+  for (let sourceY = 0; sourceY < image.height; sourceY += initialSliceHeight) {
+    const sourceHeight = Math.min(initialSliceHeight, image.height - sourceY);
+    pushAdaptiveSlice(sourceY, sourceHeight);
+  }
+
+  const selectedSlices = selectAnalysisImageSlices(slices);
+  const total = slices.length;
+  return selectedSlices.map((slice, index) => ({
+    ...slice,
+    filename:
+      total > 1
+        ? `${attachment.filename}-part-${index + 1}${total > selectedSlices.length ? `-of-${total}-selected` : ""}`
+        : attachment.filename,
+    originalSliceCount: total,
+    selectedSliceCount: selectedSlices.length,
+  }));
 }
 
-async function filesToAnalysisAttachments(files) {
+function selectAnalysisImageSlices(slices) {
+  if (slices.length <= MAX_ANALYSIS_IMAGE_COUNT) return slices;
+  const selectedIndexes = new Set();
+  const addRange = (startRatio, endRatio, count) => {
+    const start = Math.max(0, Math.floor((slices.length - 1) * startRatio));
+    const end = Math.min(slices.length - 1, Math.ceil((slices.length - 1) * endRatio));
+    if (count <= 1 || start === end) {
+      selectedIndexes.add(start);
+      return;
+    }
+    for (let index = 0; index < count; index += 1) {
+      selectedIndexes.add(Math.round(start + ((end - start) * index) / (count - 1)));
+    }
+  };
+  addRange(0, 0.18, 8);
+  addRange(0.18, 0.72, 16);
+  addRange(0.72, 1, 8);
+  for (let index = 0; selectedIndexes.size < MAX_ANALYSIS_IMAGE_COUNT && index < slices.length; index += 1) {
+    selectedIndexes.add(index);
+  }
+  return [...selectedIndexes]
+    .sort((a, b) => a - b)
+    .slice(0, MAX_ANALYSIS_IMAGE_COUNT)
+    .map((index) => slices[index]);
+}
+
+async function filesToAnalysisAttachments(files, onProgress = () => {}) {
   const attachments = [];
-  for (const file of Array.from(files || [])) {
+  const uploadFiles = Array.from(files || []);
+  for (const [index, file] of uploadFiles.entries()) {
+    onProgress(`正在读取上传文件 ${index + 1}/${uploadFiles.length}：${file.name || "未命名文件"}（${formatBytes(file.size)}）...`);
     const attachment = await fileToAnalysisAttachment(file);
     if (!attachment) continue;
     if (attachment.kind === "image") {
-      attachments.push(...(await sliceLongImageAttachment(attachment)));
+      onProgress(`正在检查长图并切片：${attachment.filename}...`);
+      try {
+        const slices = await sliceLongImageAttachment(attachment);
+        slices.forEach(assertImageDataUrlWithinModelLimit);
+        if (slices.length > 1) {
+          const originalSliceCount = slices[0]?.originalSliceCount || slices.length;
+          const selectedText =
+            originalSliceCount > slices.length ? `，已选取 ${slices.length} 张关键切片` : "";
+          onProgress(`长图已自动压缩并切成 ${originalSliceCount} 张${selectedText}，正在准备上传分析...`);
+        }
+        attachments.push(...slices);
+      } catch (error) {
+        if (String(error?.message || "").includes("超过 AI 接口单张图片限制") || String(error?.message || "").includes("图片切片仍然过大")) {
+          throw error;
+        }
+        throw new Error(
+          `${attachment.filename || "详情页图片"} 自动切片失败。请刷新页面后重试，或上传关键参数/卖点区域截图。原始错误：${normalizeErrorMessage(error)}`,
+        );
+      } finally {
+        if (attachment.objectUrl) URL.revokeObjectURL(attachment.objectUrl);
+      }
     } else {
       attachments.push(attachment);
     }
   }
   const pdfAttachments = attachments.filter((attachment) => attachment.kind === "pdf");
   if (pdfAttachments.length > 1) throw new Error("一次分析最多上传 1 个 PDF。");
-  const imageAttachments = attachments.filter((attachment) => attachment.kind === "image").slice(0, 8);
+  const imageAttachments = attachments.filter((attachment) => attachment.kind === "image").slice(0, MAX_ANALYSIS_IMAGE_COUNT);
   return [...imageAttachments, ...pdfAttachments];
 }
 
@@ -2905,14 +3048,23 @@ async function runAnalysis() {
     return;
   }
 
-  setAnalysisStatus("正在分析详情页内容...", "");
+  setAnalysisBusy(true);
+  setAnalysisStatus(files.length ? "正在准备上传文件..." : "正在分析详情页内容...", "progress");
   try {
-    const attachments = await filesToAnalysisAttachments(files);
+    const attachments = await filesToAnalysisAttachments(files, (message) => setAnalysisStatus(message, "progress"));
     const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
     const pdfAttachment = attachments.find((attachment) => attachment.kind === "pdf");
     const uploadNote = attachments.length
-      ? `\n上传文件：${attachments.map((attachment) => `${attachment.filename}（${attachment.mimeType}，${Math.round(attachment.size / 1024)}KB）`).join("；")}`
+      ? `\n上传文件：${attachments.map((attachment) => `${attachment.filename}（${attachment.mimeType}，${formatBytes(attachment.size)}）`).join("；")}`
       : "";
+    if (attachments.length) {
+      const imageText = imageAttachments.length ? `${imageAttachments.length} 张图片/切片` : "";
+      const pdfText = pdfAttachment ? "1 个 PDF" : "";
+      setAnalysisStatus(`文件准备完成：${[imageText, pdfText].filter(Boolean).join("，")}。正在上传并调用 AI 分析...`, "progress");
+    } else {
+      setAnalysisStatus("正在提交 URL/补充说明并调用 AI 分析...", "progress");
+    }
+    setAnalysisStatus("文件已读取完成，正在上传资料并等待 AI 返回...", "progress");
     const response = await apiFetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2935,7 +3087,13 @@ async function runAnalysis() {
         sourceMetadata,
       }),
     });
-    const payload = await response.json();
+    setAnalysisStatus("服务已返回，正在整理分析结果...", "progress");
+    let payload = {};
+    try {
+      payload = await response.json();
+    } catch (error) {
+      throw new Error(`服务返回内容不是有效 JSON：${normalizeErrorMessage(error, "无法读取服务响应")}`);
+    }
     if (!response.ok && !payload.product) {
       throw new Error(payload.error || "分析失败");
     }
@@ -2951,11 +3109,14 @@ async function runAnalysis() {
     renderSourcePreview(null);
     renderAll();
     const successMessage = integrated.merged ? "分析完成，已按品牌+型号更新已有产品。" : "分析完成，已加入产品库。";
-    setAnalysisStatus(payload.warning || successMessage, payload.warning ? "error" : "success");
+    const warningMessage = payload.warning ? `AI 未完全返回有效结果，已生成待人工复核产品：${payload.warning}` : "";
+    setAnalysisStatus(warningMessage || successMessage, warningMessage ? "warning" : "success");
     loadUsage();
   } catch (error) {
-    setAnalysisStatus(`分析失败：${error.message}`, "error");
+    setAnalysisStatus(`分析失败：${normalizeErrorMessage(error, "未能完成分析，请检查文件格式、大小或网络后重试。")}`, "error");
     loadUsage();
+  } finally {
+    setAnalysisBusy(false);
   }
 }
 
@@ -2963,6 +3124,38 @@ function setAnalysisStatus(message, type) {
   els.analysisStatus.textContent = message;
   els.analysisStatus.classList.toggle("is-error", type === "error");
   els.analysisStatus.classList.toggle("is-success", type === "success");
+  els.analysisStatus.classList.toggle("is-warning", type === "warning");
+  els.analysisStatus.classList.toggle("is-progress", type === "progress");
+}
+
+function setAnalysisBusy(isBusy) {
+  const runButton = document.querySelector("#runAnalysis");
+  const fetchButton = document.querySelector("#fetchSourceMetadata");
+  if (runButton) {
+    runButton.disabled = isBusy;
+    runButton.textContent = isBusy ? "分析中..." : "开始分析";
+  }
+  if (fetchButton) fetchButton.disabled = isBusy;
+}
+
+function showSelectedAnalysisFiles() {
+  const files = Array.from(els.sourceImage.files || []);
+  if (!files.length) {
+    setAnalysisStatus("AI 会输出结构化参数、Top3 卖点和置信度。", "");
+    return;
+  }
+  const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+  const oversized = files.filter((file) => file.size > MAX_ANALYSIS_FILE_BYTES);
+  if (oversized.length) {
+    setAnalysisStatus(`已选择 ${files.length} 个文件，但 ${oversized[0].name} 超过 100MB，请压缩或拆分后再上传。`, "error");
+    return;
+  }
+  const pdfCount = files.filter((file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name)).length;
+  if (pdfCount > 1) {
+    setAnalysisStatus("一次分析最多上传 1 个 PDF，请只保留一个 PDF 或改传图片。", "error");
+    return;
+  }
+  setAnalysisStatus(`已选择 ${files.length} 个文件，总大小 ${formatBytes(totalBytes)}。点击“开始分析”后会先读取文件，再上传分析。`, "success");
 }
 
 function renderSourceEvidence(metadata) {
@@ -4156,6 +4349,7 @@ function bindEvents() {
   els.csvImportFile.addEventListener("change", () => importCsvProducts(els.csvImportFile.files?.[0]));
   document.querySelector("#runAnalysis").addEventListener("click", runAnalysis);
   document.querySelector("#fetchSourceMetadata").addEventListener("click", fetchSourceMetadata);
+  els.sourceImage.addEventListener("change", showSelectedAnalysisFiles);
   document.querySelector("#createProduct").addEventListener("click", createProduct);
   document.querySelector("#openImport").addEventListener("click", () => {
     els.importPanel.classList.add("is-open");

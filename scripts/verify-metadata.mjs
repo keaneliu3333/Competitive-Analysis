@@ -1,4 +1,4 @@
-const { extractImageCandidates, extractTextSnippets, pricesFromText } = await import("../server.mjs");
+const { extractImageCandidates, extractTextSnippets, metadataFromCommerceUrl, pricesFromText } = await import("../server.mjs");
 
 const failures = [];
 
@@ -33,6 +33,16 @@ if (!prices.some((item) => item.price === 3999 && item.source === "embedded-json
 const snippets = extractTextSnippets(sampleHtml);
 if (!snippets.some((snippet) => snippet.includes("12000Pa") && snippet.includes("自动集尘基站"))) {
   fail("feature text snippet should include suction and base-station evidence");
+}
+
+const tmallMetadata = metadataFromCommerceUrl(
+  "https://detail.tmall.com/item.htm?id=1018823558209&skuId=6048868585791&spm=a21n57.1.hoverItem.1",
+);
+if (tmallMetadata?.platform !== "天猫") fail("tmall URL fallback should identify the platform");
+if (tmallMetadata?.itemId !== "1018823558209") fail("tmall URL fallback should preserve item id");
+if (tmallMetadata?.skuId !== "6048868585791") fail("tmall URL fallback should preserve sku id");
+if (!tmallMetadata?.textSnippets?.some((snippet) => snippet.includes("上传详情页截图或长图"))) {
+  fail("tmall URL fallback should tell users to upload screenshots when dynamic details are blocked");
 }
 
 if (failures.length) {

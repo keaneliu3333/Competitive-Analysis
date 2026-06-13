@@ -195,6 +195,10 @@ for (const token of [
   ".filter-summary",
   ".compare-status",
   ".product-table th:first-child",
+  ".detail-panel",
+  "container-type: inline-size",
+  "repeat(auto-fit, minmax(132px, 1fr))",
+  "overflow-wrap: anywhere",
   ".quality-priority",
   ".roadmap-price",
   "max-height: 640px",
@@ -205,6 +209,9 @@ for (const token of [
   ".roadmap-axis",
   ".roadmap-axis-tick",
   ".roadmap-lane",
+  ".roadmap-panel .panel-actions",
+  "overflow-x: hidden",
+  "max-width: 100vw",
   "var(--roadmap-height",
   "align-items: start",
   "repeating-linear-gradient",
@@ -410,6 +417,10 @@ for (const token of [
   "priceCandidates",
   "textSnippets",
   "页面文案证据片段",
+  "maxModelImageDataUrlChars",
+  "maxModelImageCount",
+  "上传图片超过 AI 接口单张图片限制",
+  "\"Cache-Control\": \"no-store\"",
   "500 个中文字符以内",
   "使用感受",
 ]) {
@@ -418,11 +429,30 @@ for (const token of [
 
 for (const token of [
   "MAX_ANALYSIS_FILE_BYTES",
+  "MAX_ANALYSIS_IMAGE_DATA_URL_CHARS",
+  "MAX_ANALYSIS_IMAGE_WIDTH",
+  "MAX_ANALYSIS_IMAGE_COUNT",
+  "MIN_ANALYSIS_IMAGE_SLICE_SOURCE_HEIGHT",
+  "长图已自动压缩并切成",
+  "selectAnalysisImageSlices",
+  "已选取",
+  "URL.createObjectURL",
+  "URL.revokeObjectURL",
   "fileAttachment",
   "application/pdf",
   "imageDataUrls",
   "featureFields",
   "analysisExamples",
+  "showSelectedAnalysisFiles",
+  "normalizeErrorMessage",
+  "正在读取上传文件",
+  "文件准备完成",
+  "文件已读取完成，正在上传资料",
+  "服务已返回，正在整理分析结果",
+  "浏览器无法解析图片",
+  "image/jpeg",
+  "超过 AI 接口单张图片限制",
+  "分析中...",
   "customFeatureEvidence",
   "image/svg+xml",
   "featureHeaders",
@@ -494,6 +524,8 @@ for (const token of [
 }
 
 assertIncludes(indexHtml, "multiple", "index.html multi-file upload");
+assertIncludes(indexHtml, "role=\"status\"", "index.html analysis progress status");
+assertIncludes(indexHtml, "script.js?v=long-image-adaptive-20260613", "index.html script cache busting");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
 assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis action");
