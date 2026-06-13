@@ -6,43 +6,117 @@
     <title>清洁电器竞品分析工作台</title>
     <meta
       name="description"
-      content="扫地机、洗地机、吸尘器竞品分析工作台，支持筛选、AI 详情页分析、型号对比、路线图和 Excel 导出。"
+      content="扫地机、洗地机、吸尘器竞品分析工作台，支持筛选、AI 详情页分析、型号对比、品牌路标和 Excel 导出。"
     />
     <link rel="icon" href="assets/robot-vacuum.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=sidebar-density-20260613" />
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar" aria-label="筛选条件">
+      <aside class="sidebar" aria-label="工作区导航">
         <div class="brand-block">
           <span class="brand-mark">CA</span>
-          <div>
+          <div class="brand-copy">
             <p class="eyebrow">Competitive Analysis</p>
             <h1>清洁电器竞品工作台</h1>
           </div>
+          <button
+            class="sidebar-toggle"
+            type="button"
+            id="sidebarToggle"
+            aria-label="折叠一级栏"
+            aria-expanded="true"
+            title="折叠一级栏"
+            onclick="toggleSidebar(); return false;"
+          >
+            <span aria-hidden="true">‹</span>
+          </button>
         </div>
 
-        <section class="filter-group">
-          <h2>关键词搜索</h2>
-          <label>
-            搜索范围
-            <input id="keywordSearch" type="search" placeholder="品牌、型号、卖点、功能、来源" />
-          </label>
-        </section>
+        <nav class="workspace-nav sidebar-nav" aria-label="工作区切换">
+          <button class="nav-chip" type="button" data-workspace="products" title="产品库" onclick="setActiveWorkspace('products'); return false;">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M4 6.5 12 3l8 3.5v11L12 21l-8-3.5z" /><path d="M4 6.5 12 10l8-3.5" /><path d="M12 10v11" /></svg>
+            </span>
+            <span class="nav-label">产品库</span><strong id="navProductsCount">0</strong>
+          </button>
+          <button class="nav-chip" type="button" data-workspace="compare" title="型号对比" onclick="setActiveWorkspace('compare'); return false;">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M7 4h10" /><path d="M7 20h10" /><path d="M7 4v16" /><path d="M17 4v16" /><path d="M4 8h6" /><path d="M14 16h6" /></svg>
+            </span>
+            <span class="nav-label">型号对比</span><strong id="navCompareCount">0</strong>
+          </button>
+          <button class="nav-chip" type="button" data-workspace="roadmap" title="品牌路标" onclick="setActiveWorkspace('roadmap'); return false;">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M5 18V6" /><path d="M5 18h14" /><path d="M8 15l3-4 3 2 4-6" /><path d="M18 7h-4" /><path d="M18 7v4" /></svg>
+            </span>
+            <span class="nav-label">品牌路标</span><strong id="navRoadmapCount">0</strong>
+          </button>
+          <button class="nav-chip" type="button" data-workspace="import" title="AI 解析与待确认" onclick="setActiveWorkspace('import'); return false;">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3v4" /><path d="M12 17v4" /><path d="M3 12h4" /><path d="M17 12h4" /><path d="m6 6 3 3" /><path d="m15 15 3 3" /><path d="m18 6-3 3" /><path d="m9 15-3 3" /></svg>
+            </span>
+            <span class="nav-label">AI 解析</span><strong id="navReviewCount">0</strong>
+          </button>
+          <button class="nav-chip" type="button" data-workspace="quality" title="数据质量" onclick="setActiveWorkspace('quality'); return false;">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 4 3.5 6.5 8 8 4.5-1.5 8-4 8-8V7z" /><path d="m9 12 2 2 4-5" /></svg>
+            </span>
+            <span class="nav-label">数据质量</span><strong id="navQualityCount">0</strong>
+          </button>
+          <button class="nav-chip" type="button" data-workspace="system" title="系统与日志" onclick="setActiveWorkspace('system'); return false;">
+            <span class="nav-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3v3" /><path d="M12 18v3" /><path d="M4.8 7.5l2.6 1.5" /><path d="M16.6 15l2.6 1.5" /><path d="M19.2 7.5 16.6 9" /><path d="M7.4 15l-2.6 1.5" /><circle cx="12" cy="12" r="4" /></svg>
+            </span>
+            <span class="nav-label">系统与日志</span><strong>监控</strong>
+          </button>
+        </nav>
+      </aside>
 
-        <section class="filter-group">
-          <div class="section-title">
-            <h2>品类</h2>
-            <button class="link-button" type="button" id="clearFilters">
-              清空
+      <main class="main-area">
+        <section class="panel filter-workbench workspace-page is-active" data-workspace-page="products" aria-labelledby="filterWorkbenchTitle">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Filter workbench</p>
+              <h2 id="filterWorkbenchTitle">搜索与筛选</h2>
+            </div>
+            <button class="secondary-button" type="button" id="clearFilters">
+              清空筛选
             </button>
           </div>
-          <div class="chip-grid" id="categoryFilters"></div>
-        </section>
-
-        <section class="filter-group">
-          <h2>价格段</h2>
-          <div class="field-row">
+          <div class="filter-toolbar">
+            <label class="filter-search">
+              搜索范围
+              <input id="keywordSearch" type="search" placeholder="品牌、型号、卖点、功能、来源" />
+            </label>
+            <label>
+              品类
+              <div class="multi-select" id="categoryFilterDropdown">
+                <button
+                  class="multi-select-toggle"
+                  type="button"
+                  id="categoryFilterToggle"
+                  aria-expanded="false"
+                  aria-controls="categoryFilters"
+                >
+                  <span id="categoryFilterLabel">全部品类</span>
+                  <span aria-hidden="true">⌄</span>
+                </button>
+                <div class="multi-select-menu" id="categoryFilters"></div>
+              </div>
+            </label>
+            <label>
+              品牌
+              <select id="brandFilter"></select>
+            </label>
+            <label>
+              渠道
+              <select id="channelFilter"></select>
+            </label>
+            <label>
+              上市状态
+              <select id="statusFilter"></select>
+            </label>
             <label>
               最低价
               <input id="minPrice" inputmode="numeric" type="number" min="0" />
@@ -51,103 +125,39 @@
               最高价
               <input id="maxPrice" inputmode="numeric" type="number" min="0" />
             </label>
+            <label>
+              <span id="confidenceLabel">60% 以上</span>
+              <input id="confidenceFilter" type="range" min="0" max="100" value="60" />
+            </label>
           </div>
+          <details class="advanced-filters">
+            <summary>功能参数与保存视图</summary>
+            <div class="advanced-filter-grid">
+              <label>
+                字段
+                <select id="featureFilterField"></select>
+              </label>
+              <label>
+                匹配方式
+                <select id="featureFilterOperator"></select>
+              </label>
+              <label>
+                匹配值
+                <input id="featureFilterValue" type="text" placeholder="例如 热水、12000、支持" />
+              </label>
+              <input id="savedViewName" type="text" placeholder="视图名称，例如 扫地机 3000-5000" />
+              <button class="secondary-button" type="button" id="saveView">
+                保存当前工作视图
+              </button>
+              <select id="savedViews" aria-label="已保存视图"></select>
+              <button class="secondary-button danger-button" type="button" id="deleteSavedView">
+                删除当前视图
+              </button>
+            </div>
+          </details>
         </section>
 
-        <section class="filter-group">
-          <h2>品牌与渠道</h2>
-          <label>
-            品牌
-            <select id="brandFilter"></select>
-          </label>
-          <label>
-            渠道
-            <select id="channelFilter"></select>
-          </label>
-          <label>
-            上市状态
-            <select id="statusFilter"></select>
-          </label>
-        </section>
-
-        <section class="filter-group">
-          <h2>AI 置信度</h2>
-          <label>
-            <span id="confidenceLabel">60% 以上</span>
-            <input id="confidenceFilter" type="range" min="0" max="100" value="60" />
-          </label>
-        </section>
-
-        <section class="filter-group">
-          <h2>功能参数</h2>
-          <label>
-            字段
-            <select id="featureFilterField"></select>
-          </label>
-          <label>
-            匹配方式
-            <select id="featureFilterOperator"></select>
-          </label>
-          <label>
-            匹配值
-            <input id="featureFilterValue" type="text" placeholder="例如 热水、12000、支持" />
-          </label>
-        </section>
-
-        <section class="filter-group">
-          <h2>保存视图</h2>
-          <div class="stack">
-            <input id="savedViewName" type="text" placeholder="视图名称，例如 扫地机 3000-5000" />
-            <button class="secondary-button" type="button" id="saveView">
-              保存当前工作视图
-            </button>
-            <select id="savedViews" aria-label="已保存视图"></select>
-            <button class="secondary-button danger-button" type="button" id="deleteSavedView">
-              删除当前视图
-            </button>
-          </div>
-        </section>
-      </aside>
-
-      <main class="main-area">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">Internal research tool</p>
-            <h2>产品库、AI 解析、型号对比与品牌路线图</h2>
-            <nav class="workspace-nav" aria-label="工作区跳转">
-              <button class="nav-chip" type="button" data-scroll-target="productsWorkspace">产品库</button>
-              <button class="nav-chip" type="button" data-scroll-target="importPanel">AI 解析</button>
-              <button class="nav-chip" type="button" data-scroll-target="compareWorkspace">型号对比</button>
-              <button class="nav-chip" type="button" data-scroll-target="roadmapPanel">品牌路线图</button>
-              <button class="nav-chip" type="button" data-scroll-target="qualityTitle">数据质量</button>
-            </nav>
-          </div>
-          <div class="topbar-actions">
-            <button class="secondary-button" type="button" id="exportExcel">
-              导出 Excel
-            </button>
-            <button class="secondary-button" type="button" id="exportDataPackage">
-              导出数据包
-            </button>
-            <button class="secondary-button" type="button" id="importDataPackage">
-              导入数据包
-            </button>
-            <button class="secondary-button" type="button" id="importCsv">
-              批量导入 CSV
-            </button>
-            <button class="secondary-button" type="button" id="downloadCsvTemplate">
-              下载 CSV 模板
-            </button>
-            <button class="secondary-button" type="button" id="createProduct">
-              手动新增
-            </button>
-            <button class="primary-button" type="button" id="openImport">
-              添加详情页
-            </button>
-          </div>
-        </header>
-
-        <section class="metrics-grid" aria-label="概览指标">
+        <section class="metrics-grid workspace-page is-active" data-workspace-page="products" aria-label="概览指标">
           <article class="metric-card">
             <span>产品数</span>
             <strong id="metricProducts">0</strong>
@@ -166,7 +176,7 @@
           </article>
         </section>
 
-        <section class="ops-grid" aria-label="运营状态">
+        <section class="ops-grid workspace-page" data-workspace-page="quality" aria-label="运营状态" hidden aria-hidden="true">
           <section class="panel quality-panel" aria-labelledby="qualityTitle">
             <div class="panel-header">
               <div>
@@ -179,43 +189,22 @@
             </div>
             <div id="qualityPanel" class="quality-panel-body"></div>
           </section>
-
-          <section class="panel system-panel" aria-labelledby="systemTitle">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">System status</p>
-                <h2 id="systemTitle">系统状态</h2>
-              </div>
-              <button class="secondary-button" type="button" id="refreshHealth">
-                刷新状态
-              </button>
-            </div>
-            <div class="system-status" id="systemStatus">正在检查本地服务和 OpenAI 配置。</div>
-          </section>
-
-          <section class="panel review-panel" aria-labelledby="reviewTitle">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Review queue</p>
-                <h2 id="reviewTitle">待确认队列</h2>
-              </div>
-              <button class="secondary-button" type="button" id="confirmAllReviews">
-                全部确认
-              </button>
-            </div>
-            <div id="reviewQueue" class="review-queue"></div>
-          </section>
         </section>
 
-        <section class="panel import-panel" id="importPanel" aria-labelledby="importTitle">
+        <section class="panel import-panel workspace-page" data-workspace-page="import" id="importPanel" aria-labelledby="importTitle" hidden aria-hidden="true">
           <div class="panel-header">
             <div>
               <p class="eyebrow">AI ingestion</p>
               <h2 id="importTitle">详情页抓取与图片理解</h2>
             </div>
-            <button class="icon-button" type="button" id="closeImport" aria-label="关闭导入面板">
-              ×
-            </button>
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" id="createProduct">
+                手动新增产品
+              </button>
+              <button class="icon-button" type="button" id="closeImport" aria-label="关闭导入面板">
+                ×
+              </button>
+            </div>
           </div>
           <div class="import-grid">
             <div class="url-field">
@@ -255,7 +244,39 @@
           </div>
         </section>
 
-        <section class="panel usage-panel" aria-labelledby="usageTitle">
+        <section class="panel review-workspace workspace-page" data-workspace-page="import" aria-labelledby="reviewTitle" hidden aria-hidden="true">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Review queue</p>
+              <h2 id="reviewTitle">待确认队列</h2>
+            </div>
+            <button class="secondary-button" type="button" id="confirmAllReviews">
+              全部确认
+            </button>
+          </div>
+          <div id="reviewQueue" class="review-queue"></div>
+        </section>
+
+
+        <section class="panel system-panel workspace-page" data-workspace-page="system" aria-labelledby="systemTitle" hidden aria-hidden="true">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">System status</p>
+              <h2 id="systemTitle">系统状态</h2>
+            </div>
+            <div class="panel-actions">
+              <button class="secondary-button" type="button" id="exportDataPackage">
+                导出数据包
+              </button>
+              <button class="secondary-button" type="button" id="refreshHealth">
+                刷新状态
+              </button>
+            </div>
+          </div>
+          <div class="system-status" id="systemStatus">正在检查本地服务和 OpenAI 配置。</div>
+        </section>
+
+        <section class="panel usage-panel workspace-page" data-workspace-page="system" aria-labelledby="usageTitle" hidden aria-hidden="true">
           <div class="panel-header">
             <div>
               <p class="eyebrow">AI usage</p>
@@ -271,7 +292,7 @@
             </div>
           </div>
           <div class="usage-summary" id="usageSummary">尚未加载用量记录。</div>
-          <div class="table-wrap compact">
+          <div class="table-wrap compact usage-table-wrap">
             <table>
               <thead>
                 <tr>
@@ -291,7 +312,7 @@
           </div>
         </section>
 
-        <section class="panel audit-panel" aria-labelledby="auditTitle">
+        <section class="panel audit-panel workspace-page" data-workspace-page="system" aria-labelledby="auditTitle" hidden aria-hidden="true">
           <div class="panel-header">
             <div>
               <p class="eyebrow">Audit log</p>
@@ -301,7 +322,7 @@
               导出审计
             </button>
           </div>
-          <div class="table-wrap compact">
+          <div class="table-wrap compact audit-table-wrap">
             <table>
               <thead>
                 <tr>
@@ -318,18 +339,24 @@
           </div>
         </section>
 
-        <section class="workspace-grid" id="productsWorkspace">
+        <section class="workspace-grid workspace-page is-active" data-workspace-page="products" id="productsWorkspace">
           <section class="panel products-panel" aria-labelledby="productsTitle">
             <div class="panel-header">
               <div>
                 <p class="eyebrow">Product library</p>
                 <h2 id="productsTitle">产品库</h2>
               </div>
-              <div class="column-menu">
-                <button class="secondary-button" type="button" id="toggleColumns">
-                  列设置
+              <div class="panel-actions">
+                <button class="icon-text-button" type="button" id="exportExcel" title="下载产品库所有信息">
+                  <span aria-hidden="true">↓</span>
+                  下载产品库
                 </button>
-                <div class="popover" id="columnsPopover"></div>
+                <div class="column-menu">
+                  <button class="secondary-button" type="button" id="toggleColumns">
+                    列设置
+                  </button>
+                  <div class="popover" id="columnsPopover"></div>
+                </div>
               </div>
             </div>
             <div id="filterSummary" class="filter-summary"></div>
@@ -356,7 +383,7 @@
           </aside>
         </section>
 
-        <section class="workspace-grid" id="compareWorkspace">
+        <section class="workspace-grid compare-workspace workspace-page" data-workspace-page="compare" id="compareWorkspace" hidden aria-hidden="true">
           <section class="panel compare-panel" aria-labelledby="compareTitle">
             <div class="panel-header">
               <div>
@@ -378,6 +405,36 @@
                 </button>
               </div>
             </div>
+            <div class="compare-filter-toolbar" aria-label="型号对比筛选器">
+              <label>
+                搜索型号
+                <input id="compareKeywordFilter" type="search" placeholder="品牌、型号、卖点" />
+              </label>
+              <label>
+                品类
+                <select id="compareCategoryFilter"></select>
+              </label>
+              <label>
+                品牌
+                <select id="compareBrandFilter"></select>
+              </label>
+              <label>
+                渠道
+                <select id="compareChannelFilter"></select>
+              </label>
+              <label>
+                上市状态
+                <select id="compareStatusFilter"></select>
+              </label>
+              <label>
+                最低价
+                <input id="compareMinPrice" inputmode="numeric" type="number" min="0" />
+              </label>
+              <label>
+                最高价
+                <input id="compareMaxPrice" inputmode="numeric" type="number" min="0" />
+              </label>
+            </div>
             <div id="compareStatus" class="compare-status"></div>
             <div id="comparePicker" class="compare-picker"></div>
             <div class="compare-field-panel" aria-label="对比字段选择">
@@ -393,9 +450,29 @@
                 </div>
               </div>
               <div id="compareFieldPicker" class="compare-field-picker"></div>
+              <details class="module-manager">
+                <summary>模块与字段管理</summary>
+                <div class="module-form">
+                  <input id="moduleName" type="text" placeholder="模块名，例如 基站能力" />
+                  <input id="fieldName" type="text" placeholder="字段名，例如 热水洗拖布" />
+                  <select id="fieldType">
+                    <option value="text">文本</option>
+                    <option value="number">数字</option>
+                    <option value="boolean">布尔</option>
+                    <option value="enum">枚举</option>
+                    <option value="price">价格</option>
+                    <option value="image">图片</option>
+                  </select>
+                  <input id="fieldOptions" type="text" placeholder="枚举选项，例如 有/无、基础/旗舰" />
+                  <button class="primary-button" type="button" id="addField">
+                    添加字段
+                  </button>
+                </div>
+                <div id="moduleList" class="module-list"></div>
+              </details>
             </div>
             <div class="comparison-summary" id="comparisonSummary">
-              选择 2-5 个型号后生成竞争对标总结。
+              选择至少 2 个型号后生成竞争对标总结。
             </div>
             <div class="table-wrap compact">
               <table>
@@ -404,64 +481,50 @@
               </table>
             </div>
           </section>
-
-          <section class="panel module-panel" aria-labelledby="moduleTitle">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Custom modules</p>
-                <h2 id="moduleTitle">自定义对比元素</h2>
-              </div>
-            </div>
-            <div class="module-form">
-              <input id="moduleName" type="text" placeholder="模块名，例如 基站能力" />
-              <input id="fieldName" type="text" placeholder="字段名，例如 热水洗拖布" />
-              <select id="fieldType">
-                <option value="text">文本</option>
-                <option value="number">数字</option>
-                <option value="boolean">布尔</option>
-                <option value="enum">枚举</option>
-                <option value="price">价格</option>
-                <option value="image">图片</option>
-              </select>
-              <input id="fieldOptions" type="text" placeholder="枚举选项，例如 有/无、基础/旗舰" />
-              <button class="primary-button" type="button" id="addField">
-                添加字段
-              </button>
-            </div>
-            <div id="moduleList" class="module-list"></div>
-          </section>
         </section>
 
-        <section class="panel roadmap-panel" id="roadmapPanel" aria-labelledby="roadmapTitle">
+        <section class="panel roadmap-panel workspace-page" data-workspace-page="roadmap" id="roadmapPanel" aria-labelledby="roadmapTitle" hidden aria-hidden="true">
           <div class="panel-header">
             <div>
-              <p class="eyebrow">Brand roadmap</p>
-              <h2 id="roadmapTitle">品牌路线图</h2>
+              <p class="eyebrow">Brand milestone</p>
+              <h2 id="roadmapTitle">品牌路标</h2>
             </div>
             <div class="panel-actions">
-              <label class="inline-control">
-                品牌
-                <select id="roadmapBrandFilter"></select>
-              </label>
-              <div class="segmented-control" role="group" aria-label="路线图模式">
-                <button class="segment-button" type="button" data-roadmap-mode="single">单品牌时间</button>
-                <button class="segment-button" type="button" data-roadmap-mode="compare">品牌对比</button>
-              </div>
               <label class="inline-control">
                 品类
                 <select id="roadmapCategoryFilter"></select>
               </label>
+              <label class="inline-control roadmap-brand-control">
+                品牌
+                <div class="multi-select roadmap-brand-select" id="roadmapBrandDropdown">
+                  <button
+                    class="multi-select-toggle"
+                    type="button"
+                    id="roadmapBrandToggle"
+                    aria-expanded="false"
+                    aria-controls="roadmapBrandMenu"
+                  >
+                    <span id="roadmapBrandLabel">全部品牌</span>
+                    <span class="multi-select-icons">
+                      <span aria-hidden="true">⌄</span>
+                      <span class="multi-select-clear" id="roadmapBrandClear" role="button" tabindex="0" aria-label="清除品牌筛选">×</span>
+                    </span>
+                  </button>
+                  <div class="multi-select-menu" id="roadmapBrandMenu"></div>
+                </div>
+              </label>
+              <div class="segmented-control" role="group" aria-label="品牌路标模式">
+                <button class="segment-button" type="button" data-roadmap-mode="single">单品牌时间</button>
+                <button class="segment-button" type="button" data-roadmap-mode="compare">品牌对比</button>
+              </div>
               <label class="inline-control">
                 状态
                 <select id="roadmapStatusFilter"></select>
               </label>
               <label class="inline-control">
-                季度
+                周期
                 <select id="roadmapQuarterFilter"></select>
               </label>
-              <button class="secondary-button" type="button" id="printRoadmap">
-                打印路线图
-              </button>
               <button class="secondary-button" type="button" id="printAllBrandRoadmaps">
                 各品牌 PDF
               </button>
@@ -469,7 +532,7 @@
                 导出图片
               </button>
               <button class="secondary-button" type="button" id="exportRoadmap">
-                导出路线图
+                导出路标
               </button>
             </div>
           </div>
@@ -484,6 +547,6 @@
     <input id="dataPackageFile" type="file" accept="application/json,.json" hidden />
     <input id="csvImportFile" type="file" accept=".csv,text/csv" hidden />
 
-    <script src="script.js?v=long-image-adaptive-20260613"></script>
+    <script src="script.js?v=roadmap-color-order-20260613"></script>
   </body>
 </html>

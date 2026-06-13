@@ -144,10 +144,8 @@ for (const id of [
   "exportExcel",
   "exportRoadmap",
   "exportRoadmapSvg",
-  "printRoadmap",
   "printAllBrandRoadmaps",
   "exportDataPackage",
-  "downloadCsvTemplate",
   "exportQualityCsv",
 ]) {
   assertIncludes(files.index, `id="${id}"`, "index.html MVP control");

@@ -129,11 +129,11 @@ async function verifyResponsiveViewports(browser) {
       await page.locator("#productTableBody tr").first().waitFor({ state: "visible", timeout: 15000 });
       for (const selector of [
         "#keywordSearch",
-        "#openImport",
+        "[data-workspace='import']",
         "#productTableBody",
-        "#compareTitle",
-        "#roadmapTitle",
-        "#exportDataPackage",
+        "[data-workspace='compare']",
+        "[data-workspace='roadmap']",
+        "[data-workspace='system']",
       ]) {
         assert(await page.locator(selector).isVisible(), `${viewport.name} 视口缺少 ${selector}`);
       }
@@ -289,13 +289,14 @@ async function main() {
     await page.waitForTimeout(250);
     const deletedOptions = await optionLabels(page, "#featureFilterField");
     assert(!deletedOptions.some((option) => option.value === fieldKey), "删除字段后仍显示在筛选器");
+    await page.locator("[data-workspace='system']").click();
     const dataPackage = await expectDownload(page, () => page.locator("#exportDataPackage").click(), "数据包导出");
     const dataPackageJson = JSON.parse(readFileSync(dataPackage.path, "utf8"));
     const historicalValue = (dataPackageJson.state?.products || []).some((product) => product.features?.[fieldKey] === "旗舰");
     assert(historicalValue, "删除字段后历史产品值未保留在数据包");
     record("自定义字段", "passed", "新增、录入、重命名、删除和历史值保留通过");
 
-    await page.locator("#openImport").click();
+    await page.locator("[data-workspace='import']").click();
     await page.locator("#sourceUrl").fill("https://invalid.invalid/cleaner-smoke");
     await page.locator("#sourceImage").setInputFiles(tinyPngPath);
     await page.locator("#sourceNotes").fill("正式功能冒烟：验证图片上传和 AI 失败兜底进入人工复核。");
@@ -320,7 +321,7 @@ async function main() {
     await page.waitForFunction(
       () => {
         const text = document.querySelector("#comparisonSummary")?.textContent?.trim() || "";
-        return text && !text.includes("选择 2-5 个型号") && !text.includes("正在");
+        return text && !text.includes("选择至少 2 个型号") && !text.includes("正在");
       },
       null,
       { timeout: 90000 },
@@ -337,13 +338,21 @@ async function main() {
       return (state.products || []).find((product) => product.brand && product.category && product.status) || null;
     });
     assert(roadmapProduct, "没有可用于路线图筛选的产品样例");
-    await page.locator("#roadmapBrandFilter").selectOption(roadmapProduct.brand);
     await page.locator("#roadmapCategoryFilter").selectOption(roadmapProduct.category);
+    await page.evaluate((brand) => {
+      window.setRoadmapBrands?.([brand]);
+      window.setActiveWorkspace?.("roadmap");
+    }, roadmapProduct.brand);
     await page.locator("#roadmapStatusFilter").selectOption(roadmapProduct.status);
-    if (roadmapProduct.quarter) await page.locator("#roadmapQuarterFilter").selectOption(roadmapProduct.quarter);
-    await page.locator("#roadmapBrandFilter").selectOption("全部");
-    assert((await page.locator("#roadmapBrandFilter").evaluate((select) => select.value)) === "全部", "路线图品牌筛选不能选择全部");
-    await page.locator("#roadmapBrandFilter").selectOption(roadmapProduct.brand);
+    await page.evaluate(() => {
+      window.setRoadmapBrands?.([]);
+      window.setActiveWorkspace?.("roadmap");
+    });
+    assert((await page.locator("#roadmapBrandLabel").innerText()).includes("全部"), "路线图品牌筛选不能清除为全部");
+    await page.evaluate((brand) => {
+      window.setRoadmapBrands?.([brand]);
+      window.setActiveWorkspace?.("roadmap");
+    }, roadmapProduct.brand);
     assert((await page.locator("[data-roadmap-mode=\"single\"]").count()) === 1, "缺少单品牌路线图模式");
     assert((await page.locator("[data-roadmap-mode=\"compare\"]").count()) === 1, "缺少品牌对比路线图模式");
     const roadmapText = await page.locator("#roadmapBoard").innerText();
@@ -355,10 +364,6 @@ async function main() {
     await page.locator("[data-roadmap-mode=\"single\"]").click();
     await expectDownload(page, () => page.locator("#exportRoadmap").click(), "路线图 Excel");
     await expectDownload(page, () => page.locator("#exportRoadmapSvg").click(), "路线图 SVG");
-    const popupPromise = page.waitForEvent("popup", { timeout: 10000 });
-    await page.locator("#printRoadmap").click();
-    const popup = await popupPromise;
-    await popup.close();
     const allPopupPromise = page.waitForEvent("popup", { timeout: 10000 });
     await page.locator("#printAllBrandRoadmaps").click();
     const allPopup = await allPopupPromise;
@@ -369,6 +374,7 @@ async function main() {
     await expectDownload(page, () => page.locator("#exportQualityCsv").click(), "质量问题 CSV");
     await expectDownload(page, () => page.locator("#exportAuditCsv").click(), "审计 CSV");
     await expectDownload(page, () => page.locator("#exportUsageCsv").click(), "用量 CSV");
+    await page.locator("[data-workspace='system']").click();
     const exportForImport = await expectDownload(page, () => page.locator("#exportDataPackage").click(), "导入用数据包");
     writeFileSync(dataPackageImportPath, readFileSync(exportForImport.path));
     const backupDownloadPromise = page.waitForEvent("download", { timeout: 10000 });

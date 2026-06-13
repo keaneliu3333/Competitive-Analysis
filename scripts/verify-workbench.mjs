@@ -27,6 +27,14 @@ function assertRegex(source, pattern, label) {
   if (!pattern.test(source)) fail(`${label} did not match ${pattern}`);
 }
 
+function assertOrder(source, first, second, label) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+  if (firstIndex === -1 || secondIndex === -1 || firstIndex >= secondIndex) {
+    fail(`${label} order is wrong: expected "${first}" before "${second}"`);
+  }
+}
+
 function validateStateFile() {
   const statePath = join(root, "data", "workbench-state.json");
   if (!existsSync(statePath)) {
@@ -70,6 +78,7 @@ const formalUseRunbook = readRequired("docs/formal-use-runbook.md");
 const formalUseChecklist = readRequired("docs/formal-use-launch-checklist.md");
 const accessVerifier = readRequired("scripts/verify-access.mjs");
 const costVerifier = readRequired("scripts/verify-costs.mjs");
+const stylesCss = readRequired("styles.css");
 const metadataVerifier = readRequired("scripts/verify-metadata.mjs");
 const evalCases = readRequired("evals/sample-cases.json");
 const evalVerifier = readRequired("scripts/verify-evals.mjs");
@@ -107,6 +116,9 @@ for (const file of [
 
 const requiredElementIds = [
   "keywordSearch",
+  "categoryFilterDropdown",
+  "categoryFilterToggle",
+  "categoryFilterLabel",
   "categoryFilters",
   "minPrice",
   "maxPrice",
@@ -124,11 +136,8 @@ const requiredElementIds = [
   "saveView",
   "exportExcel",
   "exportDataPackage",
-  "importDataPackage",
-  "importCsv",
-  "downloadCsvTemplate",
+  "sidebarToggle",
   "createProduct",
-  "openImport",
   "fetchSourceMetadata",
   "sourcePreview",
   "reviewQueue",
@@ -146,6 +155,13 @@ const requiredElementIds = [
   "productTableBody",
   "productDetail",
   "comparePicker",
+  "compareKeywordFilter",
+  "compareBrandFilter",
+  "compareCategoryFilter",
+  "compareChannelFilter",
+  "compareStatusFilter",
+  "compareMinPrice",
+  "compareMaxPrice",
   "compareStatus",
   "compareFilteredProducts",
   "compareSimilarProducts",
@@ -159,11 +175,13 @@ const requiredElementIds = [
   "fieldType",
   "fieldOptions",
   "addField",
-  "roadmapBrandFilter",
+  "roadmapBrandDropdown",
+  "roadmapBrandToggle",
+  "roadmapBrandMenu",
+  "roadmapBrandClear",
   "roadmapCategoryFilter",
   "roadmapStatusFilter",
   "roadmapQuarterFilter",
-  "printRoadmap",
   "printAllBrandRoadmaps",
   "exportRoadmapSvg",
   "exportRoadmap",
@@ -175,23 +193,59 @@ for (const id of requiredElementIds) {
   assertRegex(indexHtml, new RegExp(`id=["']${id}["']`), `index.html element #${id}`);
 }
 
+const expectedWorkspaceOrder = ["products", "compare", "roadmap", "import", "quality", "system"];
+let lastWorkspaceIndex = -1;
+for (const workspace of expectedWorkspaceOrder) {
+  const marker = `data-workspace="${workspace}"`;
+  const currentIndex = indexHtml.indexOf(marker);
+  if (currentIndex === -1) {
+    fail(`index.html sidebar workspace is missing: ${workspace}`);
+  } else if (currentIndex <= lastWorkspaceIndex) {
+    fail(`index.html sidebar workspace order is wrong near: ${workspace}`);
+  }
+  lastWorkspaceIndex = currentIndex;
+}
+
 for (const token of [
   "product-table",
   "product-table-wrap",
   "workspace-nav",
-  "data-scroll-target",
+  "sidebar-nav",
+  "sidebar-toggle",
+  "nav-icon",
+  "nav-label",
+  "filter-workbench",
+  "filter-toolbar",
+  "compare-filter-toolbar",
+  "advanced-filters",
+  "data-workspace=\"products\"",
+  "data-workspace-page=\"products\"",
+  "data-workspace-page=\"import\"",
+  "data-workspace-page=\"system\"",
+  "品牌路标",
+  "hidden aria-hidden=\"true\"",
   "filterSummary",
   "compareStatus",
   "使用当前筛选结果",
   "同品类相近价位",
   "data-roadmap-mode=\"single\"",
   "data-roadmap-mode=\"compare\"",
+  "multi-select",
+  "module-manager",
+  "usage-table-wrap",
+  "audit-table-wrap",
 ]) {
   assertIncludes(indexHtml, token, "index.html formal workbench layout");
 }
 
 for (const token of [
   ".product-table-wrap",
+  ".filter-workbench",
+  ".filter-toolbar",
+  ".compare-filter-toolbar",
+  ".sidebar-nav",
+  ".workspace-page",
+  ".workspace-page.is-active",
   ".filter-summary",
   ".compare-status",
   ".product-table th:first-child",
@@ -200,10 +254,20 @@ for (const token of [
   "repeat(auto-fit, minmax(132px, 1fr))",
   "overflow-wrap: anywhere",
   ".quality-priority",
+  ".multi-select-toggle",
+  ".multi-select-option",
+  ".usage-table-wrap",
+  ".audit-table-wrap",
+  ".review-main",
+  ".compare-field-group",
+  ".module-manager",
   ".roadmap-price",
+  "max-height: 278px",
+  "max-height: min(48vh, 430px)",
+  "max-height: 500px",
   "max-height: 640px",
   "overscroll-behavior-x: contain",
-  "repeat(auto-fit, minmax(112px, 1fr))",
+  "repeat(auto-fit, minmax(210px, 1fr))",
   ".compare-option input",
   ".roadmap-chart",
   ".roadmap-axis",
@@ -212,6 +276,7 @@ for (const token of [
   ".roadmap-panel .panel-actions",
   "overflow-x: hidden",
   "max-width: 100vw",
+  "grid-template-rows: auto minmax(0, 1fr)",
   "var(--roadmap-height",
   "align-items: start",
   "repeating-linear-gradient",
@@ -317,7 +382,6 @@ const requiredClientFunctions = [
   "roadmapSvgDocument",
   "exportRoadmapSvg",
   "roadmapPrintCard",
-  "roadmapReportHtml",
   "allBrandRoadmapProducts",
   "brandRoadmapReportHtml",
   "printAllBrandRoadmaps",
@@ -525,11 +589,24 @@ for (const token of [
 
 assertIncludes(indexHtml, "multiple", "index.html multi-file upload");
 assertIncludes(indexHtml, "role=\"status\"", "index.html analysis progress status");
-assertIncludes(indexHtml, "script.js?v=long-image-adaptive-20260613", "index.html script cache busting");
+assertIncludes(indexHtml, "script.js?v=roadmap-color-order-20260613", "index.html script cache busting");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
 assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis action");
+assertOrder(indexHtml, "id=\"importPanel\"", "id=\"reviewTitle\"", "AI workspace detail ingestion before review queue");
+assertOrder(indexHtml, "id=\"compareCategoryFilter\"", "id=\"compareBrandFilter\"", "compare filters category before brand");
 assertIncludes(scriptJs, "await runAnalysis();", "script.js auto analysis after metadata fetch");
+assertIncludes(scriptJs, "sidebarCollapsed", "script.js sidebar collapse state");
+assertIncludes(scriptJs, "sidebarToggle", "script.js sidebar collapse control");
+assertIncludes(scriptJs, "page.hidden = !isActive", "script.js workspace exclusive visibility");
+assertIncludes(scriptJs, "getCompareCandidateProducts", "script.js compare scoped product candidates");
+assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-select state");
+assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
+assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
+assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
+assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
+assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
+assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
 
 for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {
   assertIncludes(gitignore, ignore, ".gitignore entry");
@@ -619,7 +696,7 @@ for (const topic of [
   "已选功能参数矩阵",
   "品牌路线图",
   "各品牌 PDF",
-  "按品牌、品类、上市状态和季度筛选",
+  "按品类、品牌多选、上市状态和半年度周期筛选",
   "路线图图片导出",
   "上市状态",
   "来源",

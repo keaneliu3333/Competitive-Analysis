@@ -330,9 +330,20 @@ const defaultState = {
   selectedProductId: "p-001",
   compareIds: ["p-001", "p-002", "p-003"],
   compareFieldKeys: [],
+  compareFilters: {
+    keyword: "",
+    brand: "全部",
+    category: "全部",
+    channel: "全部",
+    status: "全部",
+    minPrice: "",
+    maxPrice: "",
+  },
   comparisonRuns: [],
   editingProductId: "",
   qualitySeverity: "high",
+  activeWorkspace: "products",
+  sidebarCollapsed: false,
   roadmapBrand: "全部",
   roadmapCategory: "全部",
   roadmapStatus: "全部",
@@ -440,6 +451,15 @@ async function apiFetch(url, options = {}) {
 const els = {
   keywordSearch: document.querySelector("#keywordSearch"),
   categoryFilters: document.querySelector("#categoryFilters"),
+  categoryFilterDropdown: document.querySelector("#categoryFilterDropdown"),
+  categoryFilterToggle: document.querySelector("#categoryFilterToggle"),
+  categoryFilterLabel: document.querySelector("#categoryFilterLabel"),
+  navProductsCount: document.querySelector("#navProductsCount"),
+  navReviewCount: document.querySelector("#navReviewCount"),
+  navQualityCount: document.querySelector("#navQualityCount"),
+  navCompareCount: document.querySelector("#navCompareCount"),
+  navRoadmapCount: document.querySelector("#navRoadmapCount"),
+  sidebarToggle: document.querySelector("#sidebarToggle"),
   brandFilter: document.querySelector("#brandFilter"),
   channelFilter: document.querySelector("#channelFilter"),
   statusFilter: document.querySelector("#statusFilter"),
@@ -463,6 +483,13 @@ const els = {
   reviewQueue: document.querySelector("#reviewQueue"),
   columnsPopover: document.querySelector("#columnsPopover"),
   comparePicker: document.querySelector("#comparePicker"),
+  compareKeywordFilter: document.querySelector("#compareKeywordFilter"),
+  compareBrandFilter: document.querySelector("#compareBrandFilter"),
+  compareCategoryFilter: document.querySelector("#compareCategoryFilter"),
+  compareChannelFilter: document.querySelector("#compareChannelFilter"),
+  compareStatusFilter: document.querySelector("#compareStatusFilter"),
+  compareMinPrice: document.querySelector("#compareMinPrice"),
+  compareMaxPrice: document.querySelector("#compareMaxPrice"),
   compareStatus: document.querySelector("#compareStatus"),
   compareFieldPicker: document.querySelector("#compareFieldPicker"),
   comparisonSummary: document.querySelector("#comparisonSummary"),
@@ -476,7 +503,11 @@ const els = {
   fieldType: document.querySelector("#fieldType"),
   fieldOptions: document.querySelector("#fieldOptions"),
   roadmapBoard: document.querySelector("#roadmapBoard"),
-  roadmapBrandFilter: document.querySelector("#roadmapBrandFilter"),
+  roadmapBrandDropdown: document.querySelector("#roadmapBrandDropdown"),
+  roadmapBrandToggle: document.querySelector("#roadmapBrandToggle"),
+  roadmapBrandLabel: document.querySelector("#roadmapBrandLabel"),
+  roadmapBrandMenu: document.querySelector("#roadmapBrandMenu"),
+  roadmapBrandClear: document.querySelector("#roadmapBrandClear"),
   roadmapCategoryFilter: document.querySelector("#roadmapCategoryFilter"),
   roadmapStatusFilter: document.querySelector("#roadmapStatusFilter"),
   roadmapQuarterFilter: document.querySelector("#roadmapQuarterFilter"),
@@ -524,11 +555,21 @@ function saveViews() {
   queuePersist();
 }
 
+function groupBy(items, getKey) {
+  return items.reduce((groups, item) => {
+    const key = getKey(item);
+    groups[key] = groups[key] || [];
+    groups[key].push(item);
+    return groups;
+  }, {});
+}
+
 function mergeState(incoming) {
   const merged = {
     ...structuredClone(defaultState),
     ...incoming,
     filters: { ...defaultState.filters, ...incoming?.filters },
+    compareFilters: { ...defaultState.compareFilters, ...incoming?.compareFilters },
     visibleColumns: { ...defaultState.visibleColumns, ...incoming?.visibleColumns },
   };
   merged.modules = (merged.modules || []).map((module) => ({
@@ -536,6 +577,10 @@ function mergeState(incoming) {
     fields: (module.fields || []).map(normalizeFeatureField),
   }));
   merged.products = (merged.products || []).map(normalizeProduct);
+  const allowedWorkspaces = new Set(["products", "import", "quality", "compare", "roadmap", "system"]);
+  if (merged.activeWorkspace === "review") merged.activeWorkspace = "import";
+  if (!allowedWorkspaces.has(merged.activeWorkspace)) merged.activeWorkspace = "products";
+  merged.sidebarCollapsed = Boolean(merged.sidebarCollapsed);
   return merged;
 }
 
@@ -1365,6 +1410,13 @@ function productSearchFingerprint(product) {
   ]);
 }
 
+function normalizeText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 function productSearchText(product) {
   const fingerprint = productSearchFingerprint(product);
   const cached = searchTextCache.get(product);
@@ -1393,22 +1445,44 @@ function productSearchText(product) {
     featureText,
     sourceText,
   ]
-    .join(" ")
-    .toLowerCase();
-  searchTextCache.set(product, { fingerprint, text });
-  return text;
+    .join(" ");
+  const normalizedText = normalizeText(text);
+  searchTextCache.set(product, { fingerprint, text: normalizedText });
+  return normalizedText;
 }
 
 function keywordMatches(product) {
-  const keyword = String(state.filters.keyword || "").trim().toLowerCase();
+  const keyword = normalizeText(state.filters.keyword || "");
   if (!keyword) return true;
   const terms = keyword.split(/\s+/).filter(Boolean);
   const searchText = productSearchText(product);
   return terms.every((term) => searchText.includes(term));
 }
 
+function isPlaceholderText(value) {
+  const text = String(value || "").trim();
+  return !text || ["待确认", "未知", "待确认品牌", "待确认型号", "待确认产品", "AI 待确认产品"].includes(text);
+}
+
+function productCatalogBlockers(product) {
+  const blockers = [];
+  if (product.reviewRequired) blockers.push("AI 结果待确认");
+  if (Number(product.confidence || 0) < 80) blockers.push(`置信度 ${Number(product.confidence || 0)}%`);
+  if (isPlaceholderText(product.brand)) blockers.push("品牌待确认");
+  if (isPlaceholderText(product.model)) blockers.push("型号待确认");
+  if (isPlaceholderText(product.name)) blockers.push("产品名称待确认");
+  if (isPlaceholderText(product.status)) blockers.push("上市状态待确认");
+  if (!Number(product.price || 0)) blockers.push("价格待确认");
+  return blockers;
+}
+
+function isCatalogProduct(product) {
+  return productCatalogBlockers(product).length === 0;
+}
+
 function getFilteredProducts() {
   return state.products.filter((product) => {
+    if (!isCatalogProduct(product)) return false;
     const { filters } = state;
     const min = filters.minPrice === "" ? -Infinity : Number(filters.minPrice);
     const max = filters.maxPrice === "" ? Infinity : Number(filters.maxPrice);
@@ -1464,21 +1538,38 @@ function toggleProductSort(columnKey) {
   renderAll();
 }
 
+function categoryFilterLabel(categories, selectedCategories) {
+  if (!selectedCategories.length) return "全部品类";
+  if (selectedCategories.length === categories.length) return `全部 ${categories.length} 个品类`;
+  if (selectedCategories.length <= 2) return selectedCategories.join("、");
+  return `已选 ${selectedCategories.length} 个品类`;
+}
+
 function renderFilters() {
-  const categories = unique(state.products.map((p) => p.category));
+  const catalogProducts = state.products.filter(isCatalogProduct);
+  const categories = unique(catalogProducts.map((p) => p.category));
   els.keywordSearch.value = state.filters.keyword || "";
+  els.categoryFilterLabel.textContent = categoryFilterLabel(categories, state.filters.categories);
   els.categoryFilters.innerHTML = categories
     .map((category) => {
       const active = state.filters.categories.includes(category);
-      return `<button class="chip ${active ? "is-active" : ""}" type="button" data-category="${category}">
-        <span>${category}</span><span>${active ? "已选" : "+"}</span>
-      </button>`;
+      return `
+        <label class="multi-select-option ${active ? "is-active" : ""}">
+          <input type="checkbox" value="${escapeHtml(category)}" data-category="${escapeHtml(category)}" ${active ? "checked" : ""} />
+          <span>${escapeHtml(category)}</span>
+        </label>
+      `;
     })
     .join("");
 
-  fillSelect(els.brandFilter, ["全部", ...unique(state.products.map((p) => p.brand))], state.filters.brand);
-  fillSelect(els.channelFilter, ["全部", ...unique(state.products.map((p) => p.channel))], state.filters.channel);
-  fillSelect(els.statusFilter, ["全部", ...unique(state.products.map((p) => p.status))], state.filters.status);
+  const brandScopeProducts = state.filters.categories.length
+    ? catalogProducts.filter((product) => state.filters.categories.includes(product.category))
+    : catalogProducts;
+  const brandOptions = ["全部", ...unique(brandScopeProducts.map((p) => p.brand))];
+  if (!brandOptions.includes(state.filters.brand)) state.filters.brand = "全部";
+  fillSelect(els.brandFilter, brandOptions, state.filters.brand);
+  fillSelect(els.channelFilter, ["全部", ...unique(catalogProducts.map((p) => p.channel))], state.filters.channel);
+  fillSelect(els.statusFilter, ["全部", ...unique(catalogProducts.map((p) => p.status))], state.filters.status);
   els.minPrice.value = state.filters.minPrice;
   els.maxPrice.value = state.filters.maxPrice;
   els.confidenceFilter.value = state.filters.confidence;
@@ -1551,13 +1642,14 @@ function renderMetrics(products) {
     ? Math.round(products.reduce((sum, product) => sum + product.price, 0) / products.length)
     : 0;
   els.metricAvgPrice.textContent = products.length ? formatCurrency(avg) : "-";
-  els.metricReview.textContent = products.filter((p) => p.reviewRequired).length;
+  els.metricReview.textContent = getReviewProducts().length;
   els.metricBrands.textContent = unique(products.map((p) => p.brand)).length;
 }
 
 function filterSummaryItems(products) {
   const filters = state.filters;
   const items = [];
+  const catalogTotal = state.products.filter(isCatalogProduct).length;
   if (filters.keyword) items.push(`关键词：${filters.keyword}`);
   if (filters.categories.length) items.push(`品类：${filters.categories.join("、")}`);
   if (filters.minPrice !== "" || filters.maxPrice !== "") {
@@ -1572,7 +1664,7 @@ function filterSummaryItems(products) {
     const value = filters.featureValue ? ` ${filters.featureValue}` : "";
     items.push(`功能：${field ? `${field.module} · ${field.name}` : filters.featureField}${value}`);
   }
-  return [`结果：${products.length}/${state.products.length} 个产品`, ...(items.length ? items : ["未设置筛选条件"])];
+  return [`结果：${products.length}/${catalogTotal} 个正式产品`, ...(items.length ? items : ["未设置筛选条件"])];
 }
 
 function renderFilterSummary(products) {
@@ -1653,7 +1745,6 @@ function renderQualityPanel() {
     state.qualitySeverity = availableSeverities[0] || "high";
   }
   const selectedIssues = issues.filter((issue) => issue.severity === state.qualitySeverity);
-  const visibleIssues = selectedIssues.slice(0, 4);
   els.qualityPanel.innerHTML = `
     <div class="quality-summary">
       ${["high", "medium", "low"]
@@ -1666,9 +1757,9 @@ function renderQualityPanel() {
         )
         .join("")}
     </div>
-    <p class="quality-focus-note">${severityLabels[state.qualitySeverity]}处理 · 显示 ${visibleIssues.length}/${selectedIssues.length}</p>
+    <p class="quality-focus-note">${severityLabels[state.qualitySeverity]}处理 · ${selectedIssues.length} 条，列表内滚动查看</p>
     <div class="quality-list">
-      ${visibleIssues
+      ${selectedIssues
         .map(
           (issue) => `
         <article class="quality-item is-${escapeHtml(issue.severity)}">
@@ -1708,6 +1799,7 @@ function exportQualityCsv() {
 
 function reviewReason(product) {
   const reasons = [];
+  reasons.push(...productCatalogBlockers(product));
   if (product.reviewRequired) reasons.push("标记待确认");
   if (Number(product.confidence || 0) < 80) reasons.push(`置信度 ${product.confidence}%`);
   const fieldIssueCount = fieldReviewIssues(product).length;
@@ -1716,12 +1808,39 @@ function reviewReason(product) {
   if ((product.sellingPoints || []).some((point) => /待确认/.test(point.title + point.evidence))) {
     reasons.push("卖点待补充");
   }
-  return reasons.join(" · ") || "需要复核";
+  return unique(reasons).join(" · ") || "需要复核";
+}
+
+function safeProductPart(value, fallback) {
+  const text = String(value || "").trim();
+  if (!text || text === "未知" || text === "待确认") return fallback;
+  return text;
+}
+
+function reviewProductDisplay(product) {
+  const brand = safeProductPart(product.brand, "品牌待确认");
+  const model = safeProductPart(product.model, "型号待确认");
+  const name = safeProductPart(product.name, "产品名称待确认");
+  const source = product.sourceMetadata?.title || product.sourceUrl || product.analysisRuns?.[0]?.source || "暂无来源标题";
+  return { brand, model, name, source };
+}
+
+function reviewPendingItems(product) {
+  const items = [...productCatalogBlockers(product)];
+  if (!Number(product.price || 0)) items.push("价格待确认");
+  if (product.reviewRequired) items.push("产品信息待确认");
+  if (Number(product.confidence || 0) < 80) items.push(`AI 置信度 ${Number(product.confidence || 0)}%`);
+  if (!product.sourceUrl && !product.sourceMetadata?.title) items.push("来源证据待补充");
+  fieldReviewIssues(product)
+    .slice(0, 4)
+    .forEach((item) => items.push(`${item.field.name} ${Number(item.confidence || 0)}%`));
+  if (!items.length) items.push("需要人工复核");
+  return unique(items);
 }
 
 function getReviewProducts() {
   return state.products
-    .filter((product) => product.reviewRequired || Number(product.confidence || 0) < 80 || fieldReviewIssues(product).length)
+    .filter((product) => !isCatalogProduct(product) || fieldReviewIssues(product).length)
     .sort((a, b) => Number(a.confidence || 0) - Number(b.confidence || 0));
 }
 
@@ -1739,27 +1858,27 @@ function renderReviewQueue() {
   document.querySelector("#confirmAllReviews").disabled = false;
   els.reviewQueue.innerHTML = products
     .map(
-      (product) => `
+      (product) => {
+        const display = reviewProductDisplay(product);
+        const pendingItems = reviewPendingItems(product);
+        return `
       <article class="review-item" data-review-product="${product.id}">
         <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
-        <div>
-          <strong>${escapeHtml(product.brand)} ${escapeHtml(product.model)}</strong>
-          <p>${escapeHtml(product.category)} · ${formatCurrency(product.price)} · ${escapeHtml(reviewReason(product))}</p>
-          ${
-            fieldReviewIssues(product).length
-              ? `<div class="review-field-tags">${fieldReviewIssues(product)
-                  .slice(0, 3)
-                  .map((item) => `<span>${escapeHtml(item.field.name)} ${Number(item.confidence || 0)}%</span>`)
-                  .join("")}</div>`
-              : ""
-          }
+        <div class="review-main">
+          <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
+          <p>${escapeHtml(display.name)} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</p>
+          <small>来源：${escapeHtml(display.source)}</small>
+          <div class="review-field-tags">
+            ${pendingItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+          </div>
         </div>
         <div class="review-actions">
           <button class="secondary-button" type="button" data-focus-review="${product.id}">查看</button>
           <button class="primary-button" type="button" data-confirm-review="${product.id}">确认</button>
         </div>
       </article>
-    `,
+    `;
+      },
     )
     .join("");
 }
@@ -1819,7 +1938,7 @@ function renderDetail() {
           <div>
             <p class="eyebrow">Edit product</p>
             <h3>${escapeHtml(product.model || "新产品")}</h3>
-            <p class="small-muted">修改会同步到产品库、对比矩阵和路线图。</p>
+            <p class="small-muted">修改会同步到产品库、对比矩阵和品牌路标。</p>
           </div>
         </div>
         <div class="edit-grid">
@@ -1837,7 +1956,7 @@ function renderDetail() {
           <label>价格<input name="price" type="number" min="0" value="${Number(product.price || 0)}" /></label>
           <label>渠道<input name="channel" value="${escapeHtml(product.channel)}" /></label>
           <label>上市状态<input name="status" value="${escapeHtml(product.status)}" /></label>
-          <label>路线图季度<input name="quarter" value="${escapeHtml(product.quarter || "未规划")}" /></label>
+          <label>路标季度<input name="quarter" value="${escapeHtml(product.quarter || "未规划")}" /></label>
           <label>AI 置信度<input name="confidence" type="number" min="0" max="100" value="${Number(product.confidence || 0)}" /></label>
           <label>产品图 URL<input name="image" value="${escapeHtml(product.image || getCategoryImage(product.category))}" /></label>
           <label class="wide-field">来源 URL<input name="sourceUrl" value="${escapeHtml(product.sourceUrl || "")}" /></label>
@@ -1926,8 +2045,36 @@ function allFields() {
   );
 }
 
+function getCompareCandidateProducts() {
+  const filters = state.compareFilters || defaultState.compareFilters;
+  const min = filters.minPrice === "" ? -Infinity : Number(filters.minPrice);
+  const max = filters.maxPrice === "" ? Infinity : Number(filters.maxPrice);
+  const keyword = normalizeText(filters.keyword || "");
+  return sortedProducts(state.products.filter((product) => {
+    if (!isCatalogProduct(product)) return false;
+    if (keyword && !productSearchText(product).includes(keyword)) return false;
+    if (filters.brand !== "全部" && product.brand !== filters.brand) return false;
+    if (filters.category !== "全部" && product.category !== filters.category) return false;
+    if (filters.channel !== "全部" && product.channel !== filters.channel) return false;
+    if (filters.status !== "全部" && product.status !== filters.status) return false;
+    return Number(product.price || 0) >= min && Number(product.price || 0) <= max;
+  }));
+}
+
+function renderCompareFilters() {
+  const catalogProducts = state.products.filter(isCatalogProduct);
+  const filters = state.compareFilters || defaultState.compareFilters;
+  if (els.compareKeywordFilter) els.compareKeywordFilter.value = filters.keyword || "";
+  fillSelect(els.compareBrandFilter, ["全部", ...unique(catalogProducts.map((p) => p.brand))], filters.brand);
+  fillSelect(els.compareCategoryFilter, ["全部", ...unique(catalogProducts.map((p) => p.category))], filters.category);
+  fillSelect(els.compareChannelFilter, ["全部", ...unique(catalogProducts.map((p) => p.channel))], filters.channel);
+  fillSelect(els.compareStatusFilter, ["全部", ...unique(catalogProducts.map((p) => p.status))], filters.status);
+  if (els.compareMinPrice) els.compareMinPrice.value = filters.minPrice || "";
+  if (els.compareMaxPrice) els.compareMaxPrice.value = filters.maxPrice || "";
+}
+
 function selectedCompareProducts() {
-  return state.products.filter((product) => state.compareIds.includes(product.id)).slice(0, 5);
+  return state.products.filter((product) => state.compareIds.includes(product.id) && isCatalogProduct(product));
 }
 
 function allCompareFields() {
@@ -1960,13 +2107,13 @@ function renderCompareStatus(selected, fields) {
   if (els.exportCompare) els.exportCompare.disabled = !ready;
   const categories = unique(selected.map((product) => product.category));
   const categoryHint = selectedCount < 2
-    ? "建议选择同品类、相近价格带的 2-5 个型号，结论更容易复核。"
+    ? "建议选择同品类、相近价格带的多个型号，结论更容易复核。"
     : categories.length > 1
       ? `当前跨品类对比：${categories.join("、")}。建议只做粗略参考。`
       : `当前同品类对比：${categories[0]}。`;
   const message = ready
-    ? `可以生成总结 · 已选 ${selectedCount}/5 个型号 · 已选 ${fields.length} 个字段`
-    : `还需选择 ${2 - selectedCount} 个型号 · 已选 ${selectedCount}/5 个型号 · 已选 ${fields.length} 个字段`;
+    ? `可以生成总结 · 已选 ${selectedCount} 个型号 · 已选 ${fields.length} 个字段`
+    : `还需选择 ${2 - selectedCount} 个型号 · 已选 ${selectedCount} 个型号 · 已选 ${fields.length} 个字段`;
   els.compareStatus.innerHTML = `
     <span class="status-badge ${ready ? "is-ok" : "is-warning"}">${escapeHtml(message)}</span>
     <span class="small-muted">${escapeHtml(categoryHint)}</span>
@@ -1974,7 +2121,7 @@ function renderCompareStatus(selected, fields) {
 }
 
 function setCompareProducts(products, emptyMessage) {
-  const nextProducts = products.slice(0, 5);
+  const nextProducts = products;
   if (nextProducts.length < 2) {
     window.alert(emptyMessage);
     return false;
@@ -1986,27 +2133,45 @@ function setCompareProducts(products, emptyMessage) {
 }
 
 function renderCompare() {
-  const products = state.products;
+  renderCompareFilters();
+  const catalogIds = new Set(state.products.filter(isCatalogProduct).map((product) => product.id));
+  state.compareIds = state.compareIds.filter((id) => catalogIds.has(id));
+  const products = getCompareCandidateProducts();
   els.comparePicker.innerHTML = products
     .map(
       (product) => `
       <label class="compare-option">
         <input type="checkbox" data-compare-id="${product.id}" ${state.compareIds.includes(product.id) ? "checked" : ""} />
-        ${escapeHtml(product.model)}
+        <span>
+          <strong>${escapeHtml(product.model)}</strong>
+          <small>${escapeHtml(product.brand)} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</small>
+        </span>
       </label>
     `,
     )
-    .join("");
+    .join("") || `<div class="review-empty">当前筛选下没有可对比的正式产品。</div>`;
 
   const selectedKeys = new Set(selectedCompareFieldKeys());
   state.compareFieldKeys = Array.from(selectedKeys);
-  els.compareFieldPicker.innerHTML = allCompareFields()
+  const fieldsByModule = groupBy(allCompareFields(), (field) => field.module);
+  els.compareFieldPicker.innerHTML = Object.entries(fieldsByModule)
     .map(
-      (field) => `
-      <label class="compare-field-option">
-        <input type="checkbox" data-compare-field-key="${escapeHtml(field.key)}" ${selectedKeys.has(field.key) ? "checked" : ""} />
-        <span>${escapeHtml(field.module)} · ${escapeHtml(field.name)}</span>
-      </label>
+      ([moduleName, moduleFields]) => `
+      <section class="compare-field-group">
+        <div class="compare-field-group-title">${escapeHtml(moduleName)}</div>
+        <div class="compare-field-group-options">
+          ${moduleFields
+            .map(
+              (field) => `
+              <label class="compare-field-option">
+                <input type="checkbox" data-compare-field-key="${escapeHtml(field.key)}" ${selectedKeys.has(field.key) ? "checked" : ""} />
+                <span>${escapeHtml(field.name)}</span>
+              </label>
+            `,
+            )
+            .join("")}
+        </div>
+      </section>
     `,
     )
     .join("");
@@ -2049,7 +2214,7 @@ function compareSimilarProducts() {
     return;
   }
   const products = state.products
-    .filter((product) => product.category === reference.category)
+    .filter((product) => isCatalogProduct(product) && product.category === reference.category)
     .sort((a, b) => {
       const priceDiff = Math.abs(Number(a.price || 0) - Number(reference.price || 0)) - Math.abs(Number(b.price || 0) - Number(reference.price || 0));
       return priceDiff || String(a.model || "").localeCompare(String(b.model || ""), "zh-CN", { numeric: true, sensitivity: "base" });
@@ -2174,12 +2339,35 @@ function deleteFeatureField(fieldKey) {
   renderAll();
 }
 
+function selectedRoadmapBrands() {
+  const value = state.roadmapBrand;
+  if (Array.isArray(value)) return value.filter((brand) => brand && brand !== "全部");
+  if (value && value !== "全部") return [value];
+  return [];
+}
+
+function setRoadmapBrands(brands) {
+  state.roadmapBrand = unique((brands || []).filter((brand) => brand && brand !== "全部"));
+}
+
+window.setRoadmapBrands = setRoadmapBrands;
+
+function productRoadmapPeriod(product) {
+  const raw = String(product.quarter || "").trim();
+  const match = raw.match(/(20\d{2})\s*Q([1-4])/i);
+  if (!match) return raw && raw !== "待确认" ? raw : "未规划";
+  const half = Number(match[2]) <= 2 ? "H1" : "H2";
+  return `${match[1]} ${half}`;
+}
+
 function getRoadmapProducts() {
+  const selectedBrands = selectedRoadmapBrands();
   return state.products.filter((product) => {
-    const brandMatch = !state.roadmapBrand || state.roadmapBrand === "全部" || product.brand === state.roadmapBrand;
+    if (!isCatalogProduct(product)) return false;
+    const brandMatch = !selectedBrands.length || selectedBrands.includes(product.brand);
     const categoryMatch = !state.roadmapCategory || state.roadmapCategory === "全部" || product.category === state.roadmapCategory;
     const statusMatch = !state.roadmapStatus || state.roadmapStatus === "全部" || product.status === state.roadmapStatus;
-    const quarterMatch = !state.roadmapQuarter || state.roadmapQuarter === "全部" || (product.quarter || "未规划") === state.roadmapQuarter;
+    const quarterMatch = !state.roadmapQuarter || state.roadmapQuarter === "全部" || productRoadmapPeriod(product) === state.roadmapQuarter;
     return brandMatch && categoryMatch && statusMatch && quarterMatch;
   });
 }
@@ -2188,14 +2376,15 @@ function roadmapSourceLabel(product) {
   return product.sourceMetadata?.title || product.sourceUrl || product.analysisRuns?.[0]?.source || "无来源";
 }
 
-function roadmapTitle(prefix = "品牌路线图") {
+function roadmapTitle(prefix = "品牌路标") {
+  const selectedBrands = selectedRoadmapBrands();
   const parts = [
-    state.roadmapBrand && state.roadmapBrand !== "全部" ? state.roadmapBrand : "",
+    selectedBrands.length ? selectedBrands.join("、") : "",
     state.roadmapCategory && state.roadmapCategory !== "全部" ? state.roadmapCategory : "",
     state.roadmapStatus && state.roadmapStatus !== "全部" ? state.roadmapStatus : "",
     state.roadmapQuarter && state.roadmapQuarter !== "全部" ? state.roadmapQuarter : "",
   ].filter(Boolean);
-  return parts.length ? `${parts.join(" · ")} 路线图` : prefix;
+  return parts.length ? `${parts.join(" · ")} 路标` : prefix;
 }
 
 function renderRoadmapSelect(select, values, currentValue) {
@@ -2208,10 +2397,42 @@ function renderRoadmapSelect(select, values, currentValue) {
 }
 
 function renderRoadmapBrandFilter() {
-  state.roadmapBrand = renderRoadmapSelect(els.roadmapBrandFilter, state.products.map((product) => product.brand), state.roadmapBrand);
-  state.roadmapCategory = renderRoadmapSelect(els.roadmapCategoryFilter, state.products.map((product) => product.category), state.roadmapCategory);
-  state.roadmapStatus = renderRoadmapSelect(els.roadmapStatusFilter, state.products.map((product) => product.status), state.roadmapStatus);
-  state.roadmapQuarter = renderRoadmapSelect(els.roadmapQuarterFilter, state.products.map((product) => product.quarter || "未规划"), state.roadmapQuarter);
+  const catalogProducts = state.products.filter(isCatalogProduct);
+  state.roadmapCategory = renderRoadmapSelect(els.roadmapCategoryFilter, catalogProducts.map((product) => product.category), state.roadmapCategory);
+  const brandScopeProducts = state.roadmapCategory && state.roadmapCategory !== "全部"
+    ? catalogProducts.filter((product) => product.category === state.roadmapCategory)
+    : catalogProducts;
+  const brandOptions = unique(brandScopeProducts.map((product) => product.brand));
+  const selectedBrands = selectedRoadmapBrands().filter((brand) => brandOptions.includes(brand));
+  setRoadmapBrands(selectedBrands);
+  if (els.roadmapBrandLabel) {
+    els.roadmapBrandLabel.textContent = selectedBrands.length
+      ? selectedBrands.length <= 2
+        ? selectedBrands.join("、")
+        : `已选 ${selectedBrands.length} 个品牌`
+      : "全部品牌";
+  }
+  if (els.roadmapBrandMenu) {
+    els.roadmapBrandMenu.innerHTML = `
+      <label class="multi-select-option ${selectedBrands.length ? "" : "is-active"}">
+        <input type="checkbox" data-roadmap-brand="__all" ${selectedBrands.length ? "" : "checked"} />
+        <span>全选</span>
+      </label>
+      ${brandOptions
+        .map((brand) => {
+          const active = selectedBrands.includes(brand);
+          return `
+            <label class="multi-select-option ${active ? "is-active" : ""}">
+              <input type="checkbox" data-roadmap-brand="${escapeHtml(brand)}" value="${escapeHtml(brand)}" ${active ? "checked" : ""} />
+              <span>${escapeHtml(brand)}</span>
+            </label>
+          `;
+        })
+        .join("")}
+    `;
+  }
+  state.roadmapStatus = renderRoadmapSelect(els.roadmapStatusFilter, catalogProducts.map((product) => product.status), state.roadmapStatus);
+  state.roadmapQuarter = renderRoadmapSelect(els.roadmapQuarterFilter, catalogProducts.map(productRoadmapPeriod), state.roadmapQuarter);
   document.querySelectorAll("[data-roadmap-mode]").forEach((button) => {
     const active = button.dataset.roadmapMode === (state.roadmapMode || "single");
     button.classList.toggle("is-active", active);
@@ -2246,15 +2467,37 @@ function roadmapPriceScale(products) {
   };
 }
 
+const roadmapBrandPalette = [
+  { color: "#1d4ed8", soft: "#dbeafe", line: "#93c5fd" },
+  { color: "#047857", soft: "#d1fae5", line: "#6ee7b7" },
+  { color: "#b45309", soft: "#fef3c7", line: "#fcd34d" },
+  { color: "#7c3aed", soft: "#ede9fe", line: "#c4b5fd" },
+  { color: "#be123c", soft: "#ffe4e6", line: "#fda4af" },
+  { color: "#0f766e", soft: "#ccfbf1", line: "#5eead4" },
+  { color: "#4338ca", soft: "#e0e7ff", line: "#a5b4fc" },
+  { color: "#c2410c", soft: "#ffedd5", line: "#fdba74" },
+];
+
+function roadmapBrandTheme(brand) {
+  const text = String(brand || "未命名品牌");
+  const index = Math.abs(Array.from(text).reduce((sum, char) => sum + char.charCodeAt(0), 0)) % roadmapBrandPalette.length;
+  return roadmapBrandPalette[index];
+}
+
+function roadmapBrandStyle(brand) {
+  const theme = roadmapBrandTheme(brand);
+  return `--brand-color:${theme.color};--brand-soft:${theme.soft};--brand-line:${theme.line}`;
+}
+
 function roadmapCard(product, priceScale, index) {
   const range = Math.max(priceScale.max - priceScale.min, 1);
   const normalized = (priceScale.max - Number(product.price || 0)) / range;
   const y = Math.max(8, Math.min(78, 8 + normalized * 70));
   const x = roadmapLaneOffset(product, index);
   return `
-    <article class="roadmap-card" style="--roadmap-y: ${y}%; --roadmap-x: ${x}px">
+    <article class="roadmap-card" style="--roadmap-y: ${y}%; --roadmap-x: ${x}px; ${roadmapBrandStyle(product.brand)}">
       <div>
-        <h4>${escapeHtml(product.name || product.model)}</h4>
+        <h4><span class="brand-dot" aria-hidden="true"></span>${escapeHtml(product.name || product.model)}</h4>
         <p class="roadmap-price">${formatCurrency(product.price)}</p>
         <ul>
           ${(product.sellingPoints || [])
@@ -2278,23 +2521,24 @@ function roadmapAxis(priceScale) {
 }
 
 function renderRoadmapTimeline(products) {
-  const brandProducts = [...products].sort((a, b) => String(a.quarter || "未规划").localeCompare(String(b.quarter || "未规划"), "zh-CN") || Number(b.price || 0) - Number(a.price || 0));
+  const brandProducts = [...products].sort((a, b) => productRoadmapPeriod(a).localeCompare(productRoadmapPeriod(b), "zh-CN") || Number(b.price || 0) - Number(a.price || 0));
   const brands = unique(brandProducts.map((product) => product.brand));
-  const selectedBrand = state.roadmapBrand && (state.roadmapBrand === "全部" || brands.includes(state.roadmapBrand)) ? state.roadmapBrand : "全部";
-  const scopedProducts = selectedBrand === "全部" ? brandProducts : brandProducts.filter((product) => product.brand === selectedBrand);
-  const lanes = unique(scopedProducts.map((product) => product.quarter || "未规划"));
+  const selectedBrands = selectedRoadmapBrands().filter((brand) => brands.includes(brand));
+  const scopedProducts = selectedBrands.length ? brandProducts.filter((product) => selectedBrands.includes(product.brand)) : brandProducts;
+  const selectedBrandLabel = selectedBrands.length ? selectedBrands.join("、") : "全部";
+  const lanes = unique(scopedProducts.map(productRoadmapPeriod));
   const priceScale = roadmapPriceScale(scopedProducts);
-  const chartHeight = Math.max(360, Math.min(620, priceScale.ticks.length * 54));
+  const chartHeight = Math.max(500, Math.min(780, priceScale.ticks.length * 72));
   return `
-    <div class="roadmap-mode-note">单品牌时间 · ${escapeHtml(selectedBrand)} · 横轴为发布时间，纵轴按 ${priceScale.step} 元价格档位。</div>
+    <div class="roadmap-mode-note">单品牌时间 · ${escapeHtml(selectedBrandLabel)} · 横轴为半年度周期，纵轴按 ${priceScale.step} 元价格档位。</div>
     <div class="roadmap-chart" style="--roadmap-lanes: ${Math.max(lanes.length, 1)}; --roadmap-height: ${chartHeight}px">
       <div class="roadmap-axis" aria-hidden="true">${roadmapAxis(priceScale)}</div>
       <div class="roadmap-lanes">
         ${lanes
-          .map((quarter) => {
-            const laneProducts = scopedProducts.filter((product) => (product.quarter || "未规划") === quarter);
+          .map((period) => {
+            const laneProducts = scopedProducts.filter((product) => productRoadmapPeriod(product) === period);
             return `<section class="roadmap-lane">
-              <h3>${escapeHtml(quarter)}</h3>
+              <h3>${escapeHtml(period)}</h3>
               ${laneProducts.map((product, index) => roadmapCard(product, priceScale, index)).join("")}
             </section>`;
           })
@@ -2307,7 +2551,7 @@ function renderRoadmapTimeline(products) {
 function renderRoadmapBrandCompare(products) {
   const lanes = unique(products.map((product) => product.brand));
   const priceScale = roadmapPriceScale(products);
-  const chartHeight = Math.max(360, Math.min(620, priceScale.ticks.length * 54));
+  const chartHeight = Math.max(500, Math.min(780, priceScale.ticks.length * 72));
   return `
     <div class="roadmap-mode-note">品牌对比 · 横轴为所选品牌，纵轴按 ${priceScale.step} 元价格档位。</div>
     <div class="roadmap-chart" style="--roadmap-lanes: ${Math.max(lanes.length, 1)}; --roadmap-height: ${chartHeight}px">
@@ -2318,8 +2562,8 @@ function renderRoadmapBrandCompare(products) {
             const laneProducts = products
               .filter((product) => product.brand === brand)
               .sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
-            return `<section class="roadmap-lane">
-              <h3>${escapeHtml(brand)}</h3>
+            return `<section class="roadmap-lane roadmap-brand-lane" style="${roadmapBrandStyle(brand)}">
+              <h3><span class="brand-dot" aria-hidden="true"></span>${escapeHtml(brand)}</h3>
               ${laneProducts.map((product, index) => roadmapCard(product, priceScale, index)).join("")}
             </section>`;
           })
@@ -2333,13 +2577,40 @@ function renderRoadmap() {
   renderRoadmapBrandFilter();
   const roadmapProducts = getRoadmapProducts();
   if (!roadmapProducts.length) {
-    els.roadmapBoard.innerHTML = `<div class="review-empty">当前条件下没有路线图产品。</div>`;
+    els.roadmapBoard.innerHTML = `<div class="review-empty">当前条件下没有路标产品。</div>`;
     return;
   }
   const mode = state.roadmapMode || "single";
   els.roadmapBoard.innerHTML = mode === "compare"
     ? renderRoadmapBrandCompare(roadmapProducts)
     : renderRoadmapTimeline(roadmapProducts);
+}
+
+function renderWorkspaceShell(filteredProducts) {
+  const active = state.activeWorkspace || "products";
+  document.querySelector(".app-shell")?.classList.toggle("is-sidebar-collapsed", Boolean(state.sidebarCollapsed));
+  if (els.sidebarToggle) {
+    const label = state.sidebarCollapsed ? "展开一级栏" : "折叠一级栏";
+    els.sidebarToggle.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
+    els.sidebarToggle.setAttribute("aria-label", label);
+    els.sidebarToggle.setAttribute("title", label);
+  }
+  document.querySelectorAll("[data-workspace-page]").forEach((page) => {
+    const isActive = page.dataset.workspacePage === active;
+    page.classList.toggle("is-active", isActive);
+    page.hidden = !isActive;
+    page.setAttribute("aria-hidden", String(!isActive));
+  });
+  document.querySelectorAll("[data-workspace]").forEach((button) => {
+    const isActive = button.dataset.workspace === active;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+  if (els.navProductsCount) els.navProductsCount.textContent = filteredProducts.length;
+  if (els.navReviewCount) els.navReviewCount.textContent = getReviewProducts().length;
+  if (els.navQualityCount) els.navQualityCount.textContent = productQualityIssues().length;
+  if (els.navCompareCount) els.navCompareCount.textContent = selectedCompareProducts().length;
+  if (els.navRoadmapCount) els.navRoadmapCount.textContent = getRoadmapProducts().length;
 }
 
 function renderAll() {
@@ -2356,6 +2627,7 @@ function renderAll() {
   renderModules();
   renderRoadmap();
   renderAuditLog();
+  renderWorkspaceShell(filteredProducts);
   saveState();
 }
 
@@ -2402,14 +2674,41 @@ function confirmAllReviews() {
 function focusReviewProduct(productId) {
   state.selectedProductId = productId;
   state.editingProductId = "";
+  state.activeWorkspace = "products";
   renderAll();
-  document.querySelector(".detail-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function setActiveWorkspace(workspace) {
+  const allowedWorkspaces = new Set(["products", "import", "quality", "compare", "roadmap", "system"]);
+  if (workspace === "review") workspace = "import";
+  if (!allowedWorkspaces.has(workspace)) return;
+  state.activeWorkspace = workspace;
+  if (workspace === "import") els.importPanel.classList.add("is-open");
+  renderAll();
+  document.querySelector(".main-area")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+window.setActiveWorkspace = setActiveWorkspace;
+
+function toggleSidebar() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  queuePersist();
+  renderAll();
+}
+
+window.toggleSidebar = toggleSidebar;
+
 function scrollToWorkspace(targetId) {
-  const target = document.getElementById(targetId);
-  if (!target) return;
-  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  const targetMap = {
+    productsWorkspace: "products",
+    importPanel: "import",
+    reviewTitle: "import",
+    systemTitle: "system",
+    qualityTitle: "quality",
+    compareWorkspace: "compare",
+    roadmapPanel: "roadmap",
+  };
+  setActiveWorkspace(targetMap[targetId] || targetId);
 }
 
 function deleteProduct(productId) {
@@ -2554,7 +2853,7 @@ function workspaceViewPayload(name) {
     filters: structuredClone(state.filters),
     visibleColumns: structuredClone(state.visibleColumns),
     productSort: structuredClone(state.productSort || defaultState.productSort),
-    compareIds: state.compareIds.slice(0, 5),
+    compareIds: state.compareIds.slice(),
     compareFieldKeys: selectedCompareFieldKeys(),
     selectedProductId: state.selectedProductId,
     roadmapBrand: state.roadmapBrand || "全部",
@@ -2580,7 +2879,7 @@ function applyWorkspaceView(view) {
   }
   if (Array.isArray(view.compareIds)) {
     const productIds = new Set(state.products.map((product) => product.id));
-    state.compareIds = view.compareIds.filter((id) => productIds.has(id)).slice(0, 5);
+    state.compareIds = view.compareIds.filter((id) => productIds.has(id));
   }
   if (Array.isArray(view.compareFieldKeys)) {
     const availableKeys = new Set(allCompareFields().map((field) => field.key));
@@ -3100,7 +3399,9 @@ async function runAnalysis() {
     const product = productFromAnalysis(payload.product || payload, payload.analysisMeta || {});
     const integrated = integrateAnalyzedProduct(product);
     state.selectedProductId = integrated.product.id;
-    state.compareIds = unique([integrated.product.id, ...state.compareIds]).slice(0, 5);
+    if (isCatalogProduct(integrated.product)) {
+      state.compareIds = unique([integrated.product.id, ...state.compareIds]);
+    }
     els.importPanel.classList.remove("is-open");
     els.sourceUrl.value = "";
     els.sourceNotes.value = "";
@@ -3326,7 +3627,7 @@ function addComparisonRun({ products, summary, source, analysisMeta = null }) {
 }
 
 async function generateSummary() {
-  const products = state.products.filter((product) => state.compareIds.includes(product.id)).slice(0, 5);
+  const products = selectedCompareProducts();
   els.comparisonSummary.textContent = "正在生成竞争对标总结...";
   try {
     const response = await apiFetch("/api/compare", {
@@ -3455,7 +3756,7 @@ function excelDocument(title, body) {
 }
 
 function exportExcel() {
-  const products = getVisibleProducts();
+  const products = sortedProducts(state.products.filter(isCatalogProduct));
   const featureFields = allFields();
   const featureHeaders = featureFields.map((field) => `<th>${escapeHtml(field.module)} · ${escapeHtml(field.name)}</th>`).join("");
   const rows = products
@@ -3506,7 +3807,7 @@ function exportCompare() {
     return;
   }
   const summaryText = normalizeComparisonSummary(
-    els.comparisonSummary.textContent && !els.comparisonSummary.textContent.includes("选择 2-5 个型号")
+    els.comparisonSummary.textContent && !els.comparisonSummary.textContent.includes("选择型号")
       ? els.comparisonSummary.textContent
       : localSummary(products),
   );
@@ -3552,12 +3853,12 @@ function exportCompare() {
 
 function exportRoadmap() {
   const roadmapProducts = getRoadmapProducts();
-  const quarters = unique(roadmapProducts.map((product) => product.quarter || "未规划"));
-  const title = roadmapTitle("品牌路线图");
-  const body = quarters
-    .map((quarter) => {
+  const periods = unique(roadmapProducts.map(productRoadmapPeriod));
+  const title = roadmapTitle("品牌路标");
+  const body = periods
+    .map((period) => {
       const rows = roadmapProducts
-        .filter((product) => (product.quarter || "未规划") === quarter)
+        .filter((product) => productRoadmapPeriod(product) === period)
         .map(
           (p) => `<tr>
             <td><img src="${p.image}" alt=""></td>
@@ -3571,7 +3872,7 @@ function exportRoadmap() {
           </tr>`,
         )
         .join("");
-      return `<h2>${escapeHtml(quarter)}</h2><table><thead><tr><th>产品图</th><th>品牌</th><th>型号</th><th>品类</th><th>价格</th><th>状态</th><th>来源</th><th>Top3 优先级卖点</th></tr></thead><tbody>${rows}</tbody></table>`;
+      return `<h2>${escapeHtml(period)}</h2><table><thead><tr><th>产品图</th><th>品牌</th><th>型号</th><th>品类</th><th>价格</th><th>状态</th><th>来源</th><th>Top3 优先级卖点</th></tr></thead><tbody>${rows}</tbody></table>`;
     })
     .join("");
   download("brand-roadmap.xls", excelDocument(title, `<h1>${escapeHtml(title)}</h1>${body}`), "application/vnd.ms-excel;charset=utf-8");
@@ -3602,21 +3903,21 @@ function svgTextLines(lines, x, y, options = {}) {
 
 function roadmapSvgDocument() {
   const roadmapProducts = getRoadmapProducts();
-  const quarters = unique(roadmapProducts.map((product) => product.quarter || "未规划"));
-  const title = roadmapTitle("清洁电器品牌路线图");
+  const periods = unique(roadmapProducts.map(productRoadmapPeriod));
+  const title = roadmapTitle("清洁电器品牌路标");
   const columnWidth = 300;
   const cardHeight = 210;
   const gap = 18;
   const margin = 28;
   const headerHeight = 92;
-  const maxCards = Math.max(...quarters.map((quarter) => roadmapProducts.filter((product) => (product.quarter || "未规划") === quarter).length), 1);
-  const width = Math.max(960, margin * 2 + quarters.length * columnWidth + Math.max(0, quarters.length - 1) * gap);
+  const maxCards = Math.max(...periods.map((period) => roadmapProducts.filter((product) => productRoadmapPeriod(product) === period).length), 1);
+  const width = Math.max(960, margin * 2 + periods.length * columnWidth + Math.max(0, periods.length - 1) * gap);
   const height = headerHeight + margin + maxCards * (cardHeight + gap) + margin;
 
-  const columns = quarters
-    .map((quarter, quarterIndex) => {
-      const x = margin + quarterIndex * (columnWidth + gap);
-      const products = roadmapProducts.filter((product) => (product.quarter || "未规划") === quarter);
+  const columns = periods
+    .map((period, periodIndex) => {
+      const x = margin + periodIndex * (columnWidth + gap);
+      const products = roadmapProducts.filter((product) => productRoadmapPeriod(product) === period);
       const cards = products
         .map((product, productIndex) => {
           const y = headerHeight + productIndex * (cardHeight + gap);
@@ -3639,7 +3940,7 @@ function roadmapSvgDocument() {
         .join("");
       return `
         <g>
-          <text x="${x}" y="78" class="quarter">${escapeHtml(quarter)}</text>
+          <text x="${x}" y="78" class="period">${escapeHtml(period)}</text>
           ${cards}
         </g>
       `;
@@ -3652,7 +3953,7 @@ function roadmapSvgDocument() {
     .bg{fill:#f6f8fb}
     .title{font:700 26px Arial,"Microsoft YaHei",sans-serif;fill:#17202a}
     .subtitle{font:13px Arial,"Microsoft YaHei",sans-serif;fill:#607080}
-    .quarter{font:700 16px Arial,"Microsoft YaHei",sans-serif;fill:#1f3347}
+    .period{font:700 16px Arial,"Microsoft YaHei",sans-serif;fill:#1f3347}
     .card{fill:#fff;stroke:#d8e0ea;stroke-width:1}
     .model{font:700 14px Arial,"Microsoft YaHei",sans-serif;fill:#17202a}
     .meta{font:12px Arial,"Microsoft YaHei",sans-serif;fill:#607080}
@@ -3662,7 +3963,7 @@ function roadmapSvgDocument() {
   <rect class="bg" width="100%" height="100%" />
   <text x="${margin}" y="38" class="title">${escapeHtml(title)}</text>
   <text x="${margin}" y="62" class="subtitle">产品图、价格与 Top3 优先级卖点 · ${escapeHtml(new Date().toLocaleDateString("zh-CN"))}</text>
-  ${columns || `<text x="${margin}" y="120" class="subtitle">暂无路线图产品</text>`}
+  ${columns || `<text x="${margin}" y="120" class="subtitle">暂无路标产品</text>`}
 </svg>`;
 }
 
@@ -3694,70 +3995,12 @@ function roadmapPrintCard(product) {
   `;
 }
 
-function roadmapReportHtml() {
-  const roadmapProducts = getRoadmapProducts();
-  const quarters = unique(roadmapProducts.map((product) => product.quarter || "未规划"));
-  const title = roadmapTitle("品牌路线图");
-  const generatedAt = new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date());
-  const columns = quarters
-    .map((quarter) => {
-      const cards = roadmapProducts
-        .filter((product) => (product.quarter || "未规划") === quarter)
-        .map(roadmapPrintCard)
-        .join("");
-      return `<section><h2>${escapeHtml(quarter)}</h2>${cards}</section>`;
-    })
-    .join("");
-
-  return `<!DOCTYPE html>
-    <html lang="zh-CN">
-      <head>
-        <meta charset="UTF-8" />
-        <title>品牌路线图</title>
-        <style>
-          *{box-sizing:border-box}
-          body{margin:0;padding:28px;color:#17202a;font-family:Arial,"Microsoft YaHei",sans-serif;background:#f4f6f8}
-          header{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:24px}
-          h1{margin:0;font-size:30px}
-          .meta{color:#667383;font-size:13px}
-          .grid{display:grid;grid-template-columns:repeat(${Math.min(quarters.length || 1, 4)},minmax(0,1fr));gap:14px}
-          section{border:1px solid #dbe2e8;border-radius:8px;background:#fff;padding:14px;break-inside:avoid}
-          h2{margin:0 0 12px;font-size:18px}
-          .roadmap-print-card{display:grid;grid-template-columns:72px 1fr;gap:12px;border:1px solid #dbe2e8;border-radius:8px;padding:10px;margin-bottom:10px;break-inside:avoid}
-          img{width:72px;height:72px;object-fit:contain;border:1px solid #dbe2e8;border-radius:8px;background:#f8fafb}
-          h3{margin:0 0 5px;font-size:14px}
-          p{margin:0 0 8px;color:#667383;font-size:12px}
-          ol{margin:0 0 8px;padding-left:18px;font-size:12px;line-height:1.45}
-          small{color:#667383;font-size:11px}
-          @media print{
-            body{background:#fff;padding:16px}
-            button{display:none}
-            .grid{grid-template-columns:repeat(4,1fr)}
-          }
-        </style>
-      </head>
-      <body>
-        <header>
-          <div>
-            <h1>${escapeHtml(title)}</h1>
-            <div class="meta">${escapeHtml(title)} · 产品数 ${roadmapProducts.length} · 品牌数 ${unique(roadmapProducts.map((p) => p.brand)).length}</div>
-          </div>
-          <div class="meta">生成时间：${generatedAt}</div>
-        </header>
-        <main class="grid">${columns}</main>
-        <script>window.addEventListener("load",()=>setTimeout(()=>window.print(),300));</script>
-      </body>
-    </html>`;
-}
-
 function allBrandRoadmapProducts() {
   return state.products.filter((product) => {
+    if (!isCatalogProduct(product)) return false;
     const categoryMatch = !state.roadmapCategory || state.roadmapCategory === "全部" || product.category === state.roadmapCategory;
     const statusMatch = !state.roadmapStatus || state.roadmapStatus === "全部" || product.status === state.roadmapStatus;
-    const quarterMatch = !state.roadmapQuarter || state.roadmapQuarter === "全部" || (product.quarter || "未规划") === state.roadmapQuarter;
+    const quarterMatch = !state.roadmapQuarter || state.roadmapQuarter === "全部" || productRoadmapPeriod(product) === state.roadmapQuarter;
     return categoryMatch && statusMatch && quarterMatch;
   });
 }
@@ -3772,26 +4015,26 @@ function brandRoadmapReportHtml() {
   const filterText = [
     state.roadmapCategory && state.roadmapCategory !== "全部" ? `品类 ${state.roadmapCategory}` : "",
     state.roadmapStatus && state.roadmapStatus !== "全部" ? `状态 ${state.roadmapStatus}` : "",
-    state.roadmapQuarter && state.roadmapQuarter !== "全部" ? `季度 ${state.roadmapQuarter}` : "",
-  ].filter(Boolean).join(" · ") || "全部品类、状态和季度";
+    state.roadmapQuarter && state.roadmapQuarter !== "全部" ? `周期 ${state.roadmapQuarter}` : "",
+  ].filter(Boolean).join(" · ") || "全部品类、状态和周期";
   const brandPages = brands
     .map((brand) => {
       const brandProducts = roadmapProducts.filter((product) => product.brand === brand);
-      const quarters = unique(brandProducts.map((product) => product.quarter || "未规划"));
-      const columns = quarters
-        .map((quarter) => {
+      const periods = unique(brandProducts.map(productRoadmapPeriod));
+      const columns = periods
+        .map((period) => {
           const cards = brandProducts
-            .filter((product) => (product.quarter || "未规划") === quarter)
+            .filter((product) => productRoadmapPeriod(product) === period)
             .map(roadmapPrintCard)
             .join("");
-          return `<section><h2>${escapeHtml(quarter)}</h2>${cards}</section>`;
+          return `<section><h2>${escapeHtml(period)}</h2>${cards}</section>`;
         })
         .join("");
       return `
         <article class="brand-page">
           <header>
             <div>
-              <h1>${escapeHtml(brand)} 路线图</h1>
+              <h1>${escapeHtml(brand)} 路标</h1>
               <div class="meta">产品数 ${brandProducts.length} · ${escapeHtml(filterText)}</div>
             </div>
             <div class="meta">生成时间：${generatedAt}</div>
@@ -3806,7 +4049,7 @@ function brandRoadmapReportHtml() {
     <html lang="zh-CN">
       <head>
         <meta charset="UTF-8" />
-        <title>各品牌路线图</title>
+        <title>各品牌路标</title>
         <style>
           *{box-sizing:border-box}
           body{margin:0;color:#17202a;font-family:Arial,"Microsoft YaHei",sans-serif;background:#eef2f6}
@@ -3832,22 +4075,10 @@ function brandRoadmapReportHtml() {
         </style>
       </head>
       <body>
-        ${brandPages || `<article class="brand-page"><header><h1>各品牌路线图</h1><div class="meta">当前筛选下暂无路线图产品</div></header></article>`}
+        ${brandPages || `<article class="brand-page"><header><h1>各品牌路标</h1><div class="meta">当前筛选下暂无路标产品</div></header></article>`}
         <script>window.addEventListener("load",()=>setTimeout(()=>window.print(),300));</script>
       </body>
     </html>`;
-}
-
-function printRoadmap() {
-  const blob = new Blob([roadmapReportHtml()], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const report = window.open(url, "_blank");
-  if (!report) {
-    URL.revokeObjectURL(url);
-    window.alert("浏览器阻止了打印窗口，请允许弹窗后重试。");
-    return;
-  }
-  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function printAllBrandRoadmaps() {
@@ -3856,7 +4087,7 @@ function printAllBrandRoadmaps() {
   const report = window.open(url, "_blank");
   if (!report) {
     URL.revokeObjectURL(url);
-    window.alert("浏览器阻止了各品牌路线图窗口，请允许弹窗后重试。");
+    window.alert("浏览器阻止了各品牌路标窗口，请允许弹窗后重试。");
     return;
   }
   window.setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -4110,19 +4341,44 @@ async function importCsvProducts(file) {
 }
 
 function bindEvents() {
-  document.querySelector(".workspace-nav")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-scroll-target]");
-    if (!button) return;
-    scrollToWorkspace(button.dataset.scrollTarget);
+  document.querySelectorAll(".sidebar-nav [data-workspace]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveWorkspace(button.dataset.workspace);
+    });
   });
 
-  els.categoryFilters.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-category]");
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest(".sidebar-nav [data-workspace]");
     if (!button) return;
-    const category = button.dataset.category;
+    event.preventDefault();
+    setActiveWorkspace(button.dataset.workspace);
+  });
+
+  els.categoryFilterToggle.addEventListener("click", () => {
+    const isOpen = els.categoryFilterDropdown.classList.toggle("is-open");
+    els.categoryFilterToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!els.categoryFilterDropdown.contains(event.target)) {
+      els.categoryFilterDropdown.classList.remove("is-open");
+      els.categoryFilterToggle.setAttribute("aria-expanded", "false");
+    }
+    if (els.roadmapBrandDropdown && !els.roadmapBrandDropdown.contains(event.target)) {
+      els.roadmapBrandDropdown.classList.remove("is-open");
+      els.roadmapBrandToggle?.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  els.categoryFilters.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-category]");
+    if (!input) return;
+    const category = input.dataset.category;
     const set = new Set(state.filters.categories);
-    if (set.has(category)) set.delete(category);
-    else set.add(category);
+    if (input.checked) set.add(category);
+    else set.delete(category);
     state.filters.categories = Array.from(set);
     renderAll();
   });
@@ -4244,11 +4500,27 @@ function bindEvents() {
     const input = event.target.closest("[data-compare-id]");
     if (!input) return;
     const set = new Set(state.compareIds);
-    if (input.checked) set.add(input.dataset.compareId);
-    else set.delete(input.dataset.compareId);
-    state.compareIds = Array.from(set).slice(0, 5);
+    if (input.checked) {
+      set.add(input.dataset.compareId);
+    } else {
+      set.delete(input.dataset.compareId);
+    }
+    state.compareIds = Array.from(set);
     renderAll();
   });
+
+  const updateCompareFilter = (key, value) => {
+    state.compareFilters = { ...defaultState.compareFilters, ...(state.compareFilters || {}), [key]: value };
+    state.compareIds = state.compareIds.filter((id) => getCompareCandidateProducts().some((product) => product.id === id));
+    renderAll();
+  };
+  els.compareKeywordFilter?.addEventListener("input", () => updateCompareFilter("keyword", els.compareKeywordFilter.value));
+  els.compareBrandFilter?.addEventListener("change", () => updateCompareFilter("brand", els.compareBrandFilter.value));
+  els.compareCategoryFilter?.addEventListener("change", () => updateCompareFilter("category", els.compareCategoryFilter.value));
+  els.compareChannelFilter?.addEventListener("change", () => updateCompareFilter("channel", els.compareChannelFilter.value));
+  els.compareStatusFilter?.addEventListener("change", () => updateCompareFilter("status", els.compareStatusFilter.value));
+  els.compareMinPrice?.addEventListener("input", () => updateCompareFilter("minPrice", els.compareMinPrice.value));
+  els.compareMaxPrice?.addEventListener("input", () => updateCompareFilter("maxPrice", els.compareMaxPrice.value));
 
   els.compareFieldPicker.addEventListener("change", (event) => {
     const input = event.target.closest("[data-compare-field-key]");
@@ -4316,7 +4588,6 @@ function bindEvents() {
   document.querySelector("#exportExcel").addEventListener("click", exportExcel);
   document.querySelector("#exportRoadmap").addEventListener("click", exportRoadmap);
   document.querySelector("#exportRoadmapSvg").addEventListener("click", exportRoadmapSvg);
-  document.querySelector("#printRoadmap").addEventListener("click", printRoadmap);
   document.querySelector("#printAllBrandRoadmaps").addEventListener("click", printAllBrandRoadmaps);
   document.querySelectorAll("[data-roadmap-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4325,8 +4596,35 @@ function bindEvents() {
       scrollToWorkspace("roadmapPanel");
     });
   });
-  els.roadmapBrandFilter.addEventListener("change", () => {
-    state.roadmapBrand = els.roadmapBrandFilter.value;
+  els.roadmapBrandToggle?.addEventListener("click", () => {
+    const isOpen = els.roadmapBrandDropdown.classList.toggle("is-open");
+    els.roadmapBrandToggle.setAttribute("aria-expanded", String(isOpen));
+  });
+  els.roadmapBrandClear?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setRoadmapBrands([]);
+    renderAll();
+  });
+  els.roadmapBrandClear?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    setRoadmapBrands([]);
+    renderAll();
+  });
+  els.roadmapBrandMenu?.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-roadmap-brand]");
+    if (!input) return;
+    if (input.dataset.roadmapBrand === "__all") {
+      setRoadmapBrands([]);
+      renderAll();
+      return;
+    }
+    const selected = new Set(selectedRoadmapBrands());
+    if (input.checked) selected.add(input.dataset.roadmapBrand);
+    else selected.delete(input.dataset.roadmapBrand);
+    setRoadmapBrands(Array.from(selected));
     renderAll();
   });
   els.roadmapCategoryFilter.addEventListener("change", () => {
@@ -4341,21 +4639,20 @@ function bindEvents() {
     state.roadmapQuarter = els.roadmapQuarterFilter.value;
     renderAll();
   });
-  document.querySelector("#exportDataPackage").addEventListener("click", exportDataPackage);
-  document.querySelector("#importDataPackage").addEventListener("click", () => els.dataPackageFile.click());
-  els.dataPackageFile.addEventListener("change", () => importDataPackage(els.dataPackageFile.files?.[0]));
-  document.querySelector("#importCsv").addEventListener("click", () => els.csvImportFile.click());
-  document.querySelector("#downloadCsvTemplate").addEventListener("click", downloadCsvTemplate);
-  els.csvImportFile.addEventListener("change", () => importCsvProducts(els.csvImportFile.files?.[0]));
+  document.querySelector("#exportDataPackage")?.addEventListener("click", exportDataPackage);
+  document.querySelector("#importDataPackage")?.addEventListener("click", () => els.dataPackageFile.click());
+  els.dataPackageFile?.addEventListener("change", () => importDataPackage(els.dataPackageFile.files?.[0]));
+  document.querySelector("#importCsv")?.addEventListener("click", () => els.csvImportFile.click());
+  document.querySelector("#downloadCsvTemplate")?.addEventListener("click", downloadCsvTemplate);
+  els.csvImportFile?.addEventListener("change", () => importCsvProducts(els.csvImportFile.files?.[0]));
   document.querySelector("#runAnalysis").addEventListener("click", runAnalysis);
   document.querySelector("#fetchSourceMetadata").addEventListener("click", fetchSourceMetadata);
   els.sourceImage.addEventListener("change", showSelectedAnalysisFiles);
   document.querySelector("#createProduct").addEventListener("click", createProduct);
-  document.querySelector("#openImport").addEventListener("click", () => {
-    els.importPanel.classList.add("is-open");
-    scrollToWorkspace("importPanel");
+  document.querySelector("#closeImport").addEventListener("click", () => {
+    els.importPanel.classList.remove("is-open");
+    setActiveWorkspace("products");
   });
-  document.querySelector("#closeImport").addEventListener("click", () => els.importPanel.classList.remove("is-open"));
 
   document.querySelector("#saveView").addEventListener("click", saveCurrentView);
   document.querySelector("#deleteSavedView").addEventListener("click", deleteSavedView);
