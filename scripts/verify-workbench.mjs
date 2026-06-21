@@ -589,7 +589,8 @@ for (const token of [
 
 assertIncludes(indexHtml, "multiple", "index.html multi-file upload");
 assertIncludes(indexHtml, "role=\"status\"", "index.html analysis progress status");
-assertIncludes(indexHtml, "script.js?v=roadmap-color-order-20260613", "index.html script cache busting");
+assertIncludes(indexHtml, "styles.css?v=filter-review-20260613", "index.html stylesheet cache busting");
+assertIncludes(indexHtml, "script.js?v=filter-review-20260613", "index.html script cache busting");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
 assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis action");
@@ -603,10 +604,16 @@ assertIncludes(scriptJs, "getCompareCandidateProducts", "script.js compare scope
 assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-select state");
 assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
 assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
+assertIncludes(scriptJs, "reviewVisiblePendingItems", "script.js compact review queue display");
+assertIncludes(scriptJs, "source-fetch-meta", "script.js metadata fetch status display");
+assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback warning display");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
+assertIncludes(stylesCss, "repeat(auto-fit, minmax(132px, 1fr))", "styles.css adaptive filter toolbar");
+assertIncludes(stylesCss, ".review-summary", "styles.css compact review queue summary");
+assertIncludes(stylesCss, ".source-warning", "styles.css metadata fetch warning display");
 
 for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {
   assertIncludes(gitignore, ignore, ".gitignore entry");

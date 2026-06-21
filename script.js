@@ -1838,6 +1838,12 @@ function reviewPendingItems(product) {
   return unique(items);
 }
 
+function reviewVisiblePendingItems(product) {
+  const items = reviewPendingItems(product);
+  const primary = items.filter((item) => !/^AI 置信度\s*0%$/.test(item));
+  return (primary.length ? primary : items).slice(0, 4);
+}
+
 function getReviewProducts() {
   return state.products
     .filter((product) => !isCatalogProduct(product) || fieldReviewIssues(product).length)
@@ -1861,15 +1867,22 @@ function renderReviewQueue() {
       (product) => {
         const display = reviewProductDisplay(product);
         const pendingItems = reviewPendingItems(product);
+        const visibleItems = reviewVisiblePendingItems(product);
+        const priceText = Number(product.price || 0) ? formatCurrency(product.price) : "价格待确认";
+        const confidenceText = Number(product.confidence || 0) ? `置信度 ${Number(product.confidence || 0)}%` : "置信度待确认";
         return `
       <article class="review-item" data-review-product="${product.id}">
         <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
         <div class="review-main">
           <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
-          <p>${escapeHtml(display.name)} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</p>
-          <small>来源：${escapeHtml(display.source)}</small>
+          <p>${escapeHtml(display.name)} · ${escapeHtml(product.category)} · ${escapeHtml(priceText)}</p>
+          <small title="${escapeHtml(display.source)}">来源：${escapeHtml(display.source)}</small>
+          <div class="review-summary">
+            <span>待处理 ${pendingItems.length} 项</span>
+            <span>${escapeHtml(confidenceText)}</span>
+          </div>
           <div class="review-field-tags">
-            ${pendingItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+            ${visibleItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
           </div>
         </div>
         <div class="review-actions">
@@ -3510,6 +3523,12 @@ function renderSourcePreview(metadata) {
     return;
   }
   const image = metadata.image || getCategoryImage("扫地机");
+  const fetchDetails = [
+    metadata.platform ? `平台：${metadata.platform}` : "",
+    metadata.httpStatus ? `HTTP ${metadata.httpStatus}` : "",
+    metadata.fetchMode ? `抓取模式：${metadata.fetchMode}` : "",
+    metadata.finalUrl && metadata.finalUrl !== metadata.url ? `最终链接：${metadata.finalUrl}` : "",
+  ].filter(Boolean);
   els.sourcePreview.classList.add("is-visible");
   els.sourcePreview.innerHTML = `
     <img src="${escapeHtml(image)}" alt="详情页主图预览" />
@@ -3518,6 +3537,8 @@ function renderSourcePreview(metadata) {
       <p>${escapeHtml(metadata.description || "未识别页面描述。AI 分析仍会使用 URL、图片和补充说明。")}</p>
       ${metadata.price ? `<p>预抓取价格：${escapeHtml(metadata.currency || "CNY")} ${escapeHtml(metadata.price)} · ${escapeHtml(metadata.priceSource || "metadata")}</p>` : ""}
       <p>来源：${escapeHtml(metadata.url || els.sourceUrl.value.trim() || "未提供 URL")}</p>
+      ${fetchDetails.length ? `<p class="source-fetch-meta">${escapeHtml(fetchDetails.join(" · "))}</p>` : ""}
+      ${metadata.fetchWarning ? `<p class="source-warning">${escapeHtml(metadata.fetchWarning)}</p>` : ""}
       ${renderSourceEvidence(metadata)}
     </div>
   `;
@@ -3540,7 +3561,11 @@ async function fetchSourceMetadata() {
     if (!response.ok) throw new Error(metadata.error || "预抓取失败");
     sourceMetadata = { ...metadata, url, fetchedAt: nowIso() };
     renderSourcePreview(sourceMetadata);
-    setAnalysisStatus("预抓取完成，正在自动分析详情页内容...", "success");
+    const weakFetch = sourceMetadata.fetchWarning || sourceMetadata.fetchMode === "commerce-url-fallback";
+    setAnalysisStatus(
+      weakFetch ? "已识别电商链接，但详情页可能未完整抓取；正在用已有证据自动分析，建议补充截图/长图。" : "预抓取完成，正在自动分析详情页内容...",
+      weakFetch ? "warning" : "success",
+    );
     await runAnalysis();
   } catch (error) {
     sourceMetadata = null;

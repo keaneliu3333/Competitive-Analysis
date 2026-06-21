@@ -14,6 +14,9 @@ const sampleHtml = `
     </head>
     <body>
       <img data-src="/images/detail-1.jpg" />
+      <img data-original-src="/images/detail-lazy.jpg" />
+      <img data-ks-lazyload="/images/detail-ks.jpg" />
+      <img data-lazy-src="&#47;&#47;cdn.example.com/images/entity-image.png" />
       <img srcset="/images/detail-2.jpg 1x, /images/detail-2@2x.jpg 2x" />
       <section>12000Pa 大吸力，热水洗拖布，自动集尘基站，支持 AI 避障。</section>
       <section>到手价 ￥3599，晒单返券后价格可能变化。</section>
@@ -24,6 +27,9 @@ const sampleHtml = `
 const images = extractImageCandidates(sampleHtml, "https://example.com/product/x1");
 if (!images.includes("https://example.com/images/hero.jpg")) fail("metadata image should be converted to absolute URL");
 if (!images.includes("https://example.com/images/detail-1.jpg")) fail("data-src detail image should be extracted");
+if (!images.includes("https://example.com/images/detail-lazy.jpg")) fail("data-original-src detail image should be extracted");
+if (!images.includes("https://example.com/images/detail-ks.jpg")) fail("data-ks-lazyload detail image should be extracted");
+if (!images.includes("https://cdn.example.com/images/entity-image.png")) fail("HTML entity image URL should be decoded");
 if (!images.includes("https://example.com/images/detail-2.jpg")) fail("srcset detail image should be extracted");
 
 const prices = pricesFromText(sampleHtml);
@@ -44,6 +50,16 @@ if (tmallMetadata?.skuId !== "6048868585791") fail("tmall URL fallback should pr
 if (!tmallMetadata?.textSnippets?.some((snippet) => snippet.includes("上传详情页截图或长图"))) {
   fail("tmall URL fallback should tell users to upload screenshots when dynamic details are blocked");
 }
+
+const jdMetadata = metadataFromCommerceUrl("https://item.jd.com/100138985587.html");
+if (jdMetadata?.platform !== "京东") fail("jd URL fallback should identify the platform");
+if (jdMetadata?.itemId !== "100138985587") fail("jd URL fallback should parse item id from path");
+if (jdMetadata?.canonicalUrl !== "https://item.jd.com/100138985587.html") fail("jd URL fallback should keep canonical item URL");
+
+const pddMetadata = metadataFromCommerceUrl("https://mobile.yangkeduo.com/goods.html?goods_id=123456789");
+if (pddMetadata?.platform !== "拼多多") fail("pdd URL fallback should identify the platform");
+if (pddMetadata?.itemId !== "123456789") fail("pdd URL fallback should parse goods_id");
+if (!pddMetadata?.fetchWarning?.includes("动态加载")) fail("pdd URL fallback should warn about dynamic loading");
 
 if (failures.length) {
   console.error("Metadata verification failed:");

@@ -11,6 +11,7 @@ const modulePath = fileURLToPath(import.meta.url);
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)));
 const port = Number(process.env.PORT || 4173);
 const env = loadEnv();
+const host = env.HOST || "127.0.0.1";
 const statePath = join(root, "data", "workbench-state.json");
 const usagePath = join(root, "data", "api-usage.json");
 const maxAnalysisFileBytes = 100 * 1024 * 1024;
@@ -472,10 +473,11 @@ function fallbackProduct(input = {}) {
 
 async function fetchMetadata(url) {
   if (!url) return {};
-  const commerceFallback = metadataFromCommerceUrl(url);
+  const parsedUrl = normalizeFetchUrl(url);
+  const commerceFallback = metadataFromCommerceUrl(parsedUrl);
   let response;
   try {
-    response = await fetch(url, {
+    response = await fetch(parsedUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 CompetitiveAnalysisBot/1.0",
         Accept: "text/html,application/xhtml+xml",
@@ -492,6 +494,20 @@ async function fetchMetadata(url) {
     }
     throw error;
   }
+  const contentType = response.headers.get("content-type") || "";
+  if (!response.ok) {
+    if (commerceFallback) {
+      return {
+        ...commerceFallback,
+        fetchMode: "commerce-url-fallback",
+        fetchWarning: `页面返回 HTTP ${response.status}，已保留 URL 可识别信息；建议补充详情页截图或长图。`,
+        httpStatus: response.status,
+        contentType,
+        finalUrl: response.url || parsedUrl,
+      };
+    }
+    throw new Error(`页面返回 HTTP ${response.status}，请确认 URL 可公开访问。`);
+  }
   const html = await response.text();
   const title = decodeHtml(
     html.match(/<title[^>]*>(.*?)<\/title>/is)?.[1]?.replace(/\s+/g, " ").trim() ||
@@ -502,7 +518,7 @@ async function fetchMetadata(url) {
   const structuredPrice = priceFromJsonLd(jsonLd);
   const metaPrice = priceFromMeta(html);
   const textPrice = priceFromText(html);
-  const imageCandidates = extractImageCandidates(html, url);
+  const imageCandidates = extractImageCandidates(html, parsedUrl);
   const priceCandidates = uniquePriceCandidates([structuredPrice, metaPrice, textPrice, ...pricesFromText(html)]);
   const priceCandidate = priceCandidates[0];
   const textSnippets = uniqueStrings([...extractTextSnippets(html), ...(commerceFallback?.textSnippets || [])], 12);
@@ -519,47 +535,94 @@ async function fetchMetadata(url) {
     textSnippets,
     htmlBytes: Buffer.byteLength(html, "utf8"),
     fetchMode: commerceFallback && !title && !description && !textSnippets.length ? "commerce-url-fallback" : "html",
-    url,
+    fetchWarning: contentType && !/html|xml|text/i.test(contentType) ? `页面类型是 ${contentType}，可能不是标准详情页 HTML。` : commerceFallback?.fetchWarning || "",
+    httpStatus: response.status,
+    contentType,
+    finalUrl: response.url || parsedUrl,
+    url: parsedUrl,
   };
+}
+
+function normalizeFetchUrl(rawUrl) {
+  try {
+    const parsed = new URL(String(rawUrl || "").trim());
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error("只支持 http 或 https 开头的详情页 URL。");
+    }
+    return parsed.toString();
+  } catch (error) {
+    throw new Error(error.message.includes("只支持") ? error.message : "详情页 URL 格式不正确，请粘贴完整链接。");
+  }
 }
 
 function metadataFromCommerceUrl(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
     const host = parsed.hostname.toLowerCase();
-    const itemId = parsed.searchParams.get("id") || parsed.searchParams.get("itemId") || "";
-    const skuId = parsed.searchParams.get("skuId") || "";
+    const jdPathId =
+      host.includes("jd.") || host.endsWith("jd.com")
+        ? parsed.pathname.match(/\/(?:product\/)?(\d{5,})\.html/i)?.[1] || parsed.pathname.match(/\/product\/(\d{5,})/i)?.[1] || ""
+        : "";
+    const pddGoodsId = parsed.searchParams.get("goods_id") || parsed.searchParams.get("goodsId") || "";
+    const amazonAsin =
+      host.includes("amazon.") ? parsed.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i)?.[1] || "" : "";
+    const itemId = parsed.searchParams.get("id") || parsed.searchParams.get("itemId") || jdPathId || pddGoodsId || amazonAsin || "";
+    const skuId = parsed.searchParams.get("skuId") || parsed.searchParams.get("sku") || "";
     const platform = host.includes("tmall")
       ? "天猫"
       : host.includes("taobao")
         ? "淘宝"
-        : host.includes("jd.")
+        : host.includes("jd.") || host.endsWith("jd.com")
           ? "京东"
+          : host.includes("yangkeduo") || host.includes("pinduoduo")
+            ? "拼多多"
+            : host.includes("amazon.")
+              ? "Amazon"
+              : host.includes("suning")
+                ? "苏宁"
+                : host.includes("douyin")
+                  ? "抖音电商"
+                  : host.includes("kuaishou")
+                    ? "快手电商"
           : "";
-    if (!platform || (!itemId && !skuId)) return null;
+    if (!platform) return null;
     const canonicalUrl =
       platform === "京东"
-        ? `https://item.jd.com/${itemId || skuId}.html`
-        : `${parsed.origin}${parsed.pathname}?${new URLSearchParams(
-            Object.fromEntries(
-              [
-                ["id", itemId],
-                ["skuId", skuId],
-              ].filter(([, value]) => value),
-            ),
-          ).toString()}`;
+        ? itemId
+          ? `https://item.jd.com/${itemId}.html`
+          : rawUrl
+        : platform === "拼多多"
+          ? pddGoodsId
+            ? `${parsed.origin}${parsed.pathname}?goods_id=${encodeURIComponent(pddGoodsId)}`
+            : rawUrl
+          : platform === "Amazon"
+            ? amazonAsin
+              ? `${parsed.origin}/dp/${amazonAsin}`
+              : rawUrl
+            : itemId || skuId
+              ? `${parsed.origin}${parsed.pathname}?${new URLSearchParams(
+                  Object.fromEntries(
+                    [
+                      ["id", itemId],
+                      ["skuId", skuId],
+                    ].filter(([, value]) => value),
+                  ),
+                ).toString()}`
+              : rawUrl;
     const textSnippets = uniqueStrings(
       [
         `平台：${platform}`,
         itemId ? `商品 ID：${itemId}` : "",
         skuId ? `SKU ID：${skuId}` : "",
+        !itemId && !skuId ? "链接已识别为电商详情页，但未能从链接中提取商品 ID。" : "",
+        canonicalUrl && canonicalUrl !== rawUrl ? `标准化链接：${canonicalUrl}` : "",
         "页面可能需要登录或动态加载；如未抓到价格、参数和详情图，请上传详情页截图或长图补充分析。",
       ],
       8,
     );
     return {
       title: `${platform}商品${itemId ? ` ${itemId}` : ""}`,
-      description: `${platform}详情页链接已识别；动态详情、价格和图片可能需要截图或长图兜底。`,
+      description: `${platform}详情页链接已识别；动态详情、价格、参数和图片可能需要截图或长图兜底。`,
       image: "",
       imageCandidates: [],
       price: null,
@@ -572,6 +635,7 @@ function metadataFromCommerceUrl(rawUrl) {
       itemId,
       skuId,
       canonicalUrl,
+      fetchWarning: `${platform}页面通常会动态加载或限制服务端抓取；如果预览缺少价格、参数或详情图，请上传截图/长图继续分析。`,
       url: rawUrl,
     };
   } catch {
@@ -593,16 +657,20 @@ function uniqueStrings(values, limit = 12) {
 }
 
 function extractImageCandidates(html, baseUrl) {
+  const imageAttributePattern =
+    /\b(?:src|data-src|data-original|data-original-src|data-lazy-src|data-lazy|data-ks-lazyload|data-lazyload|poster)=["']([^"']+)["']/gi;
+  const srcsetAttributePattern = /\b(?:srcset|data-srcset)=["']([^"']+)["']/gi;
+  const imageTags = [...html.matchAll(/<(?:img|source|picture|video)\b[^>]*>/gi)].map((match) => match[0]);
   const candidates = [
     metaContent(html, ["og:image", "twitter:image", "image"]),
-    ...[...html.matchAll(/<img\b[^>]*(?:src|data-src|data-original|data-lazy-src)=["']([^"']+)["'][^>]*>/gi)].map((match) => match[1]),
-    ...[...html.matchAll(/<img\b[^>]*srcset=["']([^"']+)["'][^>]*>/gi)]
+    ...imageTags.flatMap((tag) => [...tag.matchAll(imageAttributePattern)].map((match) => match[1])),
+    ...imageTags.flatMap((tag) => [...tag.matchAll(srcsetAttributePattern)])
       .flatMap((match) => match[1].split(",").map((item) => item.trim().split(/\s+/)[0])),
   ];
   return uniqueStrings(
     candidates
-      .map((value) => absoluteUrl(value, baseUrl))
-      .filter((value) => /^https?:\/\//i.test(value) && !/\.(gif|ico)(?:[?#].*)?$/i.test(value)),
+      .map((value) => absoluteUrl(decodeHtml(value), baseUrl))
+      .filter((value) => /^https?:\/\//i.test(value) && !/\.(gif|ico|js|css|map)(?:[?#].*)?$/i.test(value)),
     12,
   );
 }
@@ -667,6 +735,7 @@ function decodeHtml(value = "") {
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#47;|&#x2F;/gi, "/")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/\s+/g, " ")
@@ -1540,8 +1609,8 @@ function createAppServer() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === modulePath) {
-  createAppServer().listen(port, () => {
-    console.log(`Cleaner competitive workbench running at http://localhost:${port}`);
+  createAppServer().listen(port, host, () => {
+    console.log(`Cleaner competitive workbench running at http://${host}:${port}`);
   });
 }
 
