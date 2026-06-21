@@ -459,6 +459,10 @@ for (const token of [
   "startBrowserFetch",
   "collectBrowserFetch",
   "metadataFromBrowserSnapshot",
+  "fetchRemoteImageDataUrls",
+  "sourceImageFetch",
+  "自动下载详情页图片数",
+  "图片过大，已跳过",
   "normalizeImageDataUrls",
   "metaContent",
   "extractJsonLdObjects",
@@ -481,7 +485,8 @@ for (const token of [
   "normalizeRemoteImageUrls",
   "analysisSourceImageUrls",
   "remoteImageUrls",
-  "已附加 URL 图片候选数",
+  "自动下载详情页图片数",
+  "sourceImageFetch",
   "normalizeComparePayload",
   "differenceFields",
   "OPENAI_INPUT_USD_PER_1M",
@@ -523,7 +528,7 @@ for (const token of [
   "normalizeErrorMessage",
   "正在读取上传文件",
   "文件准备完成",
-  "文件已读取完成，正在上传资料",
+  "资料已准备完成，正在获取详情页图片并等待 AI 返回",
   "服务已返回，正在整理分析结果",
   "浏览器无法解析图片",
   "image/jpeg",
@@ -641,6 +646,7 @@ assertIncludes(scriptJs, "/api/browser-fetch/collect", "script.js browser assist
 assertIncludes(scriptJs, "/api/browser-fetch/cancel", "script.js browser assisted fetch cancel API");
 assertIncludes(scriptJs, "source-fetch-meta", "script.js metadata fetch status display");
 assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback warning display");
+assertIncludes(scriptJs, "自动下载详情页图片", "script.js analysis status explains automatic detail image fetch");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");

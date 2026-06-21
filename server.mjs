@@ -18,6 +18,8 @@ const maxAnalysisFileBytes = 100 * 1024 * 1024;
 const maxJsonBodyBytes = 140 * 1024 * 1024;
 const maxModelImageDataUrlChars = 4_000_000;
 const maxModelImageCount = 32;
+const maxAutoSourceImageCount = Number(env.AUTO_SOURCE_IMAGE_COUNT || 4);
+const maxAutoSourceImageBytes = Number(env.AUTO_SOURCE_IMAGE_BYTES || Math.floor(2.5 * 1024 * 1024));
 const browserFetchSessions = new Map();
 const browserFetchProfileDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
 const defaultChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -1072,6 +1074,78 @@ function analysisSourceImageUrls(metadata = {}) {
   return normalizeRemoteImageUrls([metadata.image, ...(metadata.imageCandidates || [])], 4);
 }
 
+function imageMimeTypeFromUrl(url) {
+  const pathname = new URL(url).pathname.toLowerCase();
+  if (pathname.endsWith(".png")) return "image/png";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  return "";
+}
+
+function normalizeImageMimeType(contentType = "", url = "") {
+  const mimeType = String(contentType).split(";")[0].trim().toLowerCase() || imageMimeTypeFromUrl(url);
+  if (["image/jpeg", "image/png", "image/webp"].includes(mimeType)) return mimeType;
+  return "";
+}
+
+async function fetchRemoteImageDataUrls(values, { referer = "", limit = maxAutoSourceImageCount } = {}) {
+  const imageUrls = normalizeRemoteImageUrls(values, limit);
+  const dataUrls = [];
+  const fetchedUrls = [];
+  const warnings = [];
+  for (const url of imageUrls) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 CompetitiveAnalysisImageFetcher/1.0",
+          Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          ...(referer ? { Referer: referer } : {}),
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!response.ok) {
+        warnings.push(`${url} 返回 HTTP ${response.status}`);
+        continue;
+      }
+      const mimeType = normalizeImageMimeType(response.headers.get("content-type"), response.url || url);
+      if (!mimeType) {
+        warnings.push(`${url} 不是可识别的商品图片类型`);
+        continue;
+      }
+      const contentLength = Number(response.headers.get("content-length") || 0);
+      if (contentLength > maxAutoSourceImageBytes) {
+        warnings.push(`${url} 图片过大，已跳过`);
+        continue;
+      }
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length) {
+        warnings.push(`${url} 图片为空，已跳过`);
+        continue;
+      }
+      if (bytes.length > maxAutoSourceImageBytes) {
+        warnings.push(`${url} 图片过大，已跳过`);
+        continue;
+      }
+      const dataUrl = `data:${mimeType};base64,${bytes.toString("base64")}`;
+      if (dataUrl.length > maxModelImageDataUrlChars) {
+        warnings.push(`${url} 图片超过模型单图限制，已跳过`);
+        continue;
+      }
+      dataUrls.push(dataUrl);
+      fetchedUrls.push(response.url || url);
+    } catch (error) {
+      warnings.push(`${url} 下载失败：${error.message}`);
+    }
+  }
+  return {
+    dataUrls,
+    fetchedUrls,
+    warnings: warnings.slice(0, 6),
+    candidateCount: imageUrls.length,
+  };
+}
+
 function meaningfulTextSnippets(metadata = {}) {
   return (metadata.textSnippets || []).filter(
     (snippet) =>
@@ -1484,19 +1558,38 @@ async function analyzeProduct(input) {
   const uploadedFile = sanitizeFileAttachment(input.fileAttachment);
   const featureFields = sanitizeFeatureFields(input.featureFields);
   const analysisExamples = sanitizeAnalysisExamples(input.analysisExamples);
-  const imageUrls = normalizeImageDataUrls(input);
-  assertEnoughAnalysisEvidence(input, metadata, uploadedFile, imageUrls);
-  const oversizedImageUrl = imageUrls.find((imageUrl) => imageUrl.length > maxModelImageDataUrlChars);
+  const uploadedImageUrls = normalizeImageDataUrls(input);
+  const sourceImageUrls = analysisSourceImageUrls(metadata);
+  const downloadedSourceImages = await fetchRemoteImageDataUrls(sourceImageUrls, {
+    referer: input.sourceUrl || metadata.finalUrl || metadata.url || "",
+  });
+  const modelImageDataUrls = [...uploadedImageUrls, ...downloadedSourceImages.dataUrls].slice(0, maxModelImageCount);
+  assertEnoughAnalysisEvidence(input, metadata, uploadedFile, modelImageDataUrls);
+  const oversizedImageUrl = modelImageDataUrls.find((imageUrl) => imageUrl.length > maxModelImageDataUrlChars);
   if (oversizedImageUrl) {
     throw new Error("上传图片超过 AI 接口单张图片限制，请把详情页拆成多张截图，或压缩图片宽度后重新上传。");
   }
-  const sourceImageUrls = analysisSourceImageUrls(metadata);
+  if (
+    input.sourceUrl &&
+    sourceImageUrls.length &&
+    !downloadedSourceImages.dataUrls.length &&
+    !uploadedImageUrls.length &&
+    !uploadedFile &&
+    !metadata.price &&
+    !metadata.priceCandidates?.length &&
+    !meaningfulTextSnippets(metadata).length
+  ) {
+    throw new HttpError(
+      422,
+      `已发现 ${sourceImageUrls.length} 张详情页图片候选，但都无法自动下载成可分析图片。请使用“打开浏览器获取”登录后继续，或上传详情页截图/长图。`,
+    );
+  }
   const prompt = [
     "你是清洁电器竞品分析师，请从官网或电商详情页信息中抽取结构化产品资料。",
     "品类只允许：扫地机、洗地机、吸尘器。",
     "需要输出可人工复核的低幻觉结果；不确定字段用待确认并降低 confidence。",
     "Top3 sellingPoints 要按竞品优先级排序，每条包含 title 和 evidence。",
-    "如果输入包含 PDF 或图片附件，请优先从附件中的详情页文案、参数表、价格和图片证据抽取。",
+    "如果输入包含 PDF、上传图片或自动下载的详情页图片，请优先从图片中的详情页文案、参数表、价格和商品图证据抽取。",
     "image 字段只能使用页面中明确出现的产品图 URL；没有可靠 URL 时返回空字符串，不要生成虚构图片。",
     "customFeatures 必须只使用下方自定义字段列表里的 key；没有证据时 value 填待确认、confidence 降低。",
     "enum 类型的 customFeatures 应优先从字段 options 中选择取值；详情页没有明确证据时填待确认。",
@@ -1506,9 +1599,11 @@ async function analyzeProduct(input) {
     `预抓取价格: ${metadata.price ? `${metadata.currency || "CNY"} ${metadata.price} (${metadata.priceSource || "unknown"})` : "无"}`,
     `价格候选: ${metadata.priceCandidates?.length ? JSON.stringify(metadata.priceCandidates.slice(0, 8)) : "[]"}`,
     `图片候选数: ${metadata.imageCandidates?.length || 0}`,
-    `已附加 URL 图片候选数: ${sourceImageUrls.length}`,
+    `自动下载详情页图片数: ${downloadedSourceImages.dataUrls.length}/${sourceImageUrls.length}`,
+    `自动下载图片来源: ${downloadedSourceImages.fetchedUrls.length ? JSON.stringify(downloadedSourceImages.fetchedUrls.slice(0, 4)) : "[]"}`,
+    `详情页图片下载问题: ${downloadedSourceImages.warnings.length ? JSON.stringify(downloadedSourceImages.warnings) : "[]"}`,
     `页面文案证据片段: ${metadata.textSnippets?.length ? JSON.stringify(metadata.textSnippets.slice(0, 12)) : "[]"}`,
-    `上传图片数: ${imageUrls.length}`,
+    `上传图片数: ${uploadedImageUrls.length}`,
     `上传附件: ${uploadedFile ? `${uploadedFile.filename} (${uploadedFile.mimeType}, ${uploadedFile.size} bytes)` : "无"}`,
     `自定义字段列表: ${featureFields.length ? JSON.stringify(featureFields) : "[]"}`,
     `高置信人工确认示例: ${analysisExamples.length ? JSON.stringify(analysisExamples) : "[]"}`,
@@ -1613,8 +1708,8 @@ async function analyzeProduct(input) {
     task: "analysis_with_vision_file",
     prompt,
     imageDataUrl: input.imageDataUrl,
-    imageDataUrls: input.imageDataUrls,
-    remoteImageUrls: sourceImageUrls,
+    imageDataUrls: modelImageDataUrls,
+    remoteImageUrls: downloadedSourceImages.dataUrls.length ? [] : sourceImageUrls,
     fileAttachment: input.fileAttachment,
     schemaName: "cleaner_product_analysis",
     schema,
@@ -1625,6 +1720,12 @@ async function analyzeProduct(input) {
       sourceMetadata: {
         ...metadata,
         url: input.sourceUrl || metadata.url || "",
+        sourceImageFetch: {
+          candidateCount: downloadedSourceImages.candidateCount,
+          fetchedCount: downloadedSourceImages.dataUrls.length,
+          fetchedUrls: downloadedSourceImages.fetchedUrls,
+          warnings: downloadedSourceImages.warnings,
+        },
         ...(uploadedFile ? { uploadedFile } : {}),
       },
     },
@@ -1891,6 +1992,7 @@ export {
   estimateApiCostUsd,
   extractImageCandidates,
   extractTextSnippets,
+  fetchRemoteImageDataUrls,
   isReadAuthorized,
   isWriteAuthorized,
   metadataFromCommerceUrl,

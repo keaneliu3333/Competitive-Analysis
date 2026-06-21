@@ -1,4 +1,4 @@
-const { extractImageCandidates, extractTextSnippets, metadataFromCommerceUrl, pricesFromText } = await import("../server.mjs");
+const { extractImageCandidates, extractTextSnippets, fetchRemoteImageDataUrls, metadataFromCommerceUrl, pricesFromText } = await import("../server.mjs");
 
 const failures = [];
 
@@ -52,6 +52,34 @@ if (!prices.some((item) => item.price === 3999 && item.source === "embedded-json
 const snippets = extractTextSnippets(sampleHtml);
 if (!snippets.some((snippet) => snippet.includes("12000Pa") && snippet.includes("自动集尘基站"))) {
   fail("feature text snippet should include suction and base-station evidence");
+}
+
+const tinyPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64",
+);
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (url) => {
+  if (url === "https://cdn.example.com/product-main.png") {
+    return new Response(tinyPng, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/png",
+        "Content-Length": String(tinyPng.length),
+      },
+    });
+  }
+  return new Response("missing", { status: 404 });
+};
+try {
+  const imageFetch = await fetchRemoteImageDataUrls(["https://cdn.example.com/product-main.png"], {
+    referer: "https://example.com/product/x1",
+  });
+  if (imageFetch.dataUrls.length !== 1) fail("remote detail image should be downloaded as data URL");
+  if (!imageFetch.dataUrls[0]?.startsWith("data:image/png;base64,")) fail("downloaded detail image should keep image MIME type");
+  if (imageFetch.fetchedUrls.length !== 1) fail("downloaded detail image should record fetched source URL");
+} finally {
+  globalThis.fetch = originalFetch;
 }
 
 const tmallMetadata = metadataFromCommerceUrl(

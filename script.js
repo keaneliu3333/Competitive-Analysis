@@ -3600,7 +3600,7 @@ async function runAnalysis() {
   showRetryAnalysis(false);
   resetAnalysisSteps();
   setAnalysisStep("input", "done");
-  setAnalysisStatus(files.length ? "正在准备上传文件..." : "正在分析详情页内容...", "progress");
+  setAnalysisStatus(files.length ? "正在准备上传文件..." : "正在自动获取详情页图片和文字证据...", "progress");
   try {
     setAnalysisStep(files.length ? "files" : "request", "active");
     const attachments = await filesToAnalysisAttachments(files, (message) => setAnalysisStatus(message, "progress"));
@@ -3615,10 +3615,10 @@ async function runAnalysis() {
       const pdfText = pdfAttachment ? "1 个 PDF" : "";
       setAnalysisStatus(`文件准备完成：${[imageText, pdfText].filter(Boolean).join("，")}。正在上传并调用 AI 分析...`, "progress");
     } else {
-      setAnalysisStatus("正在提交 URL/补充说明并调用 AI 分析...", "progress");
+      setAnalysisStatus("正在提交 URL，服务会自动下载详情页图片并调用 AI 分析...", "progress");
     }
     setAnalysisStep("request", "active");
-    setAnalysisStatus("文件已读取完成，正在上传资料并等待 AI 返回...", "progress");
+    setAnalysisStatus("资料已准备完成，正在获取详情页图片并等待 AI 返回...", "progress");
     const response = await apiFetch("/api/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
