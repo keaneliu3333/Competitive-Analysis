@@ -3379,6 +3379,30 @@ function normalizeErrorMessage(error, fallback = "操作失败，请稍后重试
   return fallback;
 }
 
+function friendlyAnalysisError(error, fallback = "未能完成分析，请检查文件格式、大小或网络后重试。") {
+  const rawMessage = normalizeErrorMessage(error, fallback)
+    .replace(/^已使用人工复核兜底结果：/, "")
+    .trim();
+  const lower = rawMessage.toLowerCase();
+  if (!rawMessage) return fallback;
+  if (
+    /invalidparameter|image length|image size|image.*too large|maximum allowed|payload too large|413/.test(lower) ||
+    /图片.*(过大|超出|限制)|单张图片限制|切片仍然过大/.test(rawMessage)
+  ) {
+    return "图片已进入分析，但模型拒绝处理当前尺寸或长度。请改为上传关键参数/卖点区域截图，或把长图拆成多张截图后重试。";
+  }
+  if (/fetch failed|networkerror|failed to fetch|econnreset|etimedout|enotfound|econnrefused|eprem|eperm/.test(lower)) {
+    return "模型接口或本机网络暂时不可用。请先点击“重新分析”；如果仍失败，请检查代理、API Key，或上传截图后进入人工复核。";
+  }
+  if (/invalid json|not valid json|unexpected token|json/.test(lower)) {
+    return "模型返回格式不完整，系统已保留待人工复核记录。请补充品牌、型号、价格和关键参数后重试。";
+  }
+  if (/qwen-vl|deepseek|openai/.test(lower)) {
+    return "模型服务返回异常，系统已进入人工复核兜底。请点击“重新分析”，或补充品牌、型号、价格和关键参数后再试。";
+  }
+  return rawMessage.length > 160 ? `${rawMessage.slice(0, 160)}...` : rawMessage;
+}
+
 function imageDataUrlSize(dataUrl) {
   return Math.ceil((String(dataUrl).split(",")[1]?.length || 0) * 0.75);
 }
@@ -3657,7 +3681,9 @@ async function runAnalysis() {
     }
     const catalogMessage = integrated.merged ? "分析完成，已按品牌+型号更新已有产品。" : "分析完成，已加入产品库。";
     const reviewMessage = "分析完成，已进入待确认队列。请补全品牌、型号、价格等信息后确认。";
-    const warningMessage = payload.warning ? `AI 未完全返回有效结果，${reviewMessage}${payload.warning}` : "";
+    const warningMessage = payload.warning
+      ? `AI 未完全返回有效结果，${reviewMessage}原因：${friendlyAnalysisError(payload.warning)}`
+      : "";
     setAnalysisStep("integrate", catalogReady && !warningMessage ? "done" : "warning");
     setAnalysisStatus(warningMessage || (catalogReady ? catalogMessage : reviewMessage), catalogReady && !warningMessage ? "success" : "warning");
     showRetryAnalysis(Boolean(warningMessage || !catalogReady));
@@ -3665,7 +3691,7 @@ async function runAnalysis() {
   } catch (error) {
     setAnalysisStep("ai", "error");
     setAnalysisStep("integrate", "idle");
-    setAnalysisStatus(`分析失败：${normalizeErrorMessage(error, "未能完成分析，请检查文件格式、大小或网络后重试。")}`, "error");
+    setAnalysisStatus(`分析失败：${friendlyAnalysisError(error)}`, "error");
     showRetryAnalysis(true);
     loadUsage();
   } finally {

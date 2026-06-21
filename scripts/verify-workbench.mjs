@@ -629,6 +629,8 @@ assertIncludes(scriptJs, "还有关键信息不能入库", "script.js review det
 assertIncludes(scriptJs, "analysisSteps", "script.js analysis progress steps");
 assertIncludes(scriptJs, "showRetryAnalysis", "script.js analysis retry action");
 assertIncludes(scriptJs, "resetAnalysisSteps", "script.js analysis progress reset");
+assertIncludes(scriptJs, "friendlyAnalysisError", "script.js AI error translation");
+assertIncludes(scriptJs, "关键参数/卖点区域截图", "script.js actionable image-limit guidance");
 assertIncludes(scriptJs, "focusPendingAnalysisResult", "script.js pending analysis result focus");
 assertIncludes(scriptJs, "已进入待确认队列", "script.js pending analysis result status copy");
 assertIncludes(scriptJs, "scrollToReviewProduct", "script.js pending review scroll behavior");
