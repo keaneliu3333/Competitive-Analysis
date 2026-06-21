@@ -106,6 +106,39 @@ try {
   const usage = await requestJson(server, "/api/usage");
   assert(Array.isArray(usage.recent), "/api/usage must return recent array");
 
+  const insufficientAnalysis = await invoke(server, {
+    method: "POST",
+    url: "/api/analyze",
+    body: JSON.stringify({
+      sourceUrl: "https://detail.tmall.com/item.htm?id=1018823558209",
+      sourceMetadata: {
+        platform: "天猫",
+        title: "天猫商品 1018823558209",
+        description: "天猫详情页链接已识别；动态详情、价格、参数和图片可能需要截图或长图兜底。",
+        fetchWarning: "天猫页面通常会动态加载或限制服务端抓取。",
+        textSnippets: ["平台：天猫", "商品 ID：1018823558209", "页面可能需要登录或动态加载；请上传详情页截图或长图补充分析。"],
+        priceCandidates: [],
+        imageCandidates: [],
+      },
+    }),
+  });
+  assert(insufficientAnalysis.status === 422, "/api/analyze should reject URL-only commerce input without product evidence");
+  assert(
+    JSON.parse(insufficientAnalysis.body).error.includes("未获取到天猫 有效详情页内容"),
+    "/api/analyze insufficient evidence error should explain missing detail content",
+  );
+
+  const missingBrowserSession = await invoke(server, {
+    method: "POST",
+    url: "/api/browser-fetch/collect",
+    body: JSON.stringify({ sessionId: "missing-session" }),
+  });
+  assert(missingBrowserSession.status === 404, "/api/browser-fetch/collect should reject missing sessions");
+  assert(
+    JSON.parse(missingBrowserSession.body).error.includes("会话已失效"),
+    "/api/browser-fetch/collect missing session error should be actionable",
+  );
+
   const html = await requestText(server, "/");
   for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
     assert(html.includes(token), `index page missing ${token}`);

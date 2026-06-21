@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { connect as tlsConnect } from "node:tls";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const modulePath = fileURLToPath(import.meta.url);
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)));
@@ -18,6 +18,9 @@ const maxAnalysisFileBytes = 100 * 1024 * 1024;
 const maxJsonBodyBytes = 140 * 1024 * 1024;
 const maxModelImageDataUrlChars = 4_000_000;
 const maxModelImageCount = 32;
+const browserFetchSessions = new Map();
+const browserFetchProfileDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
+const defaultChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -543,6 +546,164 @@ async function fetchMetadata(url) {
   };
 }
 
+async function loadPlaywright() {
+  const bundledPath =
+    "/Users/apple/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.js";
+  const candidates = [env.PLAYWRIGHT_MODULE_PATH, existsSync(bundledPath) ? bundledPath : null, "playwright"].filter(Boolean);
+  const errors = [];
+  for (const candidate of candidates) {
+    try {
+      if (candidate.startsWith("/") || candidate.startsWith(".")) {
+        return await import(pathToFileURL(resolve(candidate)).href);
+      }
+      return await import(candidate);
+    } catch (error) {
+      errors.push(`${candidate}: ${error.message}`);
+    }
+  }
+  throw new HttpError(
+    503,
+    `本机没有可用的浏览器抓取组件。请配置 PLAYWRIGHT_MODULE_PATH，或继续上传详情页截图/长图。尝试路径：${errors.join(" | ")}`,
+  );
+}
+
+async function closeBrowserFetchSession(sessionId) {
+  const session = browserFetchSessions.get(sessionId);
+  if (!session) return;
+  browserFetchSessions.delete(sessionId);
+  await session.context?.close?.().catch(() => {});
+}
+
+async function closeStaleBrowserFetchSessions() {
+  const staleBefore = Date.now() - 30 * 60 * 1000;
+  for (const [sessionId, session] of browserFetchSessions.entries()) {
+    if (session.createdAt < staleBefore) await closeBrowserFetchSession(sessionId);
+  }
+}
+
+async function startBrowserFetch(input = {}) {
+  const url = normalizeFetchUrl(input.url);
+  await closeStaleBrowserFetchSessions();
+  if (browserFetchSessions.size) {
+    throw new HttpError(409, "已有一个浏览器详情页获取窗口在进行中。请先继续获取或取消当前会话。");
+  }
+  const playwrightModule = await loadPlaywright();
+  const { chromium } = playwrightModule.default || playwrightModule;
+  const chromePath = env.CHROME_EXECUTABLE_PATH || defaultChromePath;
+  const launchOptions = {
+    headless: env.BROWSER_FETCH_HEADLESS === "1",
+    viewport: { width: 1365, height: 1800 },
+  };
+  if (existsSync(chromePath)) launchOptions.executablePath = chromePath;
+  await mkdir(browserFetchProfileDir, { recursive: true });
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(browserFetchProfileDir, launchOptions);
+  } catch (error) {
+    throw new HttpError(503, `无法打开本机浏览器：${error.message}。请确认 Chrome 可用，或改为上传详情页截图/长图。`);
+  }
+  const page = context.pages()[0] || (await context.newPage());
+  let navigationWarning = "";
+  try {
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  } catch (error) {
+    navigationWarning = `浏览器已打开，但页面加载未完成：${error.message}`;
+  }
+  const sessionId = `browser-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  browserFetchSessions.set(sessionId, {
+    context,
+    page,
+    originalUrl: url,
+    createdAt: Date.now(),
+  });
+  return {
+    sessionId,
+    url,
+    currentUrl: page.url(),
+    title: await page.title().catch(() => ""),
+    navigationWarning,
+    message: "浏览器窗口已打开。请在浏览器里登录或完成验证，确认停留在目标详情页后回到工作台点击“继续获取”。",
+  };
+}
+
+async function collectBrowserFetch(input = {}) {
+  const sessionId = String(input.sessionId || "");
+  const session = browserFetchSessions.get(sessionId);
+  if (!session) throw new HttpError(404, "浏览器获取会话已失效，请重新打开浏览器获取。");
+  const { page, originalUrl } = session;
+  try {
+    await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    const snapshot = await page.evaluate(() => ({
+      title: document.title || "",
+      url: location.href,
+      description:
+        document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+        document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+        "",
+      text: document.body?.innerText || "",
+      html: document.documentElement?.outerHTML?.slice(0, 700000) || "",
+      images: Array.from(document.images || [])
+        .map((image) => ({
+          src: image.currentSrc || image.src || image.getAttribute("data-src") || image.getAttribute("data-original") || "",
+          alt: image.alt || "",
+          className: String(image.className || ""),
+          id: image.id || "",
+          width: image.naturalWidth || image.width || 0,
+          height: image.naturalHeight || image.height || 0,
+          parentClassName: String(image.parentElement?.className || ""),
+        }))
+        .filter((image) => image.src)
+        .filter(Boolean)
+        .slice(0, 80),
+    }));
+    return metadataFromBrowserSnapshot(snapshot, originalUrl);
+  } finally {
+    await closeBrowserFetchSession(sessionId);
+  }
+}
+
+function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
+  const currentUrl = snapshot.url || originalUrl;
+  const commerceFallback = metadataFromCommerceUrl(currentUrl) || metadataFromCommerceUrl(originalUrl) || {};
+  const html = snapshot.html || "";
+  const text = snapshot.text || "";
+  const jsonLd = extractJsonLdObjects(html);
+  const imageCandidates = normalizeProductImageCandidates([...(snapshot.images || []), ...extractImageCandidates(html, currentUrl)], currentUrl);
+  const priceCandidates = uniquePriceCandidates([
+    priceFromJsonLd(jsonLd),
+    priceFromMeta(html),
+    priceFromText(html),
+    priceFromText(text),
+    ...pricesFromText(html),
+    ...pricesFromText(text),
+  ]);
+  const priceCandidate = priceCandidates[0];
+  const textSnippets = uniqueStrings([...extractTextSnippets(html), ...extractTextSnippets(text), ...(commerceFallback.textSnippets || [])], 12);
+  const blocked = /验证码|安全验证|登录后|请登录|当前页面异常|内容太火爆|请刷新|访问受限|滑块验证/.test(text);
+  const fetchWarning = blocked
+    ? "浏览器页面仍像是登录、验证或异常页面；请在浏览器窗口完成登录/验证并停留在真实详情页后重新获取。"
+    : commerceFallback.fetchWarning || "";
+  return {
+    ...commerceFallback,
+    title: decodeHtml(snapshot.title || commerceFallback.title || ""),
+    description: decodeHtml(snapshot.description || commerceFallback.description || ""),
+    image: imageCandidates[0] || "",
+    imageCandidates,
+    price: priceCandidate?.price ?? null,
+    currency: priceCandidate?.currency || "CNY",
+    priceSource: priceCandidate?.source || "",
+    priceCandidates,
+    textSnippets,
+    htmlBytes: Buffer.byteLength(html, "utf8"),
+    fetchMode: "browser",
+    browserAssisted: true,
+    fetchWarning,
+    finalUrl: currentUrl,
+    url: originalUrl || currentUrl,
+  };
+}
+
 function normalizeFetchUrl(rawUrl) {
   try {
     const parsed = new URL(String(rawUrl || "").trim());
@@ -551,7 +712,7 @@ function normalizeFetchUrl(rawUrl) {
     }
     return parsed.toString();
   } catch (error) {
-    throw new Error(error.message.includes("只支持") ? error.message : "详情页 URL 格式不正确，请粘贴完整链接。");
+    throw new HttpError(400, error.message.includes("只支持") ? error.message : "详情页 URL 格式不正确，请粘贴完整链接。");
   }
 }
 
@@ -662,17 +823,61 @@ function extractImageCandidates(html, baseUrl) {
   const srcsetAttributePattern = /\b(?:srcset|data-srcset)=["']([^"']+)["']/gi;
   const imageTags = [...html.matchAll(/<(?:img|source|picture|video)\b[^>]*>/gi)].map((match) => match[0]);
   const candidates = [
-    metaContent(html, ["og:image", "twitter:image", "image"]),
-    ...imageTags.flatMap((tag) => [...tag.matchAll(imageAttributePattern)].map((match) => match[1])),
-    ...imageTags.flatMap((tag) => [...tag.matchAll(srcsetAttributePattern)])
-      .flatMap((match) => match[1].split(",").map((item) => item.trim().split(/\s+/)[0])),
+    { src: metaContent(html, ["og:image", "twitter:image", "image"]), kind: "meta-product-image" },
+    ...imageTags.flatMap((tag) => [
+      ...[...tag.matchAll(imageAttributePattern)].map((match) => imageCandidateFromTag(match[1], tag)),
+      ...[...tag.matchAll(srcsetAttributePattern)]
+        .flatMap((match) => match[1].split(",").map((item) => item.trim().split(/\s+/)[0]))
+        .map((src) => imageCandidateFromTag(src, tag)),
+    ]),
   ];
-  return uniqueStrings(
-    candidates
-      .map((value) => absoluteUrl(decodeHtml(value), baseUrl))
-      .filter((value) => /^https?:\/\//i.test(value) && !/\.(gif|ico|js|css|map)(?:[?#].*)?$/i.test(value)),
-    12,
-  );
+  return normalizeProductImageCandidates(candidates, baseUrl);
+}
+
+function imageCandidateFromTag(src, tag = "") {
+  return {
+    src,
+    alt: attrValue(tag, "alt"),
+    className: attrValue(tag, "class"),
+    id: attrValue(tag, "id"),
+    width: Number(attrValue(tag, "width") || 0),
+    height: Number(attrValue(tag, "height") || 0),
+    kind: tag,
+  };
+}
+
+function attrValue(tag, name) {
+  const match = String(tag || "").match(new RegExp(`\\b${name}=["']([^"']+)["']`, "i"));
+  return match?.[1] || "";
+}
+
+function normalizeProductImageCandidates(candidates, baseUrl, limit = 12) {
+  const scored = [];
+  const seen = new Set();
+  for (const [index, candidate] of candidates.entries()) {
+    const item = typeof candidate === "string" ? { src: candidate } : candidate || {};
+    const url = absoluteUrl(decodeHtml(item.src || item.url || ""), baseUrl);
+    if (!/^https?:\/\//i.test(url) || /\.(gif|ico|js|css|map)(?:[?#].*)?$/i.test(url)) continue;
+    if (seen.has(url)) continue;
+    const context = `${url} ${item.alt || ""} ${item.className || ""} ${item.id || ""} ${item.parentClassName || ""} ${item.kind || ""}`;
+    const lower = context.toLowerCase();
+    if (/\b(logo|icon|sprite|avatar|qrcode|qr|captcha|blank|transparent|placeholder|loading)\b/i.test(context)) continue;
+    const width = Number(item.width || 0);
+    const height = Number(item.height || 0);
+    if (width && height && (Math.min(width, height) < 80 || width * height < 12000)) continue;
+    let score = 100 - index / 1000;
+    if (/og:image|twitter:image|meta-product-image/i.test(context)) score += 80;
+    if (/商品|产品|主图|详情|sku|goods|product|item|main|gallery|thumb|booth|magnifier|spec|hero/i.test(context)) score += 60;
+    if (/alicdn|tbcdn|360buyimg|jdimg|pinduoduo|yangkeduo|alicdn|amazon|media-amazon|alicdn|alicdn\.com|img\.alicdn/i.test(lower)) score += 20;
+    if (width && height) score += Math.min(40, Math.log10(width * height) * 8);
+    if (/banner|coupon|promo|activity|ad-|ads|shop|store|brand|badge|nav|footer|header|recommend|floor|babel/i.test(lower)) score -= 45;
+    scored.push({ url, score });
+    seen.add(url);
+  }
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.url);
 }
 
 function uniquePriceCandidates(candidates) {
@@ -865,6 +1070,35 @@ function normalizeRemoteImageUrls(values, limit = 4) {
 
 function analysisSourceImageUrls(metadata = {}) {
   return normalizeRemoteImageUrls([metadata.image, ...(metadata.imageCandidates || [])], 4);
+}
+
+function meaningfulTextSnippets(metadata = {}) {
+  return (metadata.textSnippets || []).filter(
+    (snippet) =>
+      !/^(平台：|商品 ID：|SKU ID：|标准化链接：)/.test(String(snippet || "")) &&
+      !/动态加载|上传详情页截图|上传截图|链接已识别|未能从链接中提取商品 ID|页面可能需要登录/.test(String(snippet || "")),
+  );
+}
+
+function hasMeaningfulSourceEvidence(metadata = {}) {
+  if (metadata.price || metadata.priceCandidates?.length) return true;
+  if (meaningfulTextSnippets(metadata).length) return true;
+  if (!metadata.fetchWarning && metadata.fetchMode !== "commerce-url-fallback" && metadata.imageCandidates?.length) return true;
+  return false;
+}
+
+function hasManualAnalysisEvidence(input = {}, uploadedFile, imageUrls = []) {
+  return Boolean(uploadedFile || imageUrls.length || String(input.notes || "").trim().length >= 12);
+}
+
+function assertEnoughAnalysisEvidence(input = {}, metadata = {}, uploadedFile, imageUrls = []) {
+  if (!input.sourceUrl || hasManualAnalysisEvidence(input, uploadedFile, imageUrls)) return;
+  if (hasMeaningfulSourceEvidence(metadata)) return;
+  const platformText = metadata.platform ? `${metadata.platform} ` : "";
+  throw new HttpError(
+    422,
+    `未获取到${platformText}有效详情页内容：没有商品名、价格、参数或可用详情文案。请上传详情页截图/长图，或在补充说明里粘贴商品名、价格和关键参数后再分析。`,
+  );
 }
 
 function inputModalities({ imageDataUrl, imageDataUrls, remoteImageUrls, fileAttachment }) {
@@ -1251,6 +1485,7 @@ async function analyzeProduct(input) {
   const featureFields = sanitizeFeatureFields(input.featureFields);
   const analysisExamples = sanitizeAnalysisExamples(input.analysisExamples);
   const imageUrls = normalizeImageDataUrls(input);
+  assertEnoughAnalysisEvidence(input, metadata, uploadedFile, imageUrls);
   const oversizedImageUrl = imageUrls.find((imageUrl) => imageUrl.length > maxModelImageDataUrlChars);
   if (oversizedImageUrl) {
     throw new Error("上传图片超过 AI 接口单张图片限制，请把详情页拆成多张截图，或压缩图片宽度后重新上传。");
@@ -1521,6 +1756,10 @@ async function handleApi(request, response, pathname) {
     try {
       sendJson(response, 200, await analyzeProduct(input));
     } catch (error) {
+      if (error instanceof HttpError) {
+        sendJson(response, error.status, { error: error.message });
+        return;
+      }
       const providerStatus = modelProviderStatus();
       const hasVisionInput = Boolean(
         sanitizeFileAttachment(input.fileAttachment) ||
@@ -1564,6 +1803,36 @@ async function handleApi(request, response, pathname) {
     } catch (error) {
       sendJson(response, 400, { error: error.message });
     }
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/browser-fetch/start") {
+    if (!requireAccess(request, response, "read")) return;
+    const input = await readJson(request);
+    try {
+      sendJson(response, 200, await startBrowserFetch(input));
+    } catch (error) {
+      sendJson(response, error instanceof HttpError ? error.status : 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/browser-fetch/collect") {
+    if (!requireAccess(request, response, "read")) return;
+    const input = await readJson(request);
+    try {
+      sendJson(response, 200, await collectBrowserFetch(input));
+    } catch (error) {
+      sendJson(response, error instanceof HttpError ? error.status : 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/browser-fetch/cancel") {
+    if (!requireAccess(request, response, "read")) return;
+    const input = await readJson(request);
+    await closeBrowserFetchSession(String(input.sessionId || ""));
+    sendJson(response, 200, { ok: true });
     return;
   }
 

@@ -32,6 +32,19 @@ if (!images.includes("https://example.com/images/detail-ks.jpg")) fail("data-ks-
 if (!images.includes("https://cdn.example.com/images/entity-image.png")) fail("HTML entity image URL should be decoded");
 if (!images.includes("https://example.com/images/detail-2.jpg")) fail("srcset detail image should be extracted");
 
+const productImageHtml = `
+  <html>
+    <body>
+      <img class="site-logo" width="48" height="48" src="/logo.png" />
+      <img class="coupon-banner" width="750" height="120" src="/coupon.png" />
+      <img class="sku-main product-gallery" width="800" height="800" alt="商品主图 扫地机 X1" src="/product-main.jpg" />
+      <img class="product-gallery-thumb" width="360" height="360" src="/product-thumb.jpg" />
+    </body>
+  </html>
+`;
+const productImages = extractImageCandidates(productImageHtml, "https://example.com/product/x1");
+if (productImages[0] !== "https://example.com/product-main.jpg") fail("first image candidate should prefer the product main image");
+
 const prices = pricesFromText(sampleHtml);
 if (!prices.some((item) => item.price === 3599 && item.source === "text")) fail("visible CNY price should be extracted");
 if (!prices.some((item) => item.price === 3999 && item.source === "embedded-json")) fail("embedded JSON price should be extracted");

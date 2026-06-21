@@ -9,7 +9,7 @@
       content="扫地机、洗地机、吸尘器竞品分析工作台，支持筛选、AI 详情页分析、型号对比、品牌路标和 Excel 导出。"
     />
     <link rel="icon" href="assets/robot-vacuum.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=filter-review-20260613" />
+    <link rel="stylesheet" href="styles.css?v=ai-progress-20260621" />
   </head>
   <body>
     <div class="app-shell">
@@ -219,6 +219,9 @@
               <button class="secondary-button" type="button" id="fetchSourceMetadata">
                 抓取并分析
               </button>
+              <button class="secondary-button" type="button" id="startBrowserFetch">
+                打开浏览器获取
+              </button>
             </div>
             <label>
               上传详情页长图、截图或 PDF
@@ -238,10 +241,20 @@
             <p id="analysisStatus" class="status-text" role="status" aria-live="polite">
               AI 会输出结构化参数、Top3 卖点和置信度。
             </p>
+            <button class="secondary-button" type="button" id="retryAnalysis" hidden>
+              重新分析
+            </button>
+            <button class="secondary-button" type="button" id="collectBrowserFetch" hidden>
+              继续获取
+            </button>
+            <button class="secondary-button" type="button" id="cancelBrowserFetch" hidden>
+              取消浏览器获取
+            </button>
             <button class="primary-button" type="button" id="runAnalysis">
               开始分析
             </button>
           </div>
+          <ol id="analysisSteps" class="analysis-steps wide-field" aria-label="AI 分析进度"></ol>
         </section>
 
         <section class="panel review-workspace workspace-page" data-workspace-page="import" aria-labelledby="reviewTitle" hidden aria-hidden="true">
@@ -547,6 +560,6 @@
     <input id="dataPackageFile" type="file" accept="application/json,.json" hidden />
     <input id="csvImportFile" type="file" accept=".csv,text/csv" hidden />
 
-    <script src="script.js?v=filter-review-20260613"></script>
+    <script src="script.js?v=ai-progress-20260621"></script>
   </body>
 </html>

@@ -140,6 +140,12 @@ const requiredElementIds = [
   "createProduct",
   "fetchSourceMetadata",
   "sourcePreview",
+  "analysisStatus",
+  "analysisSteps",
+  "retryAnalysis",
+  "startBrowserFetch",
+  "collectBrowserFetch",
+  "cancelBrowserFetch",
   "reviewQueue",
   "confirmAllReviews",
   "refreshHealth",
@@ -448,10 +454,14 @@ for (const token of [
   "Invalid JSON request body",
   "413",
   "fetchMetadata",
+  "startBrowserFetch",
+  "collectBrowserFetch",
+  "metadataFromBrowserSnapshot",
   "normalizeImageDataUrls",
   "metaContent",
   "extractJsonLdObjects",
   "extractImageCandidates",
+  "normalizeProductImageCandidates",
   "extractTextSnippets",
   "pricesFromText",
   "priceFromJsonLd",
@@ -589,11 +599,14 @@ for (const token of [
 
 assertIncludes(indexHtml, "multiple", "index.html multi-file upload");
 assertIncludes(indexHtml, "role=\"status\"", "index.html analysis progress status");
-assertIncludes(indexHtml, "styles.css?v=filter-review-20260613", "index.html stylesheet cache busting");
-assertIncludes(indexHtml, "script.js?v=filter-review-20260613", "index.html script cache busting");
+assertIncludes(indexHtml, "styles.css?v=ai-progress-20260621", "index.html stylesheet cache busting");
+assertIncludes(indexHtml, "script.js?v=ai-progress-20260621", "index.html script cache busting");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
 assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis action");
+assertIncludes(indexHtml, "打开浏览器获取", "index.html browser assisted fetch action");
+assertIncludes(indexHtml, "继续获取", "index.html browser assisted collect action");
+assertIncludes(indexHtml, "取消浏览器获取", "index.html browser assisted cancel action");
 assertOrder(indexHtml, "id=\"importPanel\"", "id=\"reviewTitle\"", "AI workspace detail ingestion before review queue");
 assertOrder(indexHtml, "id=\"compareCategoryFilter\"", "id=\"compareBrandFilter\"", "compare filters category before brand");
 assertIncludes(scriptJs, "await runAnalysis();", "script.js auto analysis after metadata fetch");
@@ -605,14 +618,28 @@ assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-sele
 assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
 assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
 assertIncludes(scriptJs, "reviewVisiblePendingItems", "script.js compact review queue display");
+assertIncludes(scriptJs, "analysisSteps", "script.js analysis progress steps");
+assertIncludes(scriptJs, "showRetryAnalysis", "script.js analysis retry action");
+assertIncludes(scriptJs, "resetAnalysisSteps", "script.js analysis progress reset");
+assertIncludes(scriptJs, "focusPendingAnalysisResult", "script.js pending analysis result focus");
+assertIncludes(scriptJs, "已进入待确认队列", "script.js pending analysis result status copy");
+assertIncludes(scriptJs, "scrollToReviewProduct", "script.js pending review scroll behavior");
+assertIncludes(scriptJs, "未获取到", "script.js insufficient URL-only source warning");
+assertIncludes(scriptJs, "不会生成空产品", "script.js avoids empty product creation when metadata is weak");
+assertIncludes(scriptJs, "/api/browser-fetch/start", "script.js browser assisted fetch start API");
+assertIncludes(scriptJs, "/api/browser-fetch/collect", "script.js browser assisted fetch collect API");
+assertIncludes(scriptJs, "/api/browser-fetch/cancel", "script.js browser assisted fetch cancel API");
 assertIncludes(scriptJs, "source-fetch-meta", "script.js metadata fetch status display");
 assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback warning display");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
+assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
 assertIncludes(stylesCss, "repeat(auto-fit, minmax(132px, 1fr))", "styles.css adaptive filter toolbar");
+assertIncludes(stylesCss, "grid-template-columns: minmax(0, 1fr) repeat(2, auto)", "styles.css URL fetch action layout");
 assertIncludes(stylesCss, ".review-summary", "styles.css compact review queue summary");
+assertIncludes(stylesCss, ".review-item.is-highlighted", "styles.css highlighted pending review item");
 assertIncludes(stylesCss, ".source-warning", "styles.css metadata fetch warning display");
 
 for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {

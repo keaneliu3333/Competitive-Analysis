@@ -2,6 +2,14 @@ const STORAGE_KEY = "cleaner-competitive-workbench";
 const VIEW_KEY = "cleaner-competitive-views";
 const TOKEN_KEY = "cleaner-competitive-access-token";
 
+const analysisSteps = [
+  { key: "input", label: "资料准备" },
+  { key: "files", label: "文件处理" },
+  { key: "request", label: "上传调用" },
+  { key: "ai", label: "AI 识别" },
+  { key: "integrate", label: "入库/复核" },
+];
+
 const defaultModules = [
   {
     name: "清洁能力",
@@ -374,6 +382,9 @@ let persistTimer = 0;
 let filterRenderTimer = 0;
 const searchTextCache = new WeakMap();
 let sourceMetadata = null;
+let analysisStepState = {};
+let highlightedReviewProductId = "";
+let browserFetchSessionId = "";
 let usageState = { count: 0, recent: [], estimatedTotalCostUsd: null, costPricingConfigured: false, loaded: false, error: "" };
 let healthState = {
   ok: false,
@@ -517,6 +528,11 @@ const els = {
   sourceNotes: document.querySelector("#sourceNotes"),
   sourcePreview: document.querySelector("#sourcePreview"),
   analysisStatus: document.querySelector("#analysisStatus"),
+  analysisSteps: document.querySelector("#analysisSteps"),
+  retryAnalysis: document.querySelector("#retryAnalysis"),
+  startBrowserFetch: document.querySelector("#startBrowserFetch"),
+  collectBrowserFetch: document.querySelector("#collectBrowserFetch"),
+  cancelBrowserFetch: document.querySelector("#cancelBrowserFetch"),
   usageSummary: document.querySelector("#usageSummary"),
   usageTableBody: document.querySelector("#usageTableBody"),
   auditTableBody: document.querySelector("#auditTableBody"),
@@ -1870,8 +1886,9 @@ function renderReviewQueue() {
         const visibleItems = reviewVisiblePendingItems(product);
         const priceText = Number(product.price || 0) ? formatCurrency(product.price) : "价格待确认";
         const confidenceText = Number(product.confidence || 0) ? `置信度 ${Number(product.confidence || 0)}%` : "置信度待确认";
+        const highlightClass = product.id === highlightedReviewProductId ? " is-highlighted" : "";
         return `
-      <article class="review-item" data-review-product="${product.id}">
+      <article class="review-item${highlightClass}" data-review-product="${product.id}">
         <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
         <div class="review-main">
           <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
@@ -1894,6 +1911,23 @@ function renderReviewQueue() {
       },
     )
     .join("");
+}
+
+function scrollToReviewProduct(productId) {
+  window.setTimeout(() => {
+    const item = [...document.querySelectorAll("[data-review-product]")].find((node) => node.dataset.reviewProduct === productId);
+    if (!item) return;
+    item.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, 80);
+}
+
+function focusPendingAnalysisResult(product) {
+  highlightedReviewProductId = product.id;
+  state.selectedProductId = product.id;
+  state.editingProductId = "";
+  state.activeWorkspace = "import";
+  renderAll();
+  scrollToReviewProduct(product.id);
 }
 
 function renderProductTable(products) {
@@ -3357,13 +3391,28 @@ async function runAnalysis() {
   const files = Array.from(els.sourceImage.files || []);
   if (!sourceUrl && !files.length && !notes) {
     setAnalysisStatus("请先输入 URL、上传详情页图片或填写说明。", "error");
+    resetAnalysisSteps();
+    setAnalysisStep("input", "error");
+    showRetryAnalysis(false);
+    return;
+  }
+  if (sourceUrl && sourceMetadata && !hasManualAnalysisEvidence(files, notes) && !hasMeaningfulSourceEvidence(sourceMetadata)) {
+    setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
+    resetAnalysisSteps();
+    setAnalysisStep("input", "warning");
+    showRetryAnalysis(false);
     return;
   }
 
   setAnalysisBusy(true);
+  showRetryAnalysis(false);
+  resetAnalysisSteps();
+  setAnalysisStep("input", "done");
   setAnalysisStatus(files.length ? "正在准备上传文件..." : "正在分析详情页内容...", "progress");
   try {
+    setAnalysisStep(files.length ? "files" : "request", "active");
     const attachments = await filesToAnalysisAttachments(files, (message) => setAnalysisStatus(message, "progress"));
+    setAnalysisStep("files", files.length ? "done" : "idle");
     const imageAttachments = attachments.filter((attachment) => attachment.kind === "image");
     const pdfAttachment = attachments.find((attachment) => attachment.kind === "pdf");
     const uploadNote = attachments.length
@@ -3376,6 +3425,7 @@ async function runAnalysis() {
     } else {
       setAnalysisStatus("正在提交 URL/补充说明并调用 AI 分析...", "progress");
     }
+    setAnalysisStep("request", "active");
     setAnalysisStatus("文件已读取完成，正在上传资料并等待 AI 返回...", "progress");
     const response = await apiFetch("/api/analyze", {
       method: "POST",
@@ -3399,6 +3449,8 @@ async function runAnalysis() {
         sourceMetadata,
       }),
     });
+    setAnalysisStep("request", "done");
+    setAnalysisStep("ai", "active");
     setAnalysisStatus("服务已返回，正在整理分析结果...", "progress");
     let payload = {};
     try {
@@ -3409,25 +3461,44 @@ async function runAnalysis() {
     if (!response.ok && !payload.product) {
       throw new Error(payload.error || "分析失败");
     }
+    setAnalysisStep("ai", payload.warning ? "warning" : "done");
+    setAnalysisStep("integrate", "active");
     const product = productFromAnalysis(payload.product || payload, payload.analysisMeta || {});
     const integrated = integrateAnalyzedProduct(product);
     state.selectedProductId = integrated.product.id;
-    if (isCatalogProduct(integrated.product)) {
+    const catalogReady = isCatalogProduct(integrated.product);
+    if (catalogReady) {
       state.compareIds = unique([integrated.product.id, ...state.compareIds]);
+      highlightedReviewProductId = "";
+    } else {
+      state.activeWorkspace = "import";
+      highlightedReviewProductId = integrated.product.id;
     }
-    els.importPanel.classList.remove("is-open");
-    els.sourceUrl.value = "";
-    els.sourceNotes.value = "";
-    els.sourceImage.value = "";
-    sourceMetadata = null;
-    renderSourcePreview(null);
-    renderAll();
-    const successMessage = integrated.merged ? "分析完成，已按品牌+型号更新已有产品。" : "分析完成，已加入产品库。";
-    const warningMessage = payload.warning ? `AI 未完全返回有效结果，已生成待人工复核产品：${payload.warning}` : "";
-    setAnalysisStatus(warningMessage || successMessage, warningMessage ? "warning" : "success");
+    if (catalogReady && !payload.warning) {
+      els.importPanel.classList.remove("is-open");
+      els.sourceUrl.value = "";
+      els.sourceNotes.value = "";
+      els.sourceImage.value = "";
+      sourceMetadata = null;
+      renderSourcePreview(null);
+    }
+    if (catalogReady) {
+      renderAll();
+    } else {
+      focusPendingAnalysisResult(integrated.product);
+    }
+    const catalogMessage = integrated.merged ? "分析完成，已按品牌+型号更新已有产品。" : "分析完成，已加入产品库。";
+    const reviewMessage = "分析完成，已进入待确认队列。请补全品牌、型号、价格等信息后确认。";
+    const warningMessage = payload.warning ? `AI 未完全返回有效结果，${reviewMessage}${payload.warning}` : "";
+    setAnalysisStep("integrate", catalogReady && !warningMessage ? "done" : "warning");
+    setAnalysisStatus(warningMessage || (catalogReady ? catalogMessage : reviewMessage), catalogReady && !warningMessage ? "success" : "warning");
+    showRetryAnalysis(Boolean(warningMessage || !catalogReady));
     loadUsage();
   } catch (error) {
+    setAnalysisStep("ai", "error");
+    setAnalysisStep("integrate", "idle");
     setAnalysisStatus(`分析失败：${normalizeErrorMessage(error, "未能完成分析，请检查文件格式、大小或网络后重试。")}`, "error");
+    showRetryAnalysis(true);
     loadUsage();
   } finally {
     setAnalysisBusy(false);
@@ -3442,6 +3513,38 @@ function setAnalysisStatus(message, type) {
   els.analysisStatus.classList.toggle("is-progress", type === "progress");
 }
 
+function resetAnalysisSteps() {
+  analysisStepState = Object.fromEntries(analysisSteps.map((step) => [step.key, "idle"]));
+  renderAnalysisSteps();
+}
+
+function setAnalysisStep(key, status) {
+  if (!analysisSteps.some((step) => step.key === key)) return;
+  analysisStepState = { ...analysisStepState, [key]: status };
+  renderAnalysisSteps();
+}
+
+function renderAnalysisSteps() {
+  if (!els.analysisSteps) return;
+  els.analysisSteps.innerHTML = analysisSteps
+    .map((step) => {
+      const status = analysisStepState[step.key] || "idle";
+      return `<li class="analysis-step ${status === "idle" ? "" : `is-${escapeHtml(status)}`}">${escapeHtml(step.label)}</li>`;
+    })
+    .join("");
+}
+
+function showRetryAnalysis(show) {
+  if (!els.retryAnalysis) return;
+  els.retryAnalysis.hidden = !show;
+}
+
+function setBrowserFetchControls(isActive) {
+  browserFetchSessionId = isActive ? browserFetchSessionId : "";
+  if (els.collectBrowserFetch) els.collectBrowserFetch.hidden = !isActive;
+  if (els.cancelBrowserFetch) els.cancelBrowserFetch.hidden = !isActive;
+}
+
 function setAnalysisBusy(isBusy) {
   const runButton = document.querySelector("#runAnalysis");
   const fetchButton = document.querySelector("#fetchSourceMetadata");
@@ -3450,6 +3553,10 @@ function setAnalysisBusy(isBusy) {
     runButton.textContent = isBusy ? "分析中..." : "开始分析";
   }
   if (fetchButton) fetchButton.disabled = isBusy;
+  if (els.retryAnalysis) els.retryAnalysis.disabled = isBusy;
+  if (els.startBrowserFetch) els.startBrowserFetch.disabled = isBusy;
+  if (els.collectBrowserFetch) els.collectBrowserFetch.disabled = isBusy;
+  if (els.cancelBrowserFetch) els.cancelBrowserFetch.disabled = isBusy;
 }
 
 function showSelectedAnalysisFiles() {
@@ -3544,6 +3651,31 @@ function renderSourcePreview(metadata) {
   `;
 }
 
+function meaningfulSourceSnippets(metadata = {}) {
+  return (metadata.textSnippets || []).filter(
+    (snippet) =>
+      !/^(平台：|商品 ID：|SKU ID：|标准化链接：)/.test(String(snippet || "")) &&
+      !/动态加载|上传详情页截图|上传截图|链接已识别|未能从链接中提取商品 ID|页面可能需要登录/.test(String(snippet || "")),
+  );
+}
+
+function hasMeaningfulSourceEvidence(metadata = {}) {
+  if (!metadata) return false;
+  if (metadata.price || metadata.priceCandidates?.length) return true;
+  if (meaningfulSourceSnippets(metadata).length) return true;
+  if (!metadata.fetchWarning && metadata.fetchMode !== "commerce-url-fallback" && metadata.imageCandidates?.length) return true;
+  return false;
+}
+
+function hasManualAnalysisEvidence(files, notes) {
+  return Boolean(files.length || String(notes || "").trim().length >= 12);
+}
+
+function insufficientSourceMessage(metadata = {}) {
+  const platform = metadata.platform ? `${metadata.platform} ` : "";
+  return `未获取到${platform}有效详情页内容：没有商品名、价格、参数或可用详情文案。不会生成空产品；请上传详情页截图/长图，或在补充说明里粘贴商品名、价格和关键参数后再分析。`;
+}
+
 async function fetchSourceMetadata() {
   const url = els.sourceUrl.value.trim();
   if (!url) {
@@ -3561,17 +3693,96 @@ async function fetchSourceMetadata() {
     if (!response.ok) throw new Error(metadata.error || "预抓取失败");
     sourceMetadata = { ...metadata, url, fetchedAt: nowIso() };
     renderSourcePreview(sourceMetadata);
-    const weakFetch = sourceMetadata.fetchWarning || sourceMetadata.fetchMode === "commerce-url-fallback";
-    setAnalysisStatus(
-      weakFetch ? "已识别电商链接，但详情页可能未完整抓取；正在用已有证据自动分析，建议补充截图/长图。" : "预抓取完成，正在自动分析详情页内容...",
-      weakFetch ? "warning" : "success",
-    );
+    if (!hasMeaningfulSourceEvidence(sourceMetadata)) {
+      setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
+      return;
+    }
+    setAnalysisStatus("预抓取完成，正在自动分析详情页内容...", "success");
     await runAnalysis();
   } catch (error) {
     sourceMetadata = null;
     renderSourcePreview(null);
     setAnalysisStatus(`预抓取失败：${error.message}。仍可上传截图后分析。`, "error");
   }
+}
+
+async function startBrowserFetch() {
+  const url = els.sourceUrl.value.trim();
+  if (!url) {
+    setAnalysisStatus("请先输入详情页 URL。", "error");
+    return;
+  }
+  setAnalysisBusy(true);
+  showRetryAnalysis(false);
+  try {
+    setAnalysisStatus("正在打开本机浏览器。打开后请在浏览器里完成登录或验证。", "progress");
+    const response = await apiFetch("/api/browser-fetch/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "无法打开浏览器获取");
+    browserFetchSessionId = payload.sessionId;
+    setBrowserFetchControls(true);
+    setAnalysisStatus(
+      `${payload.message}${payload.navigationWarning ? ` ${payload.navigationWarning}` : ""}`,
+      payload.navigationWarning ? "warning" : "success",
+    );
+  } catch (error) {
+    browserFetchSessionId = "";
+    setBrowserFetchControls(false);
+    setAnalysisStatus(`浏览器获取启动失败：${normalizeErrorMessage(error)}。仍可上传截图/长图后分析。`, "error");
+  } finally {
+    setAnalysisBusy(false);
+  }
+}
+
+async function collectBrowserFetch() {
+  if (!browserFetchSessionId) {
+    setAnalysisStatus("浏览器获取会话已失效，请重新打开浏览器获取。", "error");
+    setBrowserFetchControls(false);
+    return;
+  }
+  setAnalysisBusy(true);
+  try {
+    setAnalysisStatus("正在读取浏览器当前详情页内容...", "progress");
+    const response = await apiFetch("/api/browser-fetch/collect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: browserFetchSessionId }),
+    });
+    const metadata = await response.json();
+    if (!response.ok) throw new Error(metadata.error || "浏览器详情页读取失败");
+    sourceMetadata = { ...metadata, url: els.sourceUrl.value.trim() || metadata.url || metadata.finalUrl, fetchedAt: nowIso() };
+    renderSourcePreview(sourceMetadata);
+    setBrowserFetchControls(false);
+    if (!hasMeaningfulSourceEvidence(sourceMetadata)) {
+      setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
+      return;
+    }
+    setAnalysisStatus("浏览器详情页获取完成，正在自动分析...", "success");
+    await runAnalysis();
+  } catch (error) {
+    setAnalysisStatus(`浏览器详情页读取失败：${normalizeErrorMessage(error)}。请确认浏览器停留在真实详情页，或上传截图/长图。`, "error");
+  } finally {
+    setAnalysisBusy(false);
+  }
+}
+
+async function cancelBrowserFetch() {
+  if (!browserFetchSessionId) {
+    setBrowserFetchControls(false);
+    return;
+  }
+  const sessionId = browserFetchSessionId;
+  setBrowserFetchControls(false);
+  await apiFetch("/api/browser-fetch/cancel", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => {});
+  setAnalysisStatus("已取消浏览器详情页获取。", "warning");
 }
 
 function localSummary(products) {
@@ -4671,7 +4882,11 @@ function bindEvents() {
   document.querySelector("#downloadCsvTemplate")?.addEventListener("click", downloadCsvTemplate);
   els.csvImportFile?.addEventListener("change", () => importCsvProducts(els.csvImportFile.files?.[0]));
   document.querySelector("#runAnalysis").addEventListener("click", runAnalysis);
+  els.retryAnalysis?.addEventListener("click", runAnalysis);
   document.querySelector("#fetchSourceMetadata").addEventListener("click", fetchSourceMetadata);
+  els.startBrowserFetch?.addEventListener("click", startBrowserFetch);
+  els.collectBrowserFetch?.addEventListener("click", collectBrowserFetch);
+  els.cancelBrowserFetch?.addEventListener("click", cancelBrowserFetch);
   els.sourceImage.addEventListener("change", showSelectedAnalysisFiles);
   document.querySelector("#createProduct").addEventListener("click", createProduct);
   document.querySelector("#closeImport").addEventListener("click", () => {
@@ -4699,6 +4914,7 @@ async function initialize() {
   await hydrateWorkspace();
   bindEvents();
   updateFieldOptionsState();
+  resetAnalysisSteps();
   renderAll();
   renderHealth();
   loadHealth();

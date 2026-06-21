@@ -906,6 +906,12 @@ textarea {
   padding: 12px;
 }
 
+.review-item.is-highlighted {
+  border-color: var(--primary);
+  background: #eef5ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14);
+}
+
 .review-item strong {
   display: block;
   margin-bottom: 2px;
@@ -1021,7 +1027,7 @@ textarea {
 
 .url-field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) repeat(2, auto);
   gap: 10px;
   align-items: end;
 }
@@ -1142,6 +1148,75 @@ textarea {
 .status-text.is-progress {
   color: var(--primary);
   font-weight: 700;
+}
+
+.analysis-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analysis-step {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  padding: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.analysis-step::before {
+  content: "";
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.analysis-step.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary-dark);
+}
+
+.analysis-step.is-active::before {
+  background: var(--primary);
+}
+
+.analysis-step.is-done {
+  border-color: #b6e3c4;
+  background: #f0fff5;
+  color: var(--success);
+}
+
+.analysis-step.is-done::before {
+  background: var(--success);
+}
+
+.analysis-step.is-warning {
+  border-color: #f5d38a;
+  background: #fff8e8;
+  color: var(--warning);
+}
+
+.analysis-step.is-warning::before {
+  background: var(--warning);
+}
+
+.analysis-step.is-error {
+  border-color: #f0c7c1;
+  background: #fff5f3;
+  color: var(--danger);
+}
+
+.analysis-step.is-error::before {
+  background: var(--danger);
 }
 
 .workspace-grid {
@@ -2043,6 +2118,7 @@ tbody tr.is-selected {
   .filter-toolbar,
   .compare-filter-toolbar,
   .advanced-filter-grid,
+  .analysis-steps,
   .topbar,
   .panel-actions,
   .review-item {
