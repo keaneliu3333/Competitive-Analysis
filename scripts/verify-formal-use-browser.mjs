@@ -377,12 +377,20 @@ async function main() {
       const state = JSON.parse(localStorage.getItem("cleaner-competitive-workbench") || "{}");
       return (
         (state.products || []).find(
-          (product) =>
-            product.brand &&
-            product.category &&
-            product.status &&
-            Number(product.price || 0) > 0 &&
-            !/待确认|未知/.test(`${product.brand}${product.model}${product.name}${product.status}`),
+          (product) => {
+            const sellingPoints = product.sellingPoints || [];
+            return (
+              product.brand &&
+              product.category &&
+              product.status &&
+              Number(product.price || 0) > 0 &&
+              !product.reviewRequired &&
+              Number(product.confidence || 0) >= 80 &&
+              sellingPoints.length >= 3 &&
+              !/待确认|未知/.test(`${product.brand}${product.model}${product.name}${product.status}`) &&
+              !sellingPoints.slice(0, 3).some((point) => /待确认|未知/.test(`${point.title || ""}${point.evidence || ""}`))
+            );
+          },
         ) || null
       );
     });
@@ -396,6 +404,10 @@ async function main() {
     const roadmapStatusOptions = await optionLabels(page, "#roadmapStatusFilter");
     if (roadmapStatusOptions.some((option) => option.value === roadmapProduct.status)) {
       await page.locator("#roadmapStatusFilter").selectOption(roadmapProduct.status);
+    }
+    const roadmapQuarterOptions = await optionLabels(page, "#roadmapQuarterFilter");
+    if (roadmapQuarterOptions.some((option) => option.value === "全部")) {
+      await page.locator("#roadmapQuarterFilter").selectOption("全部");
     }
     await page.evaluate(() => {
       window.setRoadmapBrands?.([]);

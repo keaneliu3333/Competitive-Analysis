@@ -723,29 +723,95 @@ async function collectBrowserFetch(input = {}) {
   try {
     await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1200);
-    const snapshot = await page.evaluate(() => ({
-      title: document.title || "",
-      url: location.href,
-      description:
-        document.querySelector('meta[name="description"]')?.getAttribute("content") ||
-        document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
-        "",
-      text: document.body?.innerText || "",
-      html: document.documentElement?.outerHTML?.slice(0, 700000) || "",
-      images: Array.from(document.images || [])
-        .map((image) => ({
-          src: image.currentSrc || image.src || image.getAttribute("data-src") || image.getAttribute("data-original") || "",
-          alt: image.alt || "",
-          className: String(image.className || ""),
-          id: image.id || "",
-          width: image.naturalWidth || image.width || 0,
-          height: image.naturalHeight || image.height || 0,
-          parentClassName: String(image.parentElement?.className || ""),
-        }))
-        .filter((image) => image.src)
-        .filter(Boolean)
-        .slice(0, 80),
-    }));
+    const snapshot = await page.evaluate(() => {
+      const cleanText = (value) => String(value || "").replace(/\s+/g, " ").trim();
+      const unique = (items, limit) => {
+        const seen = new Set();
+        const result = [];
+        for (const item of items) {
+          const text = cleanText(item);
+          if (!text || seen.has(text)) continue;
+          seen.add(text);
+          result.push(text);
+          if (result.length >= limit) break;
+        }
+        return result;
+      };
+      const skuSelector = [
+        '[class*="sku" i]',
+        '[id*="sku" i]',
+        '[class*="spec" i]',
+        '[id*="spec" i]',
+        '[class*="prop" i]',
+        '[id*="prop" i]',
+        '[class*="selected" i]',
+        '[class*="active" i]',
+        '[class*="current" i]',
+        '[class*="checked" i]',
+        '[aria-selected="true"]',
+        '[aria-checked="true"]',
+      ].join(",");
+      const skuCandidates = Array.from(document.querySelectorAll(skuSelector))
+        .slice(0, 240)
+        .map((element) => {
+          const optionText = cleanText(element.innerText || element.textContent).slice(0, 180);
+          const parentText = cleanText(element.closest("li,dd,dl,section,div")?.innerText || "").slice(0, 220);
+          const labelText = cleanText(
+            element.getAttribute("title") ||
+              element.getAttribute("aria-label") ||
+              element.getAttribute("data-value") ||
+              element.getAttribute("data-name") ||
+              element.getAttribute("data-title") ||
+              "",
+          ).slice(0, 180);
+          const stateText = [
+            element.className,
+            element.id,
+            element.getAttribute("aria-selected"),
+            element.getAttribute("aria-checked"),
+            element.getAttribute("data-spm-anchor-id"),
+          ]
+            .map(cleanText)
+            .join(" ");
+          return { optionText, parentText, labelText, stateText };
+        })
+        .filter((item) => item.optionText || item.parentText || item.labelText);
+      const selectedSkuTexts = unique(
+        skuCandidates
+          .filter((item) => /selected|active|current|checked|true|select|choose|已选|选中/.test(item.stateText))
+          .flatMap((item) => [item.parentText, item.optionText, item.labelText]),
+        12,
+      );
+      const skuTextSnippets = unique(
+        skuCandidates.flatMap((item) => [item.parentText, item.optionText, item.labelText]),
+        16,
+      );
+      return {
+        title: document.title || "",
+        url: location.href,
+        description:
+          document.querySelector('meta[name="description"]')?.getAttribute("content") ||
+          document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
+          "",
+        text: document.body?.innerText || "",
+        html: document.documentElement?.outerHTML?.slice(0, 700000) || "",
+        selectedSkuTexts,
+        skuTextSnippets,
+        images: Array.from(document.images || [])
+          .map((image) => ({
+            src: image.currentSrc || image.src || image.getAttribute("data-src") || image.getAttribute("data-original") || "",
+            alt: image.alt || "",
+            className: String(image.className || ""),
+            id: image.id || "",
+            width: image.naturalWidth || image.width || 0,
+            height: image.naturalHeight || image.height || 0,
+            parentClassName: String(image.parentElement?.className || ""),
+          }))
+          .filter((image) => image.src)
+          .filter(Boolean)
+          .slice(0, 80),
+      };
+    });
     const screenshots = await captureBrowserPageScreenshots(page);
     snapshot.sourceScreenshotDataUrls = screenshots.dataUrls;
     snapshot.sourceScreenshotFetch = {
@@ -860,6 +926,8 @@ function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
   ]);
   const priceCandidate = priceCandidates[0];
   const textSnippets = uniqueStrings([...extractTextSnippets(html), ...extractTextSnippets(text), ...(commerceFallback.textSnippets || [])], 12);
+  const selectedSkuTexts = uniqueStrings([...(commerceFallback.selectedSkuTexts || []), ...(snapshot.selectedSkuTexts || [])], 12);
+  const skuTextSnippets = uniqueStrings([...(commerceFallback.skuTextSnippets || []), ...(snapshot.skuTextSnippets || [])], 16);
   const blocked = /验证码|安全验证|登录后|请登录|当前页面异常|内容太火爆|请刷新|访问受限|滑块验证/.test(text);
   const fetchWarning = blocked
     ? "浏览器页面仍像是登录、验证或异常页面；请在浏览器窗口完成登录/验证并停留在真实详情页后重新获取。"
@@ -875,6 +943,8 @@ function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
     priceSource: priceCandidate?.source || "",
     priceCandidates,
     textSnippets,
+    selectedSkuTexts,
+    skuTextSnippets,
     sourceScreenshotDataUrls: Array.isArray(snapshot.sourceScreenshotDataUrls) ? snapshot.sourceScreenshotDataUrls.slice(0, maxBrowserScreenshotCount) : [],
     sourceScreenshotFetch: snapshot.sourceScreenshotFetch || null,
     htmlBytes: Buffer.byteLength(html, "utf8"),
@@ -963,6 +1033,15 @@ function metadataFromCommerceUrl(rawUrl) {
       ],
       8,
     );
+    const selectedSkuTexts = uniqueStrings([skuId ? `当前 URL SKU ID：${skuId}` : ""], 4);
+    const skuTextSnippets = uniqueStrings(
+      [
+        itemId ? `SPU 商品 ID：${itemId}` : "",
+        skuId ? `当前 SKU ID：${skuId}` : "",
+        skuId ? "同一商品链接可能包含多个 SKU，请以当前 SKU 对应的规格、版本和型号为准。" : "",
+      ],
+      8,
+    );
     return {
       title: `${platform}商品${itemId ? ` ${itemId}` : ""}`,
       description: `${platform}详情页链接已识别；动态详情、价格、参数和图片可能需要截图或长图兜底。`,
@@ -973,6 +1052,8 @@ function metadataFromCommerceUrl(rawUrl) {
       priceSource: "",
       priceCandidates: [],
       textSnippets,
+      selectedSkuTexts,
+      skuTextSnippets,
       platform,
       channel: platform,
       itemId,
@@ -1838,12 +1919,17 @@ async function analyzeProduct(input) {
     "需要输出可人工复核的低幻觉结果；不确定字段用待确认并降低 confidence。",
     "Top3 sellingPoints 要按竞品优先级排序，每条包含 title 和 evidence。",
     "如果输入包含 PDF、上传图片或自动下载的详情页图片，请优先从图片中的详情页文案、参数表、价格和商品图证据抽取。",
+    "同一 SPU 商品下可能存在多个 SKU；型号和版本必须优先参考当前 URL skuId、页面已选 SKU/规格/版本、截图里的选中规格，不要只按 SPU 主标题或泛称填写。",
     "image 字段只能使用页面中明确出现的产品图 URL；没有可靠 URL 时返回空字符串，不要生成虚构图片。",
     "customFeatures 必须只使用下方自定义字段列表里的 key；没有证据时 value 填待确认、confidence 降低。",
     "enum 类型的 customFeatures 应优先从字段 options 中选择取值；详情页没有明确证据时填待确认。",
     `URL: ${input.sourceUrl || "无"}`,
     `页面标题: ${metadata.title || "无"}`,
     `页面描述: ${metadata.description || "无"}`,
+    `SPU 商品 ID: ${metadata.itemId || "无"}`,
+    `当前 SKU ID: ${metadata.skuId || "无"}`,
+    `当前选中 SKU/规格证据: ${metadata.selectedSkuTexts?.length ? JSON.stringify(metadata.selectedSkuTexts.slice(0, 12)) : "[]"}`,
+    `SKU/版本候选文案: ${metadata.skuTextSnippets?.length ? JSON.stringify(metadata.skuTextSnippets.slice(0, 12)) : "[]"}`,
     `预抓取价格: ${metadata.price ? `${metadata.currency || "CNY"} ${metadata.price} (${metadata.priceSource || "unknown"})` : "无"}`,
     `价格候选: ${metadata.priceCandidates?.length ? JSON.stringify(metadata.priceCandidates.slice(0, 8)) : "[]"}`,
     `图片候选数: ${metadata.imageCandidates?.length || 0}`,

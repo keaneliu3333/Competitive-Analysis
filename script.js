@@ -1535,6 +1535,20 @@ function isCatalogProduct(product) {
   return productCatalogBlockers(product).length === 0;
 }
 
+function productRoadmapBlockers(product) {
+  const blockers = productCatalogBlockers(product);
+  const sellingPoints = product.sellingPoints || [];
+  if (sellingPoints.length < 3) blockers.push("Top3 卖点不足");
+  if (sellingPoints.slice(0, 3).some((point) => isPlaceholderText(point.title) || /待确认/.test(`${point.title || ""}${point.evidence || ""}`))) {
+    blockers.push("Top3 卖点待确认");
+  }
+  return blockers;
+}
+
+function isRoadmapProduct(product) {
+  return productRoadmapBlockers(product).length === 0;
+}
+
 function getFilteredProducts() {
   return state.products.filter((product) => {
     if (!isCatalogProduct(product)) return false;
@@ -2435,38 +2449,63 @@ function compareSimilarProducts() {
   );
 }
 
+function fieldTypeLabel(type) {
+  return {
+    text: "文字",
+    number: "数字",
+    boolean: "是否支持",
+    enum: "选项",
+    price: "价格",
+    image: "图片",
+  }[type] || "文字";
+}
+
 function renderModules() {
   els.moduleList.innerHTML = state.modules
     .map(
       (module, moduleIndex) => `
-      <div class="module-item">
-        <div class="module-main">
-          <div class="module-title-row">
+      <section class="module-item">
+        <div class="module-title-row">
+          <div>
             <strong>${escapeHtml(module.name)}</strong>
-            <span class="module-sort-actions">
-              <button class="icon-button small-icon-button" type="button" data-move-module="${escapeHtml(module.name)}" data-move-direction="-1" title="模块上移" ${moduleIndex === 0 ? "disabled" : ""}>↑</button>
-              <button class="icon-button small-icon-button" type="button" data-move-module="${escapeHtml(module.name)}" data-move-direction="1" title="模块下移" ${moduleIndex === state.modules.length - 1 ? "disabled" : ""}>↓</button>
-            </span>
+            <small>${module.fields.length} 个对比项</small>
           </div>
-          <div class="module-fields">
-            ${module.fields
-              .map(
-                (field, fieldIndex) => `
-              <span class="field-pill">
-                <span>${escapeHtml(field.name)} · ${escapeHtml(field.type)}${field.type === "enum" && field.options?.length ? `: ${escapeHtml(field.options.join("/"))}` : ""}</span>
-                <button class="icon-button small-icon-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="-1" title="字段左移" ${fieldIndex === 0 ? "disabled" : ""}>←</button>
-                <button class="icon-button small-icon-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="1" title="字段右移" ${fieldIndex === module.fields.length - 1 ? "disabled" : ""}>→</button>
-                <button class="icon-button small-icon-button" type="button" data-rename-field="${escapeHtml(field.key)}" title="重命名字段">改</button>
-                ${field.type === "enum" ? `<button class="icon-button small-icon-button" type="button" data-edit-field-options="${escapeHtml(field.key)}" title="编辑枚举选项">选</button>` : ""}
-                <button class="icon-button small-icon-button" type="button" data-delete-field="${escapeHtml(field.key)}" title="删除字段">×</button>
-              </span>
-            `,
-              )
-              .join("") || `<span class="small-muted">暂无字段</span>`}
+          <div class="module-row-actions">
+            <button class="secondary-button" type="button" data-move-module="${escapeHtml(module.name)}" data-move-direction="-1" ${moduleIndex === 0 ? "disabled" : ""}>上移分组</button>
+            <button class="secondary-button" type="button" data-move-module="${escapeHtml(module.name)}" data-move-direction="1" ${moduleIndex === state.modules.length - 1 ? "disabled" : ""}>下移分组</button>
+            <button class="secondary-button" type="button" data-rename-module="${escapeHtml(module.name)}">改名分组</button>
+            <button class="secondary-button danger-button" type="button" data-delete-module="${escapeHtml(module.name)}">删除分组</button>
           </div>
         </div>
-        <button class="secondary-button" type="button" data-delete-module="${escapeHtml(module.name)}">删除</button>
-      </div>
+        <div class="module-field-table" role="table" aria-label="${escapeHtml(module.name)}字段">
+          <div class="module-field-row is-header" role="row">
+            <span>对比项</span>
+            <span>类型</span>
+            <span>可选值</span>
+            <span>操作</span>
+          </div>
+          ${
+            module.fields
+              .map(
+                (field, fieldIndex) => `
+              <div class="module-field-row" role="row">
+                <strong>${escapeHtml(field.name)}</strong>
+                <span>${escapeHtml(fieldTypeLabel(field.type))}</span>
+                <span>${field.type === "enum" && field.options?.length ? escapeHtml(field.options.join(" / ")) : "不需要"}</span>
+                <span class="module-row-actions">
+                  <button class="secondary-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="-1" ${fieldIndex === 0 ? "disabled" : ""}>前移</button>
+                  <button class="secondary-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="1" ${fieldIndex === module.fields.length - 1 ? "disabled" : ""}>后移</button>
+                  <button class="secondary-button" type="button" data-rename-field="${escapeHtml(field.key)}">改名</button>
+                  ${field.type === "enum" ? `<button class="secondary-button" type="button" data-edit-field-options="${escapeHtml(field.key)}">改选项</button>` : ""}
+                  <button class="secondary-button danger-button" type="button" data-delete-field="${escapeHtml(field.key)}">删除</button>
+                </span>
+              </div>
+            `,
+              )
+              .join("") || `<div class="module-field-empty">暂无对比项。可用上方表单新增。</div>`
+          }
+        </div>
+      </section>
     `,
     )
     .join("");
@@ -2483,6 +2522,20 @@ function moveArrayItem(items, fromIndex, direction) {
 function moveModule(moduleName, direction) {
   const index = state.modules.findIndex((module) => module.name === moduleName);
   if (moveArrayItem(state.modules, index, direction)) renderAll();
+}
+
+function renameModule(moduleName) {
+  const module = state.modules.find((item) => item.name === moduleName);
+  if (!module) return;
+  const nextName = window.prompt("输入新的分组名称：", module.name);
+  const normalized = nextName?.trim();
+  if (!normalized || normalized === module.name) return;
+  if (state.modules.some((item) => item.name === normalized)) {
+    window.alert("已有同名分组，请换一个名称。");
+    return;
+  }
+  module.name = normalized;
+  renderAll();
 }
 
 function moveFeatureField(fieldKey, direction) {
@@ -2573,7 +2626,7 @@ function productRoadmapPeriod(product) {
 function getRoadmapProducts() {
   const selectedBrands = selectedRoadmapBrands();
   return state.products.filter((product) => {
-    if (!isCatalogProduct(product)) return false;
+    if (!isRoadmapProduct(product)) return false;
     const brandMatch = !selectedBrands.length || selectedBrands.includes(product.brand);
     const categoryMatch = !state.roadmapCategory || state.roadmapCategory === "全部" || product.category === state.roadmapCategory;
     const statusMatch = !state.roadmapStatus || state.roadmapStatus === "全部" || product.status === state.roadmapStatus;
@@ -2607,11 +2660,11 @@ function renderRoadmapSelect(select, values, currentValue) {
 }
 
 function renderRoadmapBrandFilter() {
-  const catalogProducts = state.products.filter(isCatalogProduct);
-  state.roadmapCategory = renderRoadmapSelect(els.roadmapCategoryFilter, catalogProducts.map((product) => product.category), state.roadmapCategory);
+  const roadmapReadyProducts = state.products.filter(isRoadmapProduct);
+  state.roadmapCategory = renderRoadmapSelect(els.roadmapCategoryFilter, roadmapReadyProducts.map((product) => product.category), state.roadmapCategory);
   const brandScopeProducts = state.roadmapCategory && state.roadmapCategory !== "全部"
-    ? catalogProducts.filter((product) => product.category === state.roadmapCategory)
-    : catalogProducts;
+    ? roadmapReadyProducts.filter((product) => product.category === state.roadmapCategory)
+    : roadmapReadyProducts;
   const brandOptions = unique(brandScopeProducts.map((product) => product.brand));
   const selectedBrands = selectedRoadmapBrands().filter((brand) => brandOptions.includes(brand));
   setRoadmapBrands(selectedBrands);
@@ -2641,8 +2694,8 @@ function renderRoadmapBrandFilter() {
         .join("")}
     `;
   }
-  state.roadmapStatus = renderRoadmapSelect(els.roadmapStatusFilter, catalogProducts.map((product) => product.status), state.roadmapStatus);
-  state.roadmapQuarter = renderRoadmapSelect(els.roadmapQuarterFilter, catalogProducts.map(productRoadmapPeriod), state.roadmapQuarter);
+  state.roadmapStatus = renderRoadmapSelect(els.roadmapStatusFilter, roadmapReadyProducts.map((product) => product.status), state.roadmapStatus);
+  state.roadmapQuarter = renderRoadmapSelect(els.roadmapQuarterFilter, roadmapReadyProducts.map(productRoadmapPeriod), state.roadmapQuarter);
   document.querySelectorAll("[data-roadmap-mode]").forEach((button) => {
     const active = button.dataset.roadmapMode === (state.roadmapMode || "single");
     button.classList.toggle("is-active", active);
@@ -3883,10 +3936,23 @@ function renderSourceEvidence(metadata) {
   const priceCandidates = metadata.priceCandidates || [];
   const imageCandidates = metadata.imageCandidates || [];
   const textSnippets = metadata.textSnippets || [];
+  const selectedSkuTexts = metadata.selectedSkuTexts || [];
+  const skuTextSnippets = metadata.skuTextSnippets || [];
   const screenshotCount = Number(metadata.sourceScreenshotFetch?.count || metadata.sourceScreenshotDataUrls?.length || 0);
-  if (!priceCandidates.length && imageCandidates.length <= 1 && !textSnippets.length && !screenshotCount) return "";
+  if (!priceCandidates.length && imageCandidates.length <= 1 && !textSnippets.length && !screenshotCount && !selectedSkuTexts.length && !skuTextSnippets.length) return "";
   return `
     <div class="source-evidence">
+      ${
+        selectedSkuTexts.length || skuTextSnippets.length
+          ? `<div class="source-snippets">
+              <strong>SKU/规格证据</strong>
+              <ul>${[...selectedSkuTexts, ...skuTextSnippets]
+                .slice(0, 5)
+                .map((snippet) => `<li>${escapeHtml(snippet)}</li>`)
+                .join("")}</ul>
+            </div>`
+          : ""
+      }
       ${
         screenshotCount
           ? `<div>
@@ -5141,6 +5207,11 @@ function bindEvents() {
       moveModule(moveModuleButton.dataset.moveModule, Number(moveModuleButton.dataset.moveDirection || 0));
       return;
     }
+    const renameModuleButton = event.target.closest("[data-rename-module]");
+    if (renameModuleButton) {
+      renameModule(renameModuleButton.dataset.renameModule);
+      return;
+    }
     const moveFieldButton = event.target.closest("[data-move-field]");
     if (moveFieldButton) {
       moveFeatureField(moveFieldButton.dataset.moveField, Number(moveFieldButton.dataset.moveDirection || 0));
@@ -5163,6 +5234,8 @@ function bindEvents() {
     }
     const button = event.target.closest("[data-delete-module]");
     if (!button) return;
+    const confirmed = window.confirm(`删除分组「${button.dataset.deleteModule}」？该分组下的字段会从筛选、对比和导出里移除，历史产品值仍保留在数据包中。`);
+    if (!confirmed) return;
     state.modules = state.modules.filter((module) => module.name !== button.dataset.deleteModule);
     renderAll();
   });

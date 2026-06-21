@@ -476,6 +476,11 @@ for (const token of [
   "sourceImageFetch",
   "sourceScreenshotDataUrls",
   "sourceScreenshotFetch",
+  "selectedSkuTexts",
+  "skuTextSnippets",
+  "当前 URL SKU ID",
+  "当前选中 SKU/规格证据",
+  "SKU/版本候选文案",
   "浏览器整页截图数",
   "自动下载详情页图片数",
   "自动下载图片尺寸",
@@ -645,7 +650,13 @@ assertIncludes(scriptJs, "getCompareCandidateProducts", "script.js compare scope
 assertIncludes(scriptJs, "compareModuleRowSpans", "script.js compare matrix groups module rows");
 assertIncludes(scriptJs, "compareStrongValueIndexes", "script.js compare matrix highlights stronger values");
 assertIncludes(scriptJs, "productDisplayTitle(product)", "script.js compare header uses product title");
+assertIncludes(scriptJs, "module-field-table", "script.js module manager renders field table");
+assertIncludes(scriptJs, "fieldTypeLabel(field.type)", "script.js module manager shows friendly field types");
+assertIncludes(scriptJs, "data-delete-module", "script.js module manager supports deleting groups");
 assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-select state");
+assertIncludes(scriptJs, "isRoadmapProduct", "script.js roadmap filters out products not ready for milestone display");
+assertIncludes(scriptJs, "productRoadmapBlockers", "script.js roadmap readiness blockers");
+assertIncludes(scriptJs, "Top3 卖点不足", "script.js roadmap requires complete top selling points");
 assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
 assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
 assertIncludes(scriptJs, "reviewVisiblePendingItems", "script.js compact review queue display");
@@ -678,11 +689,16 @@ assertIncludes(scriptJs, "正在打开浏览器获取真实详情页", "script.j
 assertIncludes(scriptJs, "继续获取", "script.js tells users to collect after browser login");
 assertIncludes(scriptJs, "自动截取整页截图", "script.js browser collect explains full-page screenshots");
 assertIncludes(scriptJs, "persistableSourceMetadata", "script.js strips transient screenshot data before persisting products");
+assertIncludes(scriptJs, "SKU/规格证据", "script.js source preview shows SKU evidence");
+assertIncludes(scriptJs, "selectedSkuTexts", "script.js renders selected SKU evidence");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
 assertIncludes(stylesCss, ".compare-module-cell", "styles.css compare grouped module cell");
 assertIncludes(stylesCss, ".compare-strong-cell", "styles.css compare strong value highlight");
+assertIncludes(stylesCss, ".module-field-table", "styles.css module manager field table");
+assertIncludes(stylesCss, ".module-field-row", "styles.css module manager field rows");
+assertIncludes(stylesCss, ".module-row-actions", "styles.css module manager compact action buttons");
 assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
