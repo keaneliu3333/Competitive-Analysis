@@ -29,8 +29,7 @@ const browserScreenshotHeight = Number(env.BROWSER_FETCH_SCREENSHOT_HEIGHT || 11
 const maxBrowserScreenshotCount = Number(env.BROWSER_FETCH_SCREENSHOT_COUNT || 24);
 const maxBrowserScreenshotScrollHeight = Number(env.BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT || 30000);
 const browserFetchSessions = new Map();
-const browserFetchProfileDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
-const defaultChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const browserFetchProfileRootDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -591,6 +590,89 @@ async function closeStaleBrowserFetchSessions() {
   }
 }
 
+function existingBrowserPath(paths) {
+  return paths.find((path) => path && existsSync(path)) || "";
+}
+
+function browserExecutablePaths() {
+  const programFiles = process.env.PROGRAMFILES || "C:\\Program Files";
+  const programFilesX86 = process.env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)";
+  const localAppData = process.env.LOCALAPPDATA || "";
+  return {
+    chrome: [
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
+      join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
+      localAppData ? join(localAppData, "Google", "Chrome", "Application", "chrome.exe") : "",
+    ],
+    edge: [
+      "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+      join(programFiles, "Microsoft", "Edge", "Application", "msedge.exe"),
+      join(programFilesX86, "Microsoft", "Edge", "Application", "msedge.exe"),
+      localAppData ? join(localAppData, "Microsoft", "Edge", "Application", "msedge.exe") : "",
+    ],
+  };
+}
+
+function browserFetchCandidates() {
+  const candidates = [];
+  const customExecutablePath = env.BROWSER_EXECUTABLE_PATH || env.CHROME_EXECUTABLE_PATH || "";
+  if (customExecutablePath) {
+    candidates.push({
+      id: "custom",
+      label: "自定义 Chrome/Edge",
+      executablePath: customExecutablePath,
+      source: env.BROWSER_EXECUTABLE_PATH ? "BROWSER_EXECUTABLE_PATH" : "CHROME_EXECUTABLE_PATH",
+    });
+  }
+  const executablePaths = browserExecutablePaths();
+  const chromePath = existingBrowserPath(executablePaths.chrome);
+  if (chromePath) {
+    candidates.push({
+      id: "chrome",
+      label: "Google Chrome",
+      executablePath: chromePath,
+      source: chromePath,
+    });
+  }
+  const edgePath = existingBrowserPath(executablePaths.edge);
+  if (edgePath) {
+    candidates.push({
+      id: "edge",
+      label: "Microsoft Edge",
+      executablePath: edgePath,
+      source: edgePath,
+    });
+  }
+  candidates.push({
+    id: "chromium",
+    label: "Playwright Chromium",
+    executablePath: "",
+    source: "Playwright bundled Chromium",
+  });
+  return candidates;
+}
+
+async function launchBrowserFetchContext(chromium, launchOptions) {
+  const errors = [];
+  for (const candidate of browserFetchCandidates()) {
+    const userDataDir = join(browserFetchProfileRootDir, candidate.id);
+    await mkdir(userDataDir, { recursive: true });
+    try {
+      const options = { ...launchOptions };
+      if (candidate.executablePath) options.executablePath = candidate.executablePath;
+      const context = await chromium.launchPersistentContext(userDataDir, options);
+      return { context, browserLabel: candidate.label, browserSource: candidate.source };
+    } catch (error) {
+      errors.push(`${candidate.label}: ${error.message}`);
+    }
+  }
+  throw new HttpError(
+    503,
+    `无法打开本机浏览器。已按顺序尝试 Google Chrome、Microsoft Edge、Playwright Chromium。请安装 Chrome/Edge，或上传详情页截图/长图。失败原因：${errors.join(" | ")}`,
+  );
+}
+
 async function startBrowserFetch(input = {}) {
   const url = normalizeFetchUrl(input.url);
   await closeStaleBrowserFetchSessions();
@@ -599,19 +681,12 @@ async function startBrowserFetch(input = {}) {
   }
   const playwrightModule = await loadPlaywright();
   const { chromium } = playwrightModule.default || playwrightModule;
-  const chromePath = env.CHROME_EXECUTABLE_PATH || defaultChromePath;
   const launchOptions = {
     headless: env.BROWSER_FETCH_HEADLESS === "1",
+    chromiumSandbox: env.BROWSER_FETCH_DISABLE_SANDBOX !== "1",
     viewport: { width: 1365, height: 1800 },
   };
-  if (existsSync(chromePath)) launchOptions.executablePath = chromePath;
-  await mkdir(browserFetchProfileDir, { recursive: true });
-  let context;
-  try {
-    context = await chromium.launchPersistentContext(browserFetchProfileDir, launchOptions);
-  } catch (error) {
-    throw new HttpError(503, `无法打开本机浏览器：${error.message}。请确认 Chrome 可用，或改为上传详情页截图/长图。`);
-  }
+  const { context, browserLabel, browserSource } = await launchBrowserFetchContext(chromium, launchOptions);
   const page = context.pages()[0] || (await context.newPage());
   let navigationWarning = "";
   try {
@@ -624,6 +699,8 @@ async function startBrowserFetch(input = {}) {
     context,
     page,
     originalUrl: url,
+    browserLabel,
+    browserSource,
     createdAt: Date.now(),
   });
   return {
@@ -631,8 +708,10 @@ async function startBrowserFetch(input = {}) {
     url,
     currentUrl: page.url(),
     title: await page.title().catch(() => ""),
+    browserLabel,
+    browserSource,
     navigationWarning,
-    message: "浏览器窗口已打开。请在浏览器里登录或完成验证，确认停留在目标详情页后回到工作台点击“继续获取”。",
+    message: `已使用 ${browserLabel} 打开浏览器窗口。请在浏览器里登录或完成验证，确认停留在目标详情页后回到工作台点击“继续获取”。`,
   };
 }
 

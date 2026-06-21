@@ -34,17 +34,11 @@
         </div>
 
         <nav class="workspace-nav sidebar-nav" aria-label="工作区切换">
-          <button class="nav-chip" type="button" data-workspace="products" title="产品库" onclick="setActiveWorkspace('products'); return false;">
+          <button class="nav-chip" type="button" data-workspace="products" title="产品分析" onclick="setActiveWorkspace('products'); return false;">
             <span class="nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M4 6.5 12 3l8 3.5v11L12 21l-8-3.5z" /><path d="M4 6.5 12 10l8-3.5" /><path d="M12 10v11" /></svg>
             </span>
-            <span class="nav-label">产品库</span><strong id="navProductsCount">0</strong>
-          </button>
-          <button class="nav-chip" type="button" data-workspace="compare" title="型号对比" onclick="setActiveWorkspace('compare'); return false;">
-            <span class="nav-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M7 4h10" /><path d="M7 20h10" /><path d="M7 4v16" /><path d="M17 4v16" /><path d="M4 8h6" /><path d="M14 16h6" /></svg>
-            </span>
-            <span class="nav-label">型号对比</span><strong id="navCompareCount">0</strong>
+            <span class="nav-label">产品分析</span><strong id="navProductsCount">0</strong>
           </button>
           <button class="nav-chip" type="button" data-workspace="roadmap" title="品牌路标" onclick="setActiveWorkspace('roadmap'); return false;">
             <span class="nav-icon" aria-hidden="true">
@@ -74,6 +68,17 @@
       </aside>
 
       <main class="main-area">
+        <section class="analysis-switcher" data-analysis-tabs aria-label="产品分析视图">
+          <div>
+            <p class="eyebrow">Product analysis</p>
+            <h2>产品分析</h2>
+          </div>
+          <div class="segmented-control" role="tablist" aria-label="产品分析子视图">
+            <button class="segment-button" type="button" data-analysis-tab="products" onclick="setActiveWorkspace('products'); return false;">产品库</button>
+            <button class="segment-button" type="button" data-analysis-tab="compare" onclick="setActiveWorkspace('compare'); return false;">型号对比</button>
+          </div>
+        </section>
+
         <section class="panel filter-workbench workspace-page is-active" data-workspace-page="products" aria-labelledby="filterWorkbenchTitle">
           <div class="panel-header">
             <div>

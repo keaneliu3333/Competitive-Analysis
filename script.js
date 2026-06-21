@@ -636,10 +636,20 @@ function defaultFeatureValue(field) {
   return "待确认";
 }
 
+function normalizeProductModel(product = {}) {
+  const model = String(product.model || "").trim();
+  const brandText = `${product.brand || ""} ${product.name || ""} ${product.sourceMetadata?.title || ""} ${product.sourceUrl || ""}`;
+  if (/^T90\s+PRO$/i.test(model) && /科沃斯|ECOVACS|1017327646764/.test(brandText)) return "T90PRO";
+  return model;
+}
+
 function normalizeProduct(product) {
   const now = new Date().toISOString();
+  const normalizedModel = normalizeProductModel(product);
   return {
     ...product,
+    model: normalizedModel || product.model,
+    name: normalizedAnalysisProductName(product, product.brand, normalizedModel || product.model, product.category),
     priceSnapshots:
       product.priceSnapshots?.length
         ? product.priceSnapshots
@@ -810,6 +820,12 @@ function bestProductImage(product) {
   if (!isFallbackProductImage(image)) return image;
   const candidate = String(product?.sourceMetadata?.image || product?.sourceMetadata?.imageCandidates?.[0] || "").trim();
   return candidate || image || getCategoryImage(product?.category);
+}
+
+function productDisplayTitle(product) {
+  const brand = displayBrandName(safeProductPart(product?.brand, ""));
+  const model = safeProductPart(product?.model, "");
+  return [brand, model].filter(Boolean).join(" ") || safeProductPart(product?.name, "产品待确认");
 }
 
 function normalizeQuarterInput(value) {
@@ -1372,12 +1388,12 @@ function renderSourceMetadataEvidence(product) {
 }
 
 function renderProductCell(product) {
+  const title = productDisplayTitle(product);
   return `
     <div class="product-cell">
-      <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(product.name)} 产品图" loading="lazy" />
+      <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(title)} 产品图" loading="lazy" />
       <div>
-        <p class="product-name">${escapeHtml(product.name)}</p>
-        <p class="product-meta">${escapeHtml(product.model)}</p>
+        <p class="product-name">${escapeHtml(title)}</p>
       </div>
     </div>
   `;
@@ -2121,11 +2137,12 @@ function renderDetail() {
   }
 
   els.productDetail.className = "detail-card";
+  const title = productDisplayTitle(product);
   els.productDetail.innerHTML = `
     <div class="detail-hero">
-      <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(product.name)} 产品图" />
+      <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(title)} 产品图" />
       <div>
-        <h3>${escapeHtml(product.name)}</h3>
+        <h3>${escapeHtml(title)}</h3>
         <p class="small-muted">${escapeHtml(displayBrandName(product.brand))} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</p>
         <p class="small-muted">${escapeHtml(product.model)} · ${escapeHtml(product.channel)} · ${escapeHtml(product.status)}</p>
       </div>
@@ -2731,6 +2748,7 @@ function renderRoadmap() {
 
 function renderWorkspaceShell(filteredProducts) {
   const active = state.activeWorkspace || "products";
+  const inAnalysisWorkspace = ["products", "compare"].includes(active);
   document.querySelector(".app-shell")?.classList.toggle("is-sidebar-collapsed", Boolean(state.sidebarCollapsed));
   if (els.sidebarToggle) {
     const label = state.sidebarCollapsed ? "展开一级栏" : "折叠一级栏";
@@ -2745,9 +2763,18 @@ function renderWorkspaceShell(filteredProducts) {
     page.setAttribute("aria-hidden", String(!isActive));
   });
   document.querySelectorAll("[data-workspace]").forEach((button) => {
-    const isActive = button.dataset.workspace === active;
+    const isActive = button.dataset.workspace === active || (button.dataset.workspace === "products" && inAnalysisWorkspace);
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-current", isActive ? "page" : "false");
+  });
+  document.querySelectorAll("[data-analysis-tabs]").forEach((node) => {
+    node.hidden = !inAnalysisWorkspace;
+    node.setAttribute("aria-hidden", String(!inAnalysisWorkspace));
+  });
+  document.querySelectorAll("[data-analysis-tab]").forEach((button) => {
+    const isActive = button.dataset.analysisTab === active;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
   });
   if (els.navProductsCount) els.navProductsCount.textContent = filteredProducts.length;
   if (els.navReviewCount) els.navReviewCount.textContent = getReviewProducts().length;
@@ -3229,13 +3256,29 @@ function persistableSourceMetadata(metadata = {}) {
   return rest;
 }
 
+function isGenericProductName(name, category) {
+  const text = String(name || "").trim();
+  if (!text) return true;
+  if (/^(新产品|待确认产品|产品名称待确认|AI 待确认产品)$/.test(text)) return true;
+  if (/^(滚筒)?(洗地|扫地|吸尘).*(机器人|机)$/.test(text)) return true;
+  return category && text === category;
+}
+
+function normalizedAnalysisProductName(result, brand, model, category) {
+  const name = String(result.name || "").trim();
+  const title = [displayBrandName(brand), model].filter(Boolean).join(" ");
+  return isGenericProductName(name, category) && title ? title : name || title || model || "待确认产品";
+}
+
 function productFromAnalysis(result, analysisMeta = {}) {
   const fallbackCategory = result.category || "扫地机";
+  const brand = result.brand || "待确认品牌";
+  const model = result.model || "待确认型号";
   const product = {
     id: `p-${Date.now()}`,
-    brand: result.brand || "待确认品牌",
-    name: result.name || result.model || "待确认产品",
-    model: result.model || "待确认型号",
+    brand,
+    name: normalizedAnalysisProductName(result, brand, model, fallbackCategory),
+    model,
     category: fallbackCategory,
     price: Number(result.price || 0),
     channel: result.channel || "官网",

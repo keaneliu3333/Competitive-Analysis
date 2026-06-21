@@ -316,6 +316,24 @@ textarea:focus-visible {
   display: block;
 }
 
+.analysis-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+
+.analysis-switcher h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+}
+
 .topbar {
   flex-wrap: wrap;
   align-items: flex-start;
@@ -2171,6 +2189,19 @@ tbody tr.is-selected {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
     gap: 10px;
+  }
+
+  .analysis-switcher {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-switcher .segmented-control {
+    width: 100%;
+  }
+
+  .analysis-switcher .segment-button {
+    flex: 1 1 0;
   }
 
   .panel-header > div:first-child {

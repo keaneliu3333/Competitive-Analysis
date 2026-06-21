@@ -201,7 +201,7 @@ for (const id of requiredElementIds) {
   assertRegex(indexHtml, new RegExp(`id=["']${id}["']`), `index.html element #${id}`);
 }
 
-const expectedWorkspaceOrder = ["products", "compare", "roadmap", "import", "quality", "system"];
+const expectedWorkspaceOrder = ["products", "roadmap", "import", "quality", "system"];
 let lastWorkspaceIndex = -1;
 for (const workspace of expectedWorkspaceOrder) {
   const marker = `data-workspace="${workspace}"`;
@@ -213,6 +213,10 @@ for (const workspace of expectedWorkspaceOrder) {
   }
   lastWorkspaceIndex = currentIndex;
 }
+
+assertIncludes(indexHtml, "data-analysis-tab=\"products\"", "index.html product analysis library tab");
+assertIncludes(indexHtml, "data-analysis-tab=\"compare\"", "index.html product analysis compare tab");
+assertIncludes(indexHtml, "产品分析", "index.html unified product analysis navigation");
 
 for (const token of [
   "product-table",
@@ -458,6 +462,14 @@ for (const token of [
   "fetchMetadata",
   "startBrowserFetch",
   "collectBrowserFetch",
+  "browserExecutablePaths",
+  "BROWSER_EXECUTABLE_PATH",
+  "BROWSER_FETCH_DISABLE_SANDBOX",
+  "chromiumSandbox",
+  "CHROME_EXECUTABLE_PATH",
+  "Microsoft Edge",
+  "msedge.exe",
+  "Playwright Chromium",
   "captureBrowserPageScreenshots",
   "metadataFromBrowserSnapshot",
   "fetchRemoteImageDataUrls",
@@ -655,6 +667,9 @@ assertIncludes(scriptJs, "/api/browser-fetch/cancel", "script.js browser assiste
 assertIncludes(scriptJs, "source-fetch-meta", "script.js metadata fetch status display");
 assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback warning display");
 assertIncludes(scriptJs, "自动下载详情页图片", "script.js analysis status explains automatic detail image fetch");
+assertIncludes(scriptJs, "productDisplayTitle", "script.js product library title uses brand and model");
+assertIncludes(scriptJs, "normalizedAnalysisProductName", "script.js normalizes generic AI product names");
+assertIncludes(scriptJs, "T90PRO", "script.js normalizes ECOVACS T90PRO model from Tmall title");
 assertIncludes(scriptJs, "正在打开浏览器获取真实详情页", "script.js opens browser fetch when public detail page evidence is missing");
 assertIncludes(scriptJs, "继续获取", "script.js tells users to collect after browser login");
 assertIncludes(scriptJs, "自动截取整页截图", "script.js browser collect explains full-page screenshots");
@@ -693,6 +708,9 @@ for (const token of [
   "QWEN_MODEL=qwen-vl-max",
   "QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1",
   "QWEN_REQUEST_TIMEOUT_MS=60000",
+  "BROWSER_EXECUTABLE_PATH=",
+  "BROWSER_FETCH_DISABLE_SANDBOX=0",
+  "BROWSER_FETCH_SCREENSHOT_COUNT=24",
   "APP_READ_TOKEN=",
   "APP_WRITE_TOKEN=",
   "PORT=4173",

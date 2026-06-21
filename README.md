@@ -157,6 +157,10 @@ AUTO_SOURCE_IMAGE_COUNT=4
 AUTO_SOURCE_IMAGE_MIN_WIDTH=640
 AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE=320
 AUTO_SOURCE_IMAGE_MIN_PIXELS=250000
+# 可选：浏览器辅助抓取详情页截图
+BROWSER_EXECUTABLE_PATH=
+BROWSER_FETCH_SCREENSHOT_COUNT=24
+BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT=30000
 # OPENAI_INPUT_USD_PER_1M=...
 # OPENAI_OUTPUT_USD_PER_1M=...
 # OPENAI_TOTAL_USD_PER_1M=...
@@ -168,6 +172,8 @@ APP_ACCESS_TOKEN=change-me
 `OPENAI_MODEL` 可按项目可用模型调整。没有 API key 或请求失败时，系统会返回“待人工确认”的兜底结果，不阻塞产品库流程。如果当前网络无法访问 `api.openai.com`，但浏览器可以访问 ChatGPT，通常是终端/Node 没有走本机代理：保持 `OPENAI_BASE_URL=https://api.openai.com/v1`，在 `.env.local` 增加 `HTTPS_PROXY=http://127.0.0.1:9090`。只有使用 OpenAI 兼容网关服务时，才把 `OPENAI_BASE_URL` 改成网关地址并保留 `/v1` 结尾；`AI_REQUEST_TIMEOUT_MS` 用于控制 AI 请求超时时间。
 
 如果 URL 抓取能打开页面但 AI 仍提示“没有可用于视觉识别的详情页图片”，通常是页面只暴露了 logo、图标、小缩略图或需要登录后的大图。第一选择是上传详情页截图/长图；如果确认详情页里有足够清晰的大图，也可以在 `.env.local` 里调低 `AUTO_SOURCE_IMAGE_MIN_WIDTH`、`AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE` 或 `AUTO_SOURCE_IMAGE_MIN_PIXELS`。
+
+浏览器辅助抓取会按顺序尝试 Google Chrome、Microsoft Edge、Playwright Chromium，用于登录后页面、验证码后页面或电商动态详情页截图。一般不用配置；如果你的浏览器安装在特殊位置，再把完整路径填到 `BROWSER_EXECUTABLE_PATH`。`BROWSER_FETCH_SCREENSHOT_COUNT` 控制最多截取多少张滚动截图，`BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT` 控制单次页面最大滚动高度。
 
 多模型第一阶段改为 DeepSeek + Qwen-VL：
 

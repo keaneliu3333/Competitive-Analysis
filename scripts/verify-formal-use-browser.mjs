@@ -115,6 +115,16 @@ async function ensureProductsWorkspace(page) {
   await page.locator("#productTableBody tr").first().waitFor({ state: "visible", timeout: 15000 });
 }
 
+async function ensureCompareWorkspace(page) {
+  await page.waitForFunction(
+    () => typeof window.setActiveWorkspace === "function" && Boolean(document.querySelector("[data-analysis-tab='compare']")),
+    null,
+    { timeout: 15000 },
+  );
+  await page.evaluate(() => window.setActiveWorkspace("compare"));
+  await page.locator("#compareWorkspace").waitFor({ state: "visible", timeout: 15000 });
+}
+
 function restoreStateFiles() {
   for (const backup of backups) {
     if (backup.existed) {
@@ -145,7 +155,7 @@ async function verifyResponsiveViewports(browser) {
         "#keywordSearch",
         "[data-workspace='import']",
         "#productTableBody",
-        "[data-workspace='compare']",
+        "[data-analysis-tab='compare']",
         "[data-workspace='roadmap']",
         "[data-workspace='system']",
       ]) {
@@ -281,7 +291,7 @@ async function main() {
     const moduleName = `正式冒烟模块-${Date.now()}`;
     const fieldName = `体验等级-${Date.now()}`;
     const renamedFieldName = `${fieldName}-已重命名`;
-    await page.locator("[data-workspace='compare']").click();
+    await ensureCompareWorkspace(page);
     await page.locator(".module-manager").evaluate((element) => {
       element.open = true;
     });
@@ -304,7 +314,7 @@ async function main() {
     await page.locator(`#productEditForm [data-feature-field="${fieldKey}"]`).selectOption("旗舰");
     await page.locator("#productEditForm button[type='submit']").click();
     await waitForSavedState();
-    await page.locator("[data-workspace='compare']").click();
+    await ensureCompareWorkspace(page);
     await page.locator(".module-manager").evaluate((element) => {
       element.open = true;
     });
@@ -345,7 +355,7 @@ async function main() {
     assert(reviewText.includes("待确认") || reviewText.includes("置信度") || reviewText.includes("复核"), "AI 导入后未形成可复核状态");
     record("详情页与 AI 导入", "passed", analysisStatus.slice(0, 120));
 
-    await page.locator("[data-workspace='compare']").click();
+    await ensureCompareWorkspace(page);
     await page.locator("#selectAllCompareFields").click();
     await page.locator("#generateSummary").click();
     await page.waitForFunction(
