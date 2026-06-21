@@ -143,7 +143,6 @@ const requiredElementIds = [
   "analysisStatus",
   "analysisSteps",
   "retryAnalysis",
-  "startBrowserFetch",
   "collectBrowserFetch",
   "cancelBrowserFetch",
   "reviewQueue",
@@ -606,8 +605,7 @@ assertIncludes(indexHtml, "styles.css?v=ai-progress-20260621", "index.html style
 assertIncludes(indexHtml, "script.js?v=ai-progress-20260621", "index.html script cache busting");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
 assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
-assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis action");
-assertIncludes(indexHtml, "打开浏览器获取", "index.html browser assisted fetch action");
+assertIncludes(indexHtml, "获取详情页信息", "index.html URL fetch analysis action");
 assertIncludes(indexHtml, "继续获取", "index.html browser assisted collect action");
 assertIncludes(indexHtml, "取消浏览器获取", "index.html browser assisted cancel action");
 assertIncludes(indexHtml, "确认所选", "index.html selected review confirm action");
@@ -626,7 +624,7 @@ assertIncludes(scriptJs, "reviewVisiblePendingItems", "script.js compact review 
 assertIncludes(scriptJs, "selectedReviewIds", "script.js selected review state");
 assertIncludes(scriptJs, "confirmSelectedReviews", "script.js selected review confirmation");
 assertIncludes(scriptJs, "deleteSelectedReviews", "script.js selected review deletion");
-assertIncludes(scriptJs, "确认并入产品库", "script.js review detail confirm submit copy");
+assertIncludes(scriptJs, "保存调整", "script.js review detail form submit copy");
 assertIncludes(scriptJs, "还有关键信息不能入库", "script.js review detail blocks incomplete confirmation");
 assertIncludes(scriptJs, "analysisSteps", "script.js analysis progress steps");
 assertIncludes(scriptJs, "showRetryAnalysis", "script.js analysis retry action");
@@ -648,7 +646,7 @@ assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
 assertIncludes(stylesCss, "repeat(auto-fit, minmax(132px, 1fr))", "styles.css adaptive filter toolbar");
-assertIncludes(stylesCss, "grid-template-columns: minmax(0, 1fr) repeat(2, auto)", "styles.css URL fetch action layout");
+assertIncludes(stylesCss, ".review-header-actions", "styles.css review queue header action layout");
 assertIncludes(stylesCss, ".review-summary", "styles.css compact review queue summary");
 assertIncludes(stylesCss, ".review-item.is-highlighted", "styles.css highlighted pending review item");
 assertIncludes(stylesCss, ".source-warning", "styles.css metadata fetch warning display");

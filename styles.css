@@ -996,6 +996,18 @@ textarea {
   min-width: 72px;
 }
 
+.review-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: min(100%, 520px);
+}
+
+.review-header-actions button {
+  min-width: 96px;
+}
+
 .sidebar-panel .review-item {
   grid-template-columns: 28px 42px minmax(0, 1fr);
   gap: 10px;
@@ -1238,7 +1250,7 @@ textarea {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.62fr) minmax(320px, 0.88fr);
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   max-width: 100%;
   gap: 18px;
@@ -1551,22 +1563,6 @@ tbody tr.is-selected {
   border-color: var(--primary);
   background: var(--primary-soft);
   color: var(--primary);
-}
-
-.intake-confirm-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-muted);
-  padding: 10px;
-  margin-bottom: 10px;
-}
-
-.intake-confirm-bar p {
-  margin: 4px 0 0;
 }
 
 .intake-detail-card .review-field-tags {
@@ -1940,6 +1936,7 @@ tbody tr.is-selected {
 
 .roadmap-lane {
   position: relative;
+  min-width: var(--period-width, 248px);
   min-height: var(--roadmap-height, 420px);
   border-right: 1px solid var(--line);
   background:
@@ -1974,7 +1971,7 @@ tbody tr.is-selected {
 .roadmap-card {
   position: absolute;
   top: var(--roadmap-y);
-  left: max(10px, calc(50% - 100px + var(--roadmap-x)));
+  left: calc(12px + var(--roadmap-x));
   z-index: 1;
   width: 200px;
   border: 1px solid var(--brand-line, var(--line));
@@ -2210,9 +2207,11 @@ tbody tr.is-selected {
     grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
   }
 
-  .intake-confirm-bar {
+  .review-header-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .field-review-list li {

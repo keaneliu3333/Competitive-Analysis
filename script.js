@@ -361,7 +361,7 @@ const defaultState = {
 
 const columns = [
   { key: "product", label: "产品", render: renderProductCell, sortValue: (p) => `${p.brand} ${p.name} ${p.model}` },
-  { key: "brand", label: "品牌", render: (p) => p.brand, sortValue: (p) => p.brand },
+  { key: "brand", label: "品牌", render: (p) => displayBrandName(p.brand), sortValue: (p) => p.brand },
   { key: "category", label: "品类", render: (p) => p.category, sortValue: (p) => p.category },
   { key: "price", label: "价格", render: (p) => formatCurrency(p.price), sortValue: (p) => Number(p.price || 0) },
   { key: "channel", label: "渠道", render: (p) => p.channel, sortValue: (p) => p.channel },
@@ -1374,7 +1374,7 @@ function renderSourceMetadataEvidence(product) {
 function renderProductCell(product) {
   return `
     <div class="product-cell">
-      <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" loading="lazy" />
+      <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(product.name)} 产品图" loading="lazy" />
       <div>
         <p class="product-name">${escapeHtml(product.name)}</p>
         <p class="product-meta">${escapeHtml(product.model)}</p>
@@ -1584,6 +1584,23 @@ function categoryFilterLabel(categories, selectedCategories) {
   return `已选 ${selectedCategories.length} 个品类`;
 }
 
+const brandAliases = {
+  Dreame: "追觅",
+  Dyson: "戴森",
+  ECOVACS: "科沃斯",
+  Ecovacs: "科沃斯",
+  Roborock: "石头",
+  Tineco: "添可",
+  UWANT: "友望",
+};
+
+function displayBrandName(brand) {
+  const raw = String(brand || "").trim();
+  if (!raw || raw === "全部") return raw || "全部";
+  const cn = brandAliases[raw];
+  return cn && cn !== raw ? `${cn}（${raw}）` : raw;
+}
+
 function renderFilters() {
   const catalogProducts = state.products.filter(isCatalogProduct);
   const categories = unique(catalogProducts.map((p) => p.category));
@@ -1664,7 +1681,9 @@ function renderFeatureFilterControls() {
 }
 
 function fillSelect(select, options, value) {
-  select.innerHTML = options.map((option) => `<option>${escapeHtml(option)}</option>`).join("");
+  select.innerHTML = options
+    .map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(displayBrandName(option))}</option>`)
+    .join("");
   select.value = options.includes(value) ? value : "全部";
 }
 
@@ -1740,7 +1759,7 @@ function productQualityIssues() {
     if (!product.sourceUrl && !product.sourceMetadata?.title) {
       issues.push({ severity: "medium", type: "缺少来源", product, detail: "缺少详情页 URL 或页面标题证据" });
     }
-    if (!product.image || /^assets\//.test(product.image)) {
+    if (isFallbackProductImage(bestProductImage(product))) {
       issues.push({ severity: "medium", type: "缺少真实产品图", product, detail: "当前使用本地品类兜底图，建议补充详情页产品图" });
     }
     if (Number(product.confidence || 0) < 80 || product.reviewRequired) {
@@ -1854,7 +1873,7 @@ function safeProductPart(value, fallback) {
 }
 
 function reviewProductDisplay(product) {
-  const brand = safeProductPart(product.brand, "品牌待确认");
+  const brand = displayBrandName(safeProductPart(product.brand, "品牌待确认"));
   const model = safeProductPart(product.model, "型号待确认");
   const name = safeProductPart(product.name, "产品名称待确认");
   const source = product.sourceMetadata?.title || product.sourceUrl || product.analysisRuns?.[0]?.source || "暂无来源标题";
@@ -1917,7 +1936,7 @@ function renderReviewQueue() {
         <label class="review-select" title="选择待确认产品">
           <input type="checkbox" data-review-select="${product.id}" ${checked} />
         </label>
-        <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
+        <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(product.name)} 产品图" />
         <div class="review-main">
           <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
           <p>${escapeHtml(display.name)} · ${escapeHtml(product.category)} · ${escapeHtml(priceText)}</p>
@@ -2019,10 +2038,11 @@ function renderColumnsPopover() {
 function renderProductEditForm(product, options = {}) {
   const submitLabel = options.submitLabel || "保存修改";
   const showCancel = options.showCancel !== false;
+  const formId = options.formId ? ` id="${escapeHtml(options.formId)}"` : "";
   return `
-      <form class="edit-form" data-edit-product="${product.id}">
+      <form class="edit-form"${formId} data-edit-product="${product.id}">
         <div class="detail-hero">
-          <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
+          <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(product.name)} 产品图" />
           <div>
             <p class="eyebrow">Edit product</p>
             <h3>${escapeHtml(product.model || "新产品")}</h3>
@@ -2044,9 +2064,9 @@ function renderProductEditForm(product, options = {}) {
           <label>价格<input name="price" type="number" min="0" value="${Number(product.price || 0)}" /></label>
           <label>渠道<input name="channel" value="${escapeHtml(product.channel)}" /></label>
           <label>上市状态<input name="status" value="${escapeHtml(product.status)}" /></label>
-          <label>路标季度<input name="quarter" value="${escapeHtml(product.quarter || "未规划")}" /></label>
+          <label>路标季度<input name="quarter" placeholder="例如 2026 Q2；不确定填未规划" value="${escapeHtml(normalizeQuarterInput(product.quarter || "未规划"))}" /></label>
           <label>AI 置信度<input name="confidence" type="number" min="0" max="100" value="${Number(product.confidence || 0)}" /></label>
-          <label>产品图 URL<input name="image" value="${escapeHtml(product.image || getCategoryImage(product.category))}" /></label>
+          <label>产品图 URL<input name="image" value="${escapeHtml(bestProductImage(product))}" /></label>
           <label class="wide-field">来源 URL<input name="sourceUrl" value="${escapeHtml(product.sourceUrl || "")}" /></label>
           <label class="wide-field">
             Top3 卖点（每行：卖点 | 证据）
@@ -2079,22 +2099,10 @@ function renderReviewDetail() {
   const pendingItems = reviewVisiblePendingItems(selectedReviewProduct);
   els.reviewProductDetail.className = "detail-card intake-detail-card";
   els.reviewProductDetail.innerHTML = `
-    <div class="intake-confirm-bar">
-      <div>
-        <strong>${escapeHtml(selectedReviewProduct.brand)} · ${escapeHtml(selectedReviewProduct.model)}</strong>
-        <p class="small-muted">核对字段后可确认入库；无效记录可直接删除。</p>
-      </div>
-      <button class="primary-button" type="button" data-confirm-review-detail="${selectedReviewProduct.id}">
-        确认加入产品库
-      </button>
-      <button class="secondary-button danger-button" type="button" data-delete-review-detail="${selectedReviewProduct.id}">
-        删除
-      </button>
-    </div>
     <div class="review-field-tags">
       ${pendingItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
     </div>
-    ${renderProductEditForm(selectedReviewProduct, { submitLabel: "确认并入产品库", showCancel: false })}
+    ${renderProductEditForm(selectedReviewProduct, { submitLabel: "保存调整", showCancel: false, formId: "reviewProductEditForm" })}
   `;
 }
 
@@ -2108,17 +2116,17 @@ function renderDetail() {
 
   if (state.editingProductId === product.id) {
     els.productDetail.className = "detail-card";
-    els.productDetail.innerHTML = renderProductEditForm(product);
+    els.productDetail.innerHTML = renderProductEditForm(product, { formId: "productEditForm" });
     return;
   }
 
   els.productDetail.className = "detail-card";
   els.productDetail.innerHTML = `
     <div class="detail-hero">
-      <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
+      <img class="product-image" src="${escapeHtml(bestProductImage(product))}" alt="${escapeHtml(product.name)} 产品图" />
       <div>
         <h3>${escapeHtml(product.name)}</h3>
-        <p class="small-muted">${escapeHtml(product.brand)} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</p>
+        <p class="small-muted">${escapeHtml(displayBrandName(product.brand))} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</p>
         <p class="small-muted">${escapeHtml(product.model)} · ${escapeHtml(product.channel)} · ${escapeHtml(product.status)}</p>
       </div>
     </div>
@@ -2276,7 +2284,7 @@ function renderCompare() {
         <input type="checkbox" data-compare-id="${product.id}" ${state.compareIds.includes(product.id) ? "checked" : ""} />
         <span>
           <strong>${escapeHtml(product.model)}</strong>
-          <small>${escapeHtml(product.brand)} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</small>
+          <small>${escapeHtml(displayBrandName(product.brand))} · ${escapeHtml(product.category)} · ${formatCurrency(product.price)}</small>
         </span>
       </label>
     `,
@@ -2511,7 +2519,7 @@ function roadmapSourceLabel(product) {
 function roadmapTitle(prefix = "品牌路标") {
   const selectedBrands = selectedRoadmapBrands();
   const parts = [
-    selectedBrands.length ? selectedBrands.join("、") : "",
+    selectedBrands.length ? selectedBrands.map(displayBrandName).join("、") : "",
     state.roadmapCategory && state.roadmapCategory !== "全部" ? state.roadmapCategory : "",
     state.roadmapStatus && state.roadmapStatus !== "全部" ? state.roadmapStatus : "",
     state.roadmapQuarter && state.roadmapQuarter !== "全部" ? state.roadmapQuarter : "",
@@ -2540,7 +2548,7 @@ function renderRoadmapBrandFilter() {
   if (els.roadmapBrandLabel) {
     els.roadmapBrandLabel.textContent = selectedBrands.length
       ? selectedBrands.length <= 2
-        ? selectedBrands.join("、")
+        ? selectedBrands.map(displayBrandName).join("、")
         : `已选 ${selectedBrands.length} 个品牌`
       : "全部品牌";
   }
@@ -2556,7 +2564,7 @@ function renderRoadmapBrandFilter() {
           return `
             <label class="multi-select-option ${active ? "is-active" : ""}">
               <input type="checkbox" data-roadmap-brand="${escapeHtml(brand)}" value="${escapeHtml(brand)}" ${active ? "checked" : ""} />
-              <span>${escapeHtml(brand)}</span>
+              <span>${escapeHtml(displayBrandName(brand))}</span>
             </label>
           `;
         })
@@ -2621,15 +2629,15 @@ function roadmapBrandStyle(brand) {
   return `--brand-color:${theme.color};--brand-soft:${theme.soft};--brand-line:${theme.line}`;
 }
 
-function roadmapCard(product, priceScale, index) {
+function roadmapCard(product, priceScale, index, laneIndex = 0) {
   const range = Math.max(priceScale.max - priceScale.min, 1);
   const normalized = (priceScale.max - Number(product.price || 0)) / range;
   const y = Math.max(8, Math.min(78, 8 + normalized * 70));
-  const x = roadmapLaneOffset(product, index);
+  const x = laneIndex * 220 + roadmapLaneOffset(product, index);
   return `
     <article class="roadmap-card" style="--roadmap-y: ${y}%; --roadmap-x: ${x}px; ${roadmapBrandStyle(product.brand)}">
       <div>
-        <h4><span class="brand-dot" aria-hidden="true"></span>${escapeHtml(product.name || product.model)}</h4>
+        <h4><span class="brand-dot" aria-hidden="true"></span>${escapeHtml(displayBrandName(product.brand))} · ${escapeHtml(product.name || product.model)}</h4>
         <p class="roadmap-price">${formatCurrency(product.price)}</p>
         <ul>
           ${(product.sellingPoints || [])
@@ -2657,7 +2665,7 @@ function renderRoadmapTimeline(products) {
   const brands = unique(brandProducts.map((product) => product.brand));
   const selectedBrands = selectedRoadmapBrands().filter((brand) => brands.includes(brand));
   const scopedProducts = selectedBrands.length ? brandProducts.filter((product) => selectedBrands.includes(product.brand)) : brandProducts;
-  const selectedBrandLabel = selectedBrands.length ? selectedBrands.join("、") : "全部";
+  const selectedBrandLabel = selectedBrands.length ? selectedBrands.map(displayBrandName).join("、") : "全部";
   const lanes = unique(scopedProducts.map(productRoadmapPeriod));
   const priceScale = roadmapPriceScale(scopedProducts);
   const chartHeight = Math.max(500, Math.min(780, priceScale.ticks.length * 72));
@@ -2669,9 +2677,12 @@ function renderRoadmapTimeline(products) {
         ${lanes
           .map((period) => {
             const laneProducts = scopedProducts.filter((product) => productRoadmapPeriod(product) === period);
-            return `<section class="roadmap-lane">
+            const laneBrands = unique(laneProducts.map((product) => product.brand));
+            return `<section class="roadmap-lane" style="--period-width: ${Math.max(laneBrands.length, 1) * 220 + 28}px">
               <h3>${escapeHtml(period)}</h3>
-              ${laneProducts.map((product, index) => roadmapCard(product, priceScale, index)).join("")}
+              ${laneProducts
+                .map((product, index) => roadmapCard(product, priceScale, index, Math.max(0, laneBrands.indexOf(product.brand))))
+                .join("")}
             </section>`;
           })
           .join("")}
@@ -2695,7 +2706,7 @@ function renderRoadmapBrandCompare(products) {
               .filter((product) => product.brand === brand)
               .sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
             return `<section class="roadmap-lane roadmap-brand-lane" style="${roadmapBrandStyle(brand)}">
-              <h3><span class="brand-dot" aria-hidden="true"></span>${escapeHtml(brand)}</h3>
+              <h3><span class="brand-dot" aria-hidden="true"></span>${escapeHtml(displayBrandName(brand))}</h3>
               ${laneProducts.map((product, index) => roadmapCard(product, priceScale, index)).join("")}
             </section>`;
           })
@@ -3002,7 +3013,7 @@ function saveProductForm(form, options = {}) {
   product.price = Number(data.get("price") || 0);
   product.channel = String(data.get("channel") || "").trim() || "人工录入";
   product.status = String(data.get("status") || "").trim() || "待确认";
-  product.quarter = String(data.get("quarter") || "").trim() || "未规划";
+  product.quarter = normalizeQuarterInput(data.get("quarter"));
   product.confidence = Math.min(100, Math.max(0, Number(data.get("confidence") || 0)));
   product.image = String(data.get("image") || "").trim() || getCategoryImage(category);
   product.sourceUrl = String(data.get("sourceUrl") || "").trim();
@@ -3205,13 +3216,12 @@ function productImageFromAnalysis(result, category) {
     ...(sourceMetadata || {}),
     ...(result.sourceMetadata || {}),
   };
-  return (
-    String(result.image || "").trim() ||
-    String(metadata.image || "").trim() ||
-    String(metadata.imageCandidates?.[0] || "").trim() ||
-    imageMap[category] ||
-    "assets/robot-vacuum.svg"
-  );
+  const remoteImage = [
+    String(result.image || "").trim(),
+    String(metadata.image || "").trim(),
+    String(metadata.imageCandidates?.[0] || "").trim(),
+  ].find((url) => url && !isFallbackProductImage(url));
+  return remoteImage || imageMap[category] || "assets/robot-vacuum.svg";
 }
 
 function productFromAnalysis(result, analysisMeta = {}) {
@@ -3234,7 +3244,7 @@ function productFromAnalysis(result, analysisMeta = {}) {
       ...(result.sourceMetadata || {}),
       customFeatureEvidence: result.customFeatures || [],
     },
-    quarter: result.quarter || "未规划",
+    quarter: normalizeQuarterInput(result.quarter),
     features: mergeCustomFeatures(result.features || {}, result.customFeatures || []),
     sellingPoints: (result.sellingPoints || []).slice(0, 3),
   };
@@ -3840,7 +3850,7 @@ async function fetchSourceMetadata() {
     setAnalysisStatus("请先输入详情页 URL。", "error");
     return;
   }
-  setAnalysisStatus("正在预抓取页面标题、描述和主图...", "");
+  setAnalysisStatus("正在获取页面标题、价格候选、图片候选和详情文字...", "");
   try {
     const response = await apiFetch("/api/fetch-metadata", {
       method: "POST",
@@ -3855,12 +3865,12 @@ async function fetchSourceMetadata() {
       setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
       return;
     }
-    setAnalysisStatus("预抓取完成，正在自动分析详情页内容...", "success");
+    setAnalysisStatus("详情页信息获取完成，正在自动分析...", "success");
     await runAnalysis();
   } catch (error) {
     sourceMetadata = null;
     renderSourcePreview(null);
-    setAnalysisStatus(`预抓取失败：${error.message}。仍可上传截图后分析。`, "error");
+    setAnalysisStatus(`详情页信息获取失败：${error.message}。仍可上传截图/长图后分析。`, "error");
   }
 }
 
@@ -4208,7 +4218,7 @@ function exportCompare() {
   const overviewRows = products
     .map(
       (product) => `<tr>
-        <td><img src="${product.image}" alt=""></td>
+        <td><img src="${escapeHtml(bestProductImage(product))}" alt=""></td>
         <td>${escapeHtml(product.brand)}</td>
         <td>${escapeHtml(product.name)}</td>
         <td>${escapeHtml(product.model)}</td>
@@ -4321,7 +4331,7 @@ function roadmapSvgDocument() {
           return `
             <g transform="translate(${x}, ${y})">
               <rect class="card" width="${columnWidth}" height="${cardHeight}" rx="8" />
-              <image href="${escapeHtml(product.image || getCategoryImage(product.category))}" x="16" y="18" width="68" height="68" preserveAspectRatio="xMidYMid meet" />
+              <image href="${escapeHtml(bestProductImage(product))}" x="16" y="18" width="68" height="68" preserveAspectRatio="xMidYMid meet" />
               ${svgTextLines(splitSvgText(`${product.brand} ${product.model}`, 18, 2), 98, 34, { className: "model", lineHeight: 18 })}
               <text x="98" y="78" class="meta">${escapeHtml(product.category)} · ${escapeHtml(formatCurrency(product.price))}</text>
               <text x="98" y="96" class="meta">状态 ${escapeHtml(product.status || "待确认")}</text>
@@ -4371,7 +4381,7 @@ function roadmapPrintCard(product) {
   const latestPrice = product.priceSnapshots?.[0];
   return `
     <article class="roadmap-print-card">
-      <img src="${product.image}" alt="" />
+      <img src="${escapeHtml(bestProductImage(product))}" alt="" />
       <div>
         <h3>${escapeHtml(product.brand)} ${escapeHtml(product.model)}</h3>
         <p>${escapeHtml(product.category)} · ${formatCurrency(product.price)} · ${escapeHtml(product.status)}</p>
