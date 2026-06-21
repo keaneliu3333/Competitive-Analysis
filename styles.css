@@ -897,13 +897,25 @@ textarea {
 
 .review-item {
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: 28px 52px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: start;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface-muted);
   padding: 12px;
+}
+
+.review-select {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+}
+
+.review-select input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
 }
 
 .review-item.is-highlighted {
@@ -975,12 +987,17 @@ textarea {
 
 .review-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-self: center;
 }
 
+.review-actions button {
+  min-width: 72px;
+}
+
 .sidebar-panel .review-item {
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 28px 42px minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -1536,6 +1553,26 @@ tbody tr.is-selected {
   color: var(--primary);
 }
 
+.intake-confirm-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.intake-confirm-bar p {
+  margin: 4px 0 0;
+}
+
+.intake-detail-card .review-field-tags {
+  margin-bottom: 12px;
+}
+
 .selling-list,
 .source-list,
 .module-list,
@@ -2082,9 +2119,12 @@ tbody tr.is-selected {
   }
 
   .workspace-grid,
-  .ops-grid,
-  .metrics-grid {
+  .ops-grid {
     grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .quality-panel,
@@ -2110,6 +2150,10 @@ tbody tr.is-selected {
     padding: 16px;
   }
 
+  .main-area {
+    padding-top: 12px;
+  }
+
   .sidebar,
   .import-grid,
   .url-field,
@@ -2120,15 +2164,55 @@ tbody tr.is-selected {
   .advanced-filter-grid,
   .analysis-steps,
   .topbar,
-  .panel-actions,
   .review-item {
     grid-template-columns: 1fr;
     display: grid;
   }
 
+  .panel-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+  }
+
+  .panel-header > div:first-child {
+    min-width: 0;
+  }
+
+  .panel-header .eyebrow {
+    overflow-wrap: anywhere;
+  }
+
+  .panel-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .panel-actions > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .products-panel > .panel-header .panel-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .products-panel > .panel-header .panel-actions > :first-child {
+    grid-column: 1 / -1;
+  }
+
   .review-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
+
+  .intake-confirm-bar {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .field-review-list li {
@@ -2144,8 +2228,38 @@ tbody tr.is-selected {
     grid-template-columns: 1fr;
   }
 
+  .sidebar {
+    display: block;
+    padding-bottom: 10px;
+  }
+
+  .brand-block {
+    padding-bottom: 10px;
+  }
+
   .sidebar-nav {
-    grid-template-columns: 1fr;
+    display: flex;
+    grid-template-columns: none;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 0 0 6px;
+    margin-inline: -2px;
+    scroll-snap-type: x proximity;
+  }
+
+  .sidebar-nav .nav-chip,
+  .app-shell.is-sidebar-collapsed .sidebar-nav .nav-chip {
+    flex: 0 0 auto;
+    min-width: 128px;
+    min-height: 44px;
+    justify-content: space-between;
+    padding: 0 10px;
+    scroll-snap-align: start;
+  }
+
+  .sidebar-nav .nav-chip strong {
+    min-width: 32px;
   }
 
   .sidebar-panel .review-item,
@@ -2165,5 +2279,29 @@ tbody tr.is-selected {
   .roadmap-chart {
     grid-template-columns: 70px minmax(calc(var(--roadmap-lanes) * 220px), 1fr);
     min-width: calc(70px + var(--roadmap-lanes) * 220px);
+  }
+}
+
+@media (max-width: 520px) {
+  .main-area,
+  .sidebar {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .products-panel > .panel-header {
+    gap: 8px;
+  }
+
+  .products-panel > .panel-header .panel-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .products-panel > .panel-header .panel-actions .primary-button {
+    grid-column: 1 / -1;
+  }
+
+  .products-panel > .panel-header .panel-actions button {
+    padding-inline: 10px;
   }
 }

@@ -385,6 +385,7 @@ let sourceMetadata = null;
 let analysisStepState = {};
 let highlightedReviewProductId = "";
 let browserFetchSessionId = "";
+let selectedReviewIds = new Set();
 let usageState = { count: 0, recent: [], estimatedTotalCostUsd: null, costPricingConfigured: false, loaded: false, error: "" };
 let healthState = {
   ok: false,
@@ -485,6 +486,7 @@ const els = {
   productTableBody: document.querySelector("#productTableBody"),
   filterSummary: document.querySelector("#filterSummary"),
   productDetail: document.querySelector("#productDetail"),
+  reviewProductDetail: document.querySelector("#reviewProductDetail"),
   metricProducts: document.querySelector("#metricProducts"),
   metricAvgPrice: document.querySelector("#metricAvgPrice"),
   metricReview: document.querySelector("#metricReview"),
@@ -797,6 +799,27 @@ function getCategoryImage(category) {
     吸尘器: "assets/stick-vacuum.svg",
   };
   return imageMap[category] || "assets/robot-vacuum.svg";
+}
+
+function isFallbackProductImage(value) {
+  return !value || /^assets\//.test(String(value));
+}
+
+function bestProductImage(product) {
+  const image = String(product?.image || "").trim();
+  if (!isFallbackProductImage(image)) return image;
+  const candidate = String(product?.sourceMetadata?.image || product?.sourceMetadata?.imageCandidates?.[0] || "").trim();
+  return candidate || image || getCategoryImage(product?.category);
+}
+
+function normalizeQuarterInput(value) {
+  const text = String(value || "").trim();
+  if (!text || ["待确认", "未知", "无", "-"].includes(text)) return "未规划";
+  const quarterMatch = text.match(/(20\d{2})\s*[年/-]?\s*Q\s*([1-4])/i) || text.match(/(20\d{2})\s*第?\s*([1-4])\s*季/i);
+  if (quarterMatch) return `${quarterMatch[1]} Q${quarterMatch[2]}`;
+  const halfMatch = text.match(/(20\d{2})\s*[年/-]?\s*H\s*([12])/i) || text.match(/(20\d{2})\s*(上半年|下半年)/);
+  if (halfMatch) return `${halfMatch[1]} ${halfMatch[2] === "2" || halfMatch[2] === "下半年" ? "H2" : "H1"}`;
+  return text;
 }
 
 function sellingPointsToText(points = []) {
@@ -1654,10 +1677,7 @@ function updateFieldOptionsState() {
 
 function renderMetrics(products) {
   els.metricProducts.textContent = products.length;
-  const avg = products.length
-    ? Math.round(products.reduce((sum, product) => sum + product.price, 0) / products.length)
-    : 0;
-  els.metricAvgPrice.textContent = products.length ? formatCurrency(avg) : "-";
+  els.metricAvgPrice.textContent = unique(products.map((p) => p.category)).length;
   els.metricReview.textContent = getReviewProducts().length;
   els.metricBrands.textContent = unique(products.map((p) => p.brand)).length;
 }
@@ -1868,6 +1888,9 @@ function getReviewProducts() {
 
 function renderReviewQueue() {
   const products = getReviewProducts();
+  const visibleReviewIds = new Set(products.map((product) => product.id));
+  selectedReviewIds = new Set([...selectedReviewIds].filter((id) => visibleReviewIds.has(id)));
+  updateReviewBatchActions(products);
   if (!products.length) {
     els.reviewQueue.innerHTML = `
       <div class="review-empty">
@@ -1875,6 +1898,7 @@ function renderReviewQueue() {
       </div>
     `;
     document.querySelector("#confirmAllReviews").disabled = true;
+    updateReviewBatchActions(products);
     return;
   }
   document.querySelector("#confirmAllReviews").disabled = false;
@@ -1887,8 +1911,12 @@ function renderReviewQueue() {
         const priceText = Number(product.price || 0) ? formatCurrency(product.price) : "价格待确认";
         const confidenceText = Number(product.confidence || 0) ? `置信度 ${Number(product.confidence || 0)}%` : "置信度待确认";
         const highlightClass = product.id === highlightedReviewProductId ? " is-highlighted" : "";
+        const checked = selectedReviewIds.has(product.id) ? "checked" : "";
         return `
       <article class="review-item${highlightClass}" data-review-product="${product.id}">
+        <label class="review-select" title="选择待确认产品">
+          <input type="checkbox" data-review-select="${product.id}" ${checked} />
+        </label>
         <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
         <div class="review-main">
           <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
@@ -1903,14 +1931,34 @@ function renderReviewQueue() {
           </div>
         </div>
         <div class="review-actions">
-          <button class="secondary-button" type="button" data-focus-review="${product.id}">查看</button>
+          <button class="secondary-button" type="button" data-edit-review="${product.id}">调整信息</button>
           <button class="primary-button" type="button" data-confirm-review="${product.id}">确认</button>
+          <button class="secondary-button danger-button" type="button" data-delete-review="${product.id}">删除</button>
         </div>
       </article>
     `;
       },
     )
     .join("");
+}
+
+function updateReviewBatchActions(products = getReviewProducts()) {
+  const selectedCount = selectedReviewIds.size;
+  const selectAllButton = document.querySelector("#selectAllReviews");
+  const confirmSelectedButton = document.querySelector("#confirmSelectedReviews");
+  const deleteSelectedButton = document.querySelector("#deleteSelectedReviews");
+  if (selectAllButton) {
+    selectAllButton.disabled = !products.length;
+    selectAllButton.textContent = selectedCount && selectedCount === products.length ? "取消全选" : "全选";
+  }
+  if (confirmSelectedButton) {
+    confirmSelectedButton.disabled = !selectedCount;
+    confirmSelectedButton.textContent = selectedCount ? `确认所选 ${selectedCount}` : "确认所选";
+  }
+  if (deleteSelectedButton) {
+    deleteSelectedButton.disabled = !selectedCount;
+    deleteSelectedButton.textContent = selectedCount ? `删除所选 ${selectedCount}` : "删除所选";
+  }
 }
 
 function scrollToReviewProduct(productId) {
@@ -1968,18 +2016,11 @@ function renderColumnsPopover() {
     .join("");
 }
 
-function renderDetail() {
-  const product = state.products.find((item) => item.id === state.selectedProductId);
-  if (!product) {
-    els.productDetail.className = "detail-empty";
-    els.productDetail.textContent = "选择一款产品查看图片、价格、Top3 卖点和 AI 证据。";
-    return;
-  }
-
-  if (state.editingProductId === product.id) {
-    els.productDetail.className = "detail-card";
-    els.productDetail.innerHTML = `
-      <form class="edit-form" id="productEditForm" data-edit-product="${product.id}">
+function renderProductEditForm(product, options = {}) {
+  const submitLabel = options.submitLabel || "保存修改";
+  const showCancel = options.showCancel !== false;
+  return `
+      <form class="edit-form" data-edit-product="${product.id}">
         <div class="detail-hero">
           <img class="product-image" src="${product.image}" alt="${escapeHtml(product.name)} 产品图" />
           <div>
@@ -2019,11 +2060,55 @@ function renderDetail() {
           </div>
         </div>
         <div class="detail-actions">
-          <button class="primary-button" type="submit">保存修改</button>
-          <button class="secondary-button" type="button" data-cancel-edit="${product.id}">取消</button>
+          <button class="primary-button" type="submit">${escapeHtml(submitLabel)}</button>
+          ${showCancel ? `<button class="secondary-button" type="button" data-cancel-edit="${product.id}">取消</button>` : ""}
         </div>
       </form>
     `;
+}
+
+function renderReviewDetail() {
+  if (!els.reviewProductDetail) return;
+  const reviewProducts = getReviewProducts();
+  const selectedReviewProduct = reviewProducts.find((product) => product.id === state.selectedProductId) || reviewProducts[0];
+  if (!selectedReviewProduct) {
+    els.reviewProductDetail.className = "detail-empty";
+    els.reviewProductDetail.textContent = "当前没有待确认产品。新产品解析或手动新增后，会在这里调整信息并确认加入产品库。";
+    return;
+  }
+  const pendingItems = reviewVisiblePendingItems(selectedReviewProduct);
+  els.reviewProductDetail.className = "detail-card intake-detail-card";
+  els.reviewProductDetail.innerHTML = `
+    <div class="intake-confirm-bar">
+      <div>
+        <strong>${escapeHtml(selectedReviewProduct.brand)} · ${escapeHtml(selectedReviewProduct.model)}</strong>
+        <p class="small-muted">核对字段后可确认入库；无效记录可直接删除。</p>
+      </div>
+      <button class="primary-button" type="button" data-confirm-review-detail="${selectedReviewProduct.id}">
+        确认加入产品库
+      </button>
+      <button class="secondary-button danger-button" type="button" data-delete-review-detail="${selectedReviewProduct.id}">
+        删除
+      </button>
+    </div>
+    <div class="review-field-tags">
+      ${pendingItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+    </div>
+    ${renderProductEditForm(selectedReviewProduct, { submitLabel: "确认并入产品库", showCancel: false })}
+  `;
+}
+
+function renderDetail() {
+  const product = state.products.find((item) => item.id === state.selectedProductId);
+  if (!product) {
+    els.productDetail.className = "detail-empty";
+    els.productDetail.textContent = "选择一款产品查看图片、价格、Top3 卖点和 AI 证据。";
+    return;
+  }
+
+  if (state.editingProductId === product.id) {
+    els.productDetail.className = "detail-card";
+    els.productDetail.innerHTML = renderProductEditForm(product);
     return;
   }
 
@@ -2667,6 +2752,7 @@ function renderAll() {
   renderMetrics(filteredProducts);
   renderQualityPanel();
   renderReviewQueue();
+  renderReviewDetail();
   renderProductTable(filteredProducts);
   renderColumnsPopover();
   renderDetail();
@@ -2696,26 +2782,87 @@ function confirmProduct(productId, detailPrefix = "人工确认") {
   renderAll();
 }
 
-function confirmAllReviews() {
-  const products = getReviewProducts();
-  if (!products.length) return;
-  const confirmed = window.confirm(`确认 ${products.length} 个待复核产品？`);
-  if (!confirmed) return;
+function confirmReviewProductList(products, detailPrefix) {
   products.forEach((product) => {
     const beforeConfidence = Number(product.confidence || 0);
-    const fieldCount = confirmAllFieldReviews(product, "batch");
+    const fieldCount = confirmAllFieldReviews(product, detailPrefix === "批量确认" ? "batch" : "manual");
     product.reviewRequired = false;
     product.confidence = Math.max(beforeConfidence, 85);
-    addAudit(product, "批量确认", `从待确认队列批量确认，置信度 ${beforeConfidence}% -> ${product.confidence}%${fieldCount ? `，同步确认字段 ${fieldCount} 个` : ""}`);
+    addAudit(product, detailPrefix, `置信度 ${beforeConfidence}% -> ${product.confidence}%${fieldCount ? `，同步确认字段 ${fieldCount} 个` : ""}`);
     addAnalysisRun(product, {
-      type: "batch_manual_review",
+      type: detailPrefix === "批量确认" ? "batch_manual_review" : "manual_review",
       model: "人工复核",
       status: "confirmed",
       confidence: product.confidence,
       source: product.sourceUrl || "人工录入",
     });
   });
+}
+
+function confirmAllReviews() {
+  const products = getReviewProducts();
+  if (!products.length) return;
+  const confirmed = window.confirm(`确认 ${products.length} 个待复核产品？`);
+  if (!confirmed) return;
+  confirmReviewProductList(products, "批量确认");
+  selectedReviewIds.clear();
   renderAll();
+}
+
+function selectedReviewProducts() {
+  const selected = new Set(selectedReviewIds);
+  return getReviewProducts().filter((product) => selected.has(product.id));
+}
+
+function toggleAllReviews() {
+  const products = getReviewProducts();
+  if (!products.length) return;
+  if (selectedReviewIds.size === products.length) selectedReviewIds.clear();
+  else selectedReviewIds = new Set(products.map((product) => product.id));
+  renderReviewQueue();
+}
+
+function confirmSelectedReviews() {
+  const products = selectedReviewProducts();
+  if (!products.length) return;
+  const confirmed = window.confirm(`确认所选 ${products.length} 个待复核产品？`);
+  if (!confirmed) return;
+  confirmReviewProductList(products, "批量确认");
+  selectedReviewIds.clear();
+  renderAll();
+}
+
+function deleteProducts(productIds) {
+  const ids = new Set(productIds);
+  state.products = state.products.filter((item) => !ids.has(item.id));
+  state.compareIds = state.compareIds.filter((id) => !ids.has(id));
+  selectedReviewIds = new Set([...selectedReviewIds].filter((id) => !ids.has(id)));
+  if (ids.has(state.selectedProductId)) {
+    state.selectedProductId = state.products[0]?.id || "";
+  }
+}
+
+function deleteSelectedReviews() {
+  const products = selectedReviewProducts();
+  if (!products.length) return;
+  const confirmed = window.confirm(`删除所选 ${products.length} 个待确认产品？此操作会从当前工作台移除这些产品。`);
+  if (!confirmed) return;
+  deleteProducts(products.map((product) => product.id));
+  renderAll();
+}
+
+function reviewBlockingFields(product) {
+  return productCatalogBlockers(product).filter((item) => !/^AI 结果待确认$/.test(item) && !/^置信度\s+\d+%$/.test(item));
+}
+
+function confirmReviewFormProduct(product) {
+  const blockers = reviewBlockingFields(product);
+  if (blockers.length) {
+    window.alert(`还有关键信息不能入库：${blockers.join("、")}。请补齐后再确认。`);
+    renderAll();
+    return;
+  }
+  confirmProduct(product.id, "表单确认入库");
 }
 
 function focusReviewProduct(productId) {
@@ -2723,6 +2870,15 @@ function focusReviewProduct(productId) {
   state.editingProductId = "";
   state.activeWorkspace = "products";
   renderAll();
+}
+
+function editReviewProduct(productId) {
+  state.selectedProductId = productId;
+  state.editingProductId = productId;
+  state.activeWorkspace = "import";
+  highlightedReviewProductId = productId;
+  renderAll();
+  scrollToReviewProduct(productId);
 }
 
 function setActiveWorkspace(workspace) {
@@ -2763,9 +2919,7 @@ function deleteProduct(productId) {
   if (!product) return;
   const confirmed = window.confirm(`删除 ${product.model}？此操作会从当前工作台移除该产品。`);
   if (!confirmed) return;
-  state.products = state.products.filter((item) => item.id !== productId);
-  state.compareIds = state.compareIds.filter((id) => id !== productId);
-  state.selectedProductId = state.products[0]?.id || "";
+  deleteProducts([productId]);
   renderAll();
 }
 
@@ -2812,8 +2966,10 @@ function createProduct() {
   state.products.unshift(product);
   state.selectedProductId = product.id;
   state.editingProductId = product.id;
+  state.activeWorkspace = "import";
+  highlightedReviewProductId = product.id;
   renderAll();
-  scrollToWorkspace("productsWorkspace");
+  scrollToReviewProduct(product.id);
 }
 
 function startEditProduct(productId) {
@@ -2827,9 +2983,10 @@ function cancelEditProduct() {
   renderAll();
 }
 
-function saveProductForm(form) {
+function saveProductForm(form, options = {}) {
   const product = state.products.find((item) => item.id === form.dataset.editProduct);
   if (!product) return;
+  const shouldRender = options.render !== false;
   const before = {
     model: product.model,
     price: product.price,
@@ -2885,7 +3042,8 @@ function saveProductForm(form) {
     source: product.sourceUrl || "人工录入",
   });
   state.editingProductId = "";
-  renderAll();
+  if (shouldRender) renderAll();
+  return product;
 }
 
 function updateFilter(key, value) {
@@ -4651,6 +4809,9 @@ function bindEvents() {
   });
 
   document.querySelector("#confirmAllReviews").addEventListener("click", confirmAllReviews);
+  document.querySelector("#selectAllReviews")?.addEventListener("click", toggleAllReviews);
+  document.querySelector("#confirmSelectedReviews")?.addEventListener("click", confirmSelectedReviews);
+  document.querySelector("#deleteSelectedReviews")?.addEventListener("click", deleteSelectedReviews);
   document.querySelector("#exportQualityCsv").addEventListener("click", exportQualityCsv);
 
   els.columnsPopover.addEventListener("change", (event) => {
@@ -4687,6 +4848,18 @@ function bindEvents() {
   });
 
   els.reviewQueue.addEventListener("click", (event) => {
+    const checkbox = event.target.closest("[data-review-select]");
+    if (checkbox) {
+      if (checkbox.checked) selectedReviewIds.add(checkbox.dataset.reviewSelect);
+      else selectedReviewIds.delete(checkbox.dataset.reviewSelect);
+      updateReviewBatchActions();
+      return;
+    }
+    const editButton = event.target.closest("[data-edit-review]");
+    if (editButton) {
+      editReviewProduct(editButton.dataset.editReview);
+      return;
+    }
     const focusButton = event.target.closest("[data-focus-review]");
     if (focusButton) {
       focusReviewProduct(focusButton.dataset.focusReview);
@@ -4695,6 +4868,25 @@ function bindEvents() {
     const confirmButton = event.target.closest("[data-confirm-review]");
     if (confirmButton) {
       confirmProduct(confirmButton.dataset.confirmReview, "队列确认");
+      return;
+    }
+    const deleteButton = event.target.closest("[data-delete-review]");
+    if (deleteButton) {
+      deleteProduct(deleteButton.dataset.deleteReview);
+    }
+  });
+
+  els.reviewProductDetail?.addEventListener("click", (event) => {
+    const confirmButton = event.target.closest("[data-confirm-review-detail]");
+    if (confirmButton) {
+      const form = els.reviewProductDetail.querySelector("[data-edit-product]");
+      const product = form ? saveProductForm(form, { render: false }) : state.products.find((item) => item.id === confirmButton.dataset.confirmReviewDetail);
+      if (product) confirmReviewFormProduct(product);
+      return;
+    }
+    const deleteButton = event.target.closest("[data-delete-review-detail]");
+    if (deleteButton) {
+      deleteProduct(deleteButton.dataset.deleteReviewDetail);
     }
   });
 
@@ -4730,6 +4922,14 @@ function bindEvents() {
     if (!form) return;
     event.preventDefault();
     saveProductForm(form);
+  });
+
+  els.reviewProductDetail?.addEventListener("submit", (event) => {
+    const form = event.target.closest("[data-edit-product]");
+    if (!form) return;
+    event.preventDefault();
+    const product = saveProductForm(form, { render: false });
+    if (product) confirmReviewFormProduct(product);
   });
 
   els.comparePicker.addEventListener("change", (event) => {
@@ -4780,6 +4980,7 @@ function bindEvents() {
 
   document.querySelector("#compareFilteredProducts").addEventListener("click", compareFilteredProducts);
   document.querySelector("#compareSimilarProducts").addEventListener("click", compareSimilarProducts);
+  document.querySelector("#openImportFromProducts")?.addEventListener("click", () => setActiveWorkspace("import"));
 
   els.moduleList.addEventListener("click", (event) => {
     const moveModuleButton = event.target.closest("[data-move-module]");

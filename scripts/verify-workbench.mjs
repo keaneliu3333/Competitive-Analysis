@@ -148,6 +148,9 @@ const requiredElementIds = [
   "cancelBrowserFetch",
   "reviewQueue",
   "confirmAllReviews",
+  "selectAllReviews",
+  "confirmSelectedReviews",
+  "deleteSelectedReviews",
   "refreshHealth",
   "systemStatus",
   "deleteSavedView",
@@ -607,6 +610,8 @@ assertIncludes(indexHtml, "抓取并分析", "index.html URL fetch analysis acti
 assertIncludes(indexHtml, "打开浏览器获取", "index.html browser assisted fetch action");
 assertIncludes(indexHtml, "继续获取", "index.html browser assisted collect action");
 assertIncludes(indexHtml, "取消浏览器获取", "index.html browser assisted cancel action");
+assertIncludes(indexHtml, "确认所选", "index.html selected review confirm action");
+assertIncludes(indexHtml, "删除所选", "index.html selected review delete action");
 assertOrder(indexHtml, "id=\"importPanel\"", "id=\"reviewTitle\"", "AI workspace detail ingestion before review queue");
 assertOrder(indexHtml, "id=\"compareCategoryFilter\"", "id=\"compareBrandFilter\"", "compare filters category before brand");
 assertIncludes(scriptJs, "await runAnalysis();", "script.js auto analysis after metadata fetch");
@@ -618,6 +623,11 @@ assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-sele
 assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
 assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
 assertIncludes(scriptJs, "reviewVisiblePendingItems", "script.js compact review queue display");
+assertIncludes(scriptJs, "selectedReviewIds", "script.js selected review state");
+assertIncludes(scriptJs, "confirmSelectedReviews", "script.js selected review confirmation");
+assertIncludes(scriptJs, "deleteSelectedReviews", "script.js selected review deletion");
+assertIncludes(scriptJs, "确认并入产品库", "script.js review detail confirm submit copy");
+assertIncludes(scriptJs, "还有关键信息不能入库", "script.js review detail blocks incomplete confirmation");
 assertIncludes(scriptJs, "analysisSteps", "script.js analysis progress steps");
 assertIncludes(scriptJs, "showRetryAnalysis", "script.js analysis retry action");
 assertIncludes(scriptJs, "resetAnalysisSteps", "script.js analysis progress reset");
@@ -633,6 +643,7 @@ assertIncludes(scriptJs, "source-fetch-meta", "script.js metadata fetch status d
 assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback warning display");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
+assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
 assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
@@ -641,6 +652,9 @@ assertIncludes(stylesCss, "grid-template-columns: minmax(0, 1fr) repeat(2, auto)
 assertIncludes(stylesCss, ".review-summary", "styles.css compact review queue summary");
 assertIncludes(stylesCss, ".review-item.is-highlighted", "styles.css highlighted pending review item");
 assertIncludes(stylesCss, ".source-warning", "styles.css metadata fetch warning display");
+assertIncludes(stylesCss, "scroll-snap-type: x proximity", "styles.css compact mobile nav scroller");
+assertIncludes(stylesCss, ".products-panel > .panel-header .panel-actions", "styles.css mobile product header actions");
+assertIncludes(stylesCss, "@media (max-width: 520px)", "styles.css narrow mobile breakpoint");
 
 for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {
   assertIncludes(gitignore, ignore, ".gitignore entry");

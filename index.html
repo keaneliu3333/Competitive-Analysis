@@ -52,11 +52,11 @@
             </span>
             <span class="nav-label">品牌路标</span><strong id="navRoadmapCount">0</strong>
           </button>
-          <button class="nav-chip" type="button" data-workspace="import" title="AI 解析与待确认" onclick="setActiveWorkspace('import'); return false;">
+          <button class="nav-chip" type="button" data-workspace="import" title="新品入库" onclick="setActiveWorkspace('import'); return false;">
             <span class="nav-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 3v4" /><path d="M12 17v4" /><path d="M3 12h4" /><path d="M17 12h4" /><path d="m6 6 3 3" /><path d="m15 15 3 3" /><path d="m18 6-3 3" /><path d="m9 15-3 3" /></svg>
             </span>
-            <span class="nav-label">AI 解析</span><strong id="navReviewCount">0</strong>
+            <span class="nav-label">新品入库</span><strong id="navReviewCount">0</strong>
           </button>
           <button class="nav-chip" type="button" data-workspace="quality" title="数据质量" onclick="setActiveWorkspace('quality'); return false;">
             <span class="nav-icon" aria-hidden="true">
@@ -163,7 +163,7 @@
             <strong id="metricProducts">0</strong>
           </article>
           <article class="metric-card">
-            <span>平均价格</span>
+            <span>品类</span>
             <strong id="metricAvgPrice">-</strong>
           </article>
           <article class="metric-card">
@@ -194,8 +194,8 @@
         <section class="panel import-panel workspace-page" data-workspace-page="import" id="importPanel" aria-labelledby="importTitle" hidden aria-hidden="true">
           <div class="panel-header">
             <div>
-              <p class="eyebrow">AI ingestion</p>
-              <h2 id="importTitle">详情页抓取与图片理解</h2>
+              <p class="eyebrow">New product intake</p>
+              <h2 id="importTitle">新品入库</h2>
             </div>
             <div class="panel-actions">
               <button class="secondary-button" type="button" id="createProduct">
@@ -217,10 +217,7 @@
                 />
               </label>
               <button class="secondary-button" type="button" id="fetchSourceMetadata">
-                抓取并分析
-              </button>
-              <button class="secondary-button" type="button" id="startBrowserFetch">
-                打开浏览器获取
+                获取详情页信息
               </button>
             </div>
             <label>
@@ -239,7 +236,7 @@
           </div>
           <div class="panel-actions">
             <p id="analysisStatus" class="status-text" role="status" aria-live="polite">
-              AI 会输出结构化参数、Top3 卖点和置信度。
+              URL 获取会读取页面标题、价格候选、图片候选和详情文字；截图/长图上传用于视觉识别。
             </p>
             <button class="secondary-button" type="button" id="retryAnalysis" hidden>
               重新分析
@@ -263,11 +260,34 @@
               <p class="eyebrow">Review queue</p>
               <h2 id="reviewTitle">待确认队列</h2>
             </div>
-            <button class="secondary-button" type="button" id="confirmAllReviews">
-              全部确认
-            </button>
+            <div class="review-header-actions">
+              <button class="secondary-button" type="button" id="confirmAllReviews">
+                全部确认
+              </button>
+              <button class="secondary-button" type="button" id="selectAllReviews">
+                全选
+              </button>
+              <button class="primary-button" type="button" id="confirmSelectedReviews" disabled>
+                确认所选
+              </button>
+              <button class="secondary-button danger-button" type="button" id="deleteSelectedReviews" disabled>
+                删除所选
+              </button>
+            </div>
           </div>
           <div id="reviewQueue" class="review-queue"></div>
+        </section>
+
+        <section class="panel review-detail-panel workspace-page" data-workspace-page="import" aria-labelledby="reviewDetailTitle" hidden aria-hidden="true">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Confirm intake</p>
+              <h2 id="reviewDetailTitle">确认或调整信息</h2>
+            </div>
+          </div>
+          <div id="reviewProductDetail" class="detail-empty">
+            选择待确认产品后，可在这里调整信息并确认加入产品库。
+          </div>
         </section>
 
 
@@ -360,6 +380,9 @@
                 <h2 id="productsTitle">产品库</h2>
               </div>
               <div class="panel-actions">
+                <button class="primary-button" type="button" id="openImportFromProducts" title="进入新品入库">
+                  新产品入库
+                </button>
                 <button class="icon-text-button" type="button" id="exportExcel" title="下载产品库所有信息">
                   <span aria-hidden="true">↓</span>
                   下载产品库
