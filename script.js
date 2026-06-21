@@ -3224,6 +3224,11 @@ function productImageFromAnalysis(result, category) {
   return remoteImage || imageMap[category] || "assets/robot-vacuum.svg";
 }
 
+function persistableSourceMetadata(metadata = {}) {
+  const { sourceScreenshotDataUrls, ...rest } = metadata || {};
+  return rest;
+}
+
 function productFromAnalysis(result, analysisMeta = {}) {
   const fallbackCategory = result.category || "扫地机";
   const product = {
@@ -3240,8 +3245,8 @@ function productFromAnalysis(result, analysisMeta = {}) {
     reviewRequired: Number(result.confidence || 55) < 80 || result.reviewRequired !== false,
     sourceUrl: result.sourceUrl || els.sourceUrl.value.trim(),
     sourceMetadata: {
-      ...(sourceMetadata || {}),
-      ...(result.sourceMetadata || {}),
+      ...persistableSourceMetadata(sourceMetadata || {}),
+      ...persistableSourceMetadata(result.sourceMetadata || {}),
       customFeatureEvidence: result.customFeatures || [],
     },
     quarter: normalizeQuarterInput(result.quarter),
@@ -3588,11 +3593,16 @@ async function runAnalysis() {
     showRetryAnalysis(false);
     return;
   }
+  if (sourceUrl && !sourceMetadata && !hasManualAnalysisEvidence(files, notes)) {
+    await fetchSourceMetadata();
+    return;
+  }
   if (sourceUrl && sourceMetadata && !hasManualAnalysisEvidence(files, notes) && !hasMeaningfulSourceEvidence(sourceMetadata)) {
-    setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
+    setAnalysisStatus(`${insufficientSourceMessage(sourceMetadata)} 正在打开浏览器获取真实详情页...`, "warning");
     resetAnalysisSteps();
     setAnalysisStep("input", "warning");
     showRetryAnalysis(false);
+    await startBrowserFetch();
     return;
   }
 
@@ -3777,9 +3787,18 @@ function renderSourceEvidence(metadata) {
   const priceCandidates = metadata.priceCandidates || [];
   const imageCandidates = metadata.imageCandidates || [];
   const textSnippets = metadata.textSnippets || [];
-  if (!priceCandidates.length && imageCandidates.length <= 1 && !textSnippets.length) return "";
+  const screenshotCount = Number(metadata.sourceScreenshotFetch?.count || metadata.sourceScreenshotDataUrls?.length || 0);
+  if (!priceCandidates.length && imageCandidates.length <= 1 && !textSnippets.length && !screenshotCount) return "";
   return `
     <div class="source-evidence">
+      ${
+        screenshotCount
+          ? `<div>
+              <strong>浏览器截图</strong>
+              <p>已截取 ${escapeHtml(screenshotCount)} 张详情页截图用于视觉识别。</p>
+            </div>`
+          : ""
+      }
       ${
         priceCandidates.length
           ? `<div>
@@ -3857,6 +3876,7 @@ function hasMeaningfulSourceEvidence(metadata = {}) {
   if (!metadata) return false;
   if (metadata.price || metadata.priceCandidates?.length) return true;
   if (meaningfulSourceSnippets(metadata).length) return true;
+  if (!metadata.fetchWarning && metadata.sourceScreenshotDataUrls?.length) return true;
   if (!metadata.fetchWarning && metadata.fetchMode !== "commerce-url-fallback" && metadata.imageCandidates?.length) return true;
   return false;
 }
@@ -3867,7 +3887,7 @@ function hasManualAnalysisEvidence(files, notes) {
 
 function insufficientSourceMessage(metadata = {}) {
   const platform = metadata.platform ? `${metadata.platform} ` : "";
-  return `未获取到${platform}有效详情页内容：没有商品名、价格、参数或可用详情文案。不会生成空产品；请上传详情页截图/长图，或在补充说明里粘贴商品名、价格和关键参数后再分析。`;
+  return `未获取到${platform}有效详情页图片和内容：没有商品名、价格、参数或可用于视觉识别的详情图。不会生成空产品；请在弹出的浏览器里完成登录/验证并停留在真实详情页后点击“继续获取”。`;
 }
 
 async function fetchSourceMetadata() {
@@ -3888,7 +3908,8 @@ async function fetchSourceMetadata() {
     sourceMetadata = { ...metadata, url, fetchedAt: nowIso() };
     renderSourcePreview(sourceMetadata);
     if (!hasMeaningfulSourceEvidence(sourceMetadata)) {
-      setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
+      setAnalysisStatus(`${insufficientSourceMessage(sourceMetadata)} 正在打开浏览器获取真实详情页...`, "warning");
+      await startBrowserFetch();
       return;
     }
     setAnalysisStatus("详情页信息获取完成，正在自动分析...", "success");
@@ -3940,7 +3961,7 @@ async function collectBrowserFetch() {
   }
   setAnalysisBusy(true);
   try {
-    setAnalysisStatus("正在读取浏览器当前详情页内容...", "progress");
+    setAnalysisStatus("正在读取浏览器当前详情页内容，并自动截取整页截图...", "progress");
     const response = await apiFetch("/api/browser-fetch/collect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3952,10 +3973,10 @@ async function collectBrowserFetch() {
     renderSourcePreview(sourceMetadata);
     setBrowserFetchControls(false);
     if (!hasMeaningfulSourceEvidence(sourceMetadata)) {
-      setAnalysisStatus(insufficientSourceMessage(sourceMetadata), "warning");
+      setAnalysisStatus(`浏览器当前页面仍未获取到有效详情页图片和内容。请确认已完成登录/验证，并停留在真实商品详情页后重新点击“打开浏览器获取”。`, "warning");
       return;
     }
-    setAnalysisStatus("浏览器详情页获取完成，正在自动分析...", "success");
+    setAnalysisStatus("浏览器详情页和截图获取完成，正在自动分析...", "success");
     await runAnalysis();
   } catch (error) {
     setAnalysisStatus(`浏览器详情页读取失败：${normalizeErrorMessage(error)}。请确认浏览器停留在真实详情页，或上传截图/长图。`, "error");

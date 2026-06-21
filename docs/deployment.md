@@ -28,6 +28,12 @@ QWEN_API_KEY=...
 QWEN_MODEL=qwen-vl-max
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 QWEN_REQUEST_TIMEOUT_MS=60000
+# AUTO_SOURCE_IMAGE_COUNT=4
+# AUTO_SOURCE_IMAGE_BYTES=2621440
+# AUTO_SOURCE_IMAGE_DATA_URL_CHARS=3000000
+# AUTO_SOURCE_IMAGE_MIN_WIDTH=640
+# AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE=320
+# AUTO_SOURCE_IMAGE_MIN_PIXELS=250000
 # OPENAI_INPUT_USD_PER_1M=...
 # OPENAI_OUTPUT_USD_PER_1M=...
 # OPENAI_TOTAL_USD_PER_1M=...
@@ -48,6 +54,10 @@ PORT=4173
 - `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` / `DEEPSEEK_BASE_URL`：DeepSeek 文本任务配置，默认模型 `deepseek-v4-flash`，默认地址 `https://api.deepseek.com`。
 - `QWEN_API_KEY` / `QWEN_MODEL` / `QWEN_BASE_URL`：Qwen-VL 视觉任务配置，默认模型 `qwen-vl-max`，默认百炼兼容地址 `https://dashscope.aliyuncs.com/compatible-mode/v1`。
 - `QWEN_REQUEST_TIMEOUT_MS`：Qwen-VL 请求超时时间；不配置时使用 `AI_REQUEST_TIMEOUT_MS`。
+- `AUTO_SOURCE_IMAGE_COUNT`：URL 详情页自动下载图片候选数量，默认 4 张。
+- `AUTO_SOURCE_IMAGE_BYTES`：URL 详情页单张候选图片下载大小上限，默认约 2.5MB。
+- `AUTO_SOURCE_IMAGE_DATA_URL_CHARS`：URL 详情页候选图片转成模型输入后的长度上限，默认 3000000 字符。
+- `AUTO_SOURCE_IMAGE_MIN_WIDTH` / `AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE` / `AUTO_SOURCE_IMAGE_MIN_PIXELS`：URL 自动图片进入 Qwen-VL 前的最小尺寸门槛，用来过滤 logo、图标、跟踪像素和过小缩略图。
 - `OPENAI_INPUT_USD_PER_1M` / `OPENAI_OUTPUT_USD_PER_1M`：可选成本单价，单位为每 100 万输入/输出 token 的美元价格；也可用 `OPENAI_TOTAL_USD_PER_1M` 按总 token 粗算。
 - `APP_ACCESS_TOKEN`：兼容内部访问令牌。设置后除 `/api/health` 外的 API 都需要 `X-App-Token`，并同时拥有读写权限。
 - `APP_READ_TOKEN` / `APP_WRITE_TOKEN`：可选读写分离令牌。读令牌可查看产品库、用量和预抓取 metadata；写令牌可保存状态、运行 AI 分析和生成对比总结。
@@ -173,6 +183,7 @@ node scripts/verify-hygiene.mjs
 - 页面显示 DeepSeek 未配置：检查 `.env.local` 是否包含 `DEEPSEEK_API_KEY`；不配置时文本抽取和型号对比会走本地兜底。
 - 页面显示 Qwen-VL 未配置：检查 `.env.local` 是否包含 `QWEN_API_KEY`；不配置时图片、长图和详情页图片候选会走人工复核兜底。
 - 页面显示 Qwen-VL 请求失败：先运行 `node scripts/check-ai-connectivity.mjs --base-url http://127.0.0.1:4173`；再检查 `QWEN_BASE_URL` 是否为百炼兼容地址、`QWEN_MODEL` 是否是账号可用模型。
+- 页面提示“未获取到可用于视觉识别的详情页图片”或“图片尺寸太小”：说明 URL 页面没有拿到足够大的产品详情图。优先上传详情页截图/长图；如果网页确实有大图但被过滤，可适当降低 `AUTO_SOURCE_IMAGE_MIN_WIDTH`、`AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE` 或 `AUTO_SOURCE_IMAGE_MIN_PIXELS`。
 - 页面显示成本单价未配置：检查 `.env.local` 是否包含 `OPENAI_INPUT_USD_PER_1M` 和 `OPENAI_OUTPUT_USD_PER_1M`，或 `OPENAI_TOTAL_USD_PER_1M`。
 - API 返回 401：确认页面输入的访问令牌与 `APP_READ_TOKEN`、`APP_WRITE_TOKEN` 或 `APP_ACCESS_TOKEN` 一致。
 - API 返回 403：当前令牌没有写权限，输入 `APP_WRITE_TOKEN` 或兼容的 `APP_ACCESS_TOKEN`。

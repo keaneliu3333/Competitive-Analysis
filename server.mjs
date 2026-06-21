@@ -20,6 +20,14 @@ const maxModelImageDataUrlChars = 4_000_000;
 const maxModelImageCount = 32;
 const maxAutoSourceImageCount = Number(env.AUTO_SOURCE_IMAGE_COUNT || 4);
 const maxAutoSourceImageBytes = Number(env.AUTO_SOURCE_IMAGE_BYTES || Math.floor(2.5 * 1024 * 1024));
+const maxAutoSourceImageDataUrlChars = Number(env.AUTO_SOURCE_IMAGE_DATA_URL_CHARS || 3_000_000);
+const minAutoSourceImageWidth = Number(env.AUTO_SOURCE_IMAGE_MIN_WIDTH || 640);
+const minAutoSourceImageShortEdge = Number(env.AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE || 320);
+const minAutoSourceImagePixels = Number(env.AUTO_SOURCE_IMAGE_MIN_PIXELS || 250_000);
+const browserScreenshotWidth = Number(env.BROWSER_FETCH_SCREENSHOT_WIDTH || 1365);
+const browserScreenshotHeight = Number(env.BROWSER_FETCH_SCREENSHOT_HEIGHT || 1100);
+const maxBrowserScreenshotCount = Number(env.BROWSER_FETCH_SCREENSHOT_COUNT || 24);
+const maxBrowserScreenshotScrollHeight = Number(env.BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT || 30000);
 const browserFetchSessions = new Map();
 const browserFetchProfileDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
 const defaultChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -659,10 +667,101 @@ async function collectBrowserFetch(input = {}) {
         .filter(Boolean)
         .slice(0, 80),
     }));
+    const screenshots = await captureBrowserPageScreenshots(page);
+    snapshot.sourceScreenshotDataUrls = screenshots.dataUrls;
+    snapshot.sourceScreenshotFetch = {
+      count: screenshots.dataUrls.length,
+      pageHeight: screenshots.pageHeight,
+      viewportWidth: screenshots.viewportWidth,
+      viewportHeight: screenshots.viewportHeight,
+      positions: screenshots.positions,
+      warnings: screenshots.warnings,
+    };
     return metadataFromBrowserSnapshot(snapshot, originalUrl);
   } finally {
     await closeBrowserFetchSession(sessionId);
   }
+}
+
+function selectScreenshotPositions(allPositions, limit) {
+  if (allPositions.length <= limit) return allPositions;
+  const selected = new Set([allPositions[0], allPositions[allPositions.length - 1]]);
+  for (let index = 1; selected.size < limit && index < limit - 1; index += 1) {
+    selected.add(allPositions[Math.round((index * (allPositions.length - 1)) / (limit - 1))]);
+  }
+  return [...selected].sort((a, b) => a - b).slice(0, limit);
+}
+
+async function screenshotDataUrl(page) {
+  const qualities = [76, 64, 52, 42, 34];
+  for (const quality of qualities) {
+    const buffer = await page.screenshot({
+      type: "jpeg",
+      quality,
+      fullPage: false,
+      animations: "disabled",
+      caret: "hide",
+    });
+    const dataUrl = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+    if (dataUrl.length <= maxAutoSourceImageDataUrlChars && dataUrl.length <= maxModelImageDataUrlChars) {
+      return { dataUrl, quality };
+    }
+  }
+  return null;
+}
+
+async function captureBrowserPageScreenshots(page) {
+  const warnings = [];
+  await page.setViewportSize({ width: browserScreenshotWidth, height: browserScreenshotHeight }).catch((error) => {
+    warnings.push(`设置截图视口失败：${error.message}`);
+  });
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  await page.waitForTimeout(500).catch(() => {});
+  const metrics = await page
+    .evaluate(() => {
+      const body = document.body;
+      const doc = document.documentElement;
+      return {
+        scrollHeight: Math.max(body?.scrollHeight || 0, body?.offsetHeight || 0, doc?.clientHeight || 0, doc?.scrollHeight || 0, doc?.offsetHeight || 0),
+        viewportWidth: window.innerWidth || document.documentElement.clientWidth || 0,
+        viewportHeight: window.innerHeight || document.documentElement.clientHeight || 0,
+      };
+    })
+    .catch(() => ({ scrollHeight: browserScreenshotHeight, viewportWidth: browserScreenshotWidth, viewportHeight: browserScreenshotHeight }));
+  const viewportHeight = Math.max(320, Math.min(Number(metrics.viewportHeight || browserScreenshotHeight), browserScreenshotHeight));
+  const pageHeight = Math.max(viewportHeight, Math.min(Number(metrics.scrollHeight || viewportHeight), maxBrowserScreenshotScrollHeight));
+  const step = viewportHeight;
+  const allPositions = [];
+  for (let y = 0; y < pageHeight; y += step) {
+    allPositions.push(Math.max(0, Math.min(y, Math.max(0, pageHeight - viewportHeight))));
+  }
+  allPositions.push(Math.max(0, pageHeight - viewportHeight));
+  const positions = selectScreenshotPositions(uniqueStrings(allPositions.map(String), 200).map(Number), maxBrowserScreenshotCount);
+  const dataUrls = [];
+  const capturedPositions = [];
+  for (const y of positions) {
+    await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y).catch(() => {});
+    await page.waitForTimeout(450).catch(() => {});
+    const shot = await screenshotDataUrl(page).catch((error) => {
+      warnings.push(`截图失败：${error.message}`);
+      return null;
+    });
+    if (!shot) {
+      warnings.push(`截图 ${y}px 超过模型单图限制，已跳过`);
+      continue;
+    }
+    dataUrls.push(shot.dataUrl);
+    capturedPositions.push({ y, quality: shot.quality });
+  }
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  return {
+    dataUrls,
+    pageHeight,
+    viewportWidth: Number(metrics.viewportWidth || browserScreenshotWidth),
+    viewportHeight,
+    positions: capturedPositions,
+    warnings: warnings.slice(0, 8),
+  };
 }
 
 function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
@@ -685,7 +784,7 @@ function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
   const blocked = /验证码|安全验证|登录后|请登录|当前页面异常|内容太火爆|请刷新|访问受限|滑块验证/.test(text);
   const fetchWarning = blocked
     ? "浏览器页面仍像是登录、验证或异常页面；请在浏览器窗口完成登录/验证并停留在真实详情页后重新获取。"
-    : commerceFallback.fetchWarning || "";
+    : "";
   return {
     ...commerceFallback,
     title: decodeHtml(snapshot.title || commerceFallback.title || ""),
@@ -697,6 +796,8 @@ function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
     priceSource: priceCandidate?.source || "",
     priceCandidates,
     textSnippets,
+    sourceScreenshotDataUrls: Array.isArray(snapshot.sourceScreenshotDataUrls) ? snapshot.sourceScreenshotDataUrls.slice(0, maxBrowserScreenshotCount) : [],
+    sourceScreenshotFetch: snapshot.sourceScreenshotFetch || null,
     htmlBytes: Buffer.byteLength(html, "utf8"),
     fetchMode: "browser",
     browserAssisted: true,
@@ -1088,10 +1189,65 @@ function normalizeImageMimeType(contentType = "", url = "") {
   return "";
 }
 
+function readThreeByteLittleEndian(buffer, offset) {
+  return buffer[offset] + (buffer[offset + 1] << 8) + (buffer[offset + 2] << 16);
+}
+
+function imageDimensionsFromBytes(buffer, mimeType = "") {
+  if (!Buffer.isBuffer(buffer) || buffer.length < 24) return null;
+  if (mimeType === "image/png" && buffer.toString("ascii", 1, 4) === "PNG") {
+    return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+  }
+  if (mimeType === "image/jpeg" && buffer[0] === 0xff && buffer[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < buffer.length) {
+      if (buffer[offset] !== 0xff) {
+        offset += 1;
+        continue;
+      }
+      const marker = buffer[offset + 1];
+      const length = buffer.readUInt16BE(offset + 2);
+      if (length < 2) break;
+      if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker)) {
+        return { width: buffer.readUInt16BE(offset + 7), height: buffer.readUInt16BE(offset + 5) };
+      }
+      offset += 2 + length;
+    }
+  }
+  if (mimeType === "image/webp" && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") {
+    const chunkType = buffer.toString("ascii", 12, 16);
+    if (chunkType === "VP8X" && buffer.length >= 30) {
+      return { width: readThreeByteLittleEndian(buffer, 24) + 1, height: readThreeByteLittleEndian(buffer, 27) + 1 };
+    }
+    if (chunkType === "VP8L" && buffer.length >= 25 && buffer[20] === 0x2f) {
+      const b0 = buffer[21];
+      const b1 = buffer[22];
+      const b2 = buffer[23];
+      const b3 = buffer[24];
+      return {
+        width: 1 + (((b1 & 0x3f) << 8) | b0),
+        height: 1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)),
+      };
+    }
+    if (chunkType === "VP8 " && buffer.length >= 30) {
+      return { width: buffer.readUInt16LE(26) & 0x3fff, height: buffer.readUInt16LE(28) & 0x3fff };
+    }
+  }
+  return null;
+}
+
+function isAutoSourceImageLargeEnough(dimensions) {
+  if (!dimensions?.width || !dimensions?.height) return true;
+  const width = Number(dimensions.width || 0);
+  const height = Number(dimensions.height || 0);
+  return width >= minAutoSourceImageWidth && Math.min(width, height) >= minAutoSourceImageShortEdge && width * height >= minAutoSourceImagePixels;
+}
+
 async function fetchRemoteImageDataUrls(values, { referer = "", limit = maxAutoSourceImageCount } = {}) {
   const imageUrls = normalizeRemoteImageUrls(values, limit);
   const dataUrls = [];
   const fetchedUrls = [];
+  const fetchedDimensions = [];
   const warnings = [];
   for (const url of imageUrls) {
     try {
@@ -1127,13 +1283,19 @@ async function fetchRemoteImageDataUrls(values, { referer = "", limit = maxAutoS
         warnings.push(`${url} 图片过大，已跳过`);
         continue;
       }
+      const dimensions = imageDimensionsFromBytes(bytes, mimeType);
+      if (!isAutoSourceImageLargeEnough(dimensions)) {
+        warnings.push(`${url} 图片尺寸太小（${dimensions.width}x${dimensions.height}），已跳过`);
+        continue;
+      }
       const dataUrl = `data:${mimeType};base64,${bytes.toString("base64")}`;
-      if (dataUrl.length > maxModelImageDataUrlChars) {
+      if (dataUrl.length > maxAutoSourceImageDataUrlChars || dataUrl.length > maxModelImageDataUrlChars) {
         warnings.push(`${url} 图片超过模型单图限制，已跳过`);
         continue;
       }
       dataUrls.push(dataUrl);
       fetchedUrls.push(response.url || url);
+      fetchedDimensions.push(dimensions || null);
     } catch (error) {
       warnings.push(`${url} 下载失败：${error.message}`);
     }
@@ -1141,6 +1303,7 @@ async function fetchRemoteImageDataUrls(values, { referer = "", limit = maxAutoS
   return {
     dataUrls,
     fetchedUrls,
+    fetchedDimensions,
     warnings: warnings.slice(0, 6),
     candidateCount: imageUrls.length,
   };
@@ -1157,6 +1320,7 @@ function meaningfulTextSnippets(metadata = {}) {
 function hasMeaningfulSourceEvidence(metadata = {}) {
   if (metadata.price || metadata.priceCandidates?.length) return true;
   if (meaningfulTextSnippets(metadata).length) return true;
+  if (!metadata.fetchWarning && metadata.sourceScreenshotDataUrls?.length) return true;
   if (!metadata.fetchWarning && metadata.fetchMode !== "commerce-url-fallback" && metadata.imageCandidates?.length) return true;
   return false;
 }
@@ -1171,7 +1335,7 @@ function assertEnoughAnalysisEvidence(input = {}, metadata = {}, uploadedFile, i
   const platformText = metadata.platform ? `${metadata.platform} ` : "";
   throw new HttpError(
     422,
-    `未获取到${platformText}有效详情页内容：没有商品名、价格、参数或可用详情文案。请上传详情页截图/长图，或在补充说明里粘贴商品名、价格和关键参数后再分析。`,
+    `未获取到${platformText}有效详情页图片和内容：没有商品名、价格、参数或可用于视觉识别的详情图。不能只读取文字完成分析；请使用“打开浏览器获取”完成登录/验证后继续，或上传合格尺寸的详情页截图/长图。`,
   );
 }
 
@@ -1559,11 +1723,12 @@ async function analyzeProduct(input) {
   const featureFields = sanitizeFeatureFields(input.featureFields);
   const analysisExamples = sanitizeAnalysisExamples(input.analysisExamples);
   const uploadedImageUrls = normalizeImageDataUrls(input);
+  const sourceScreenshotDataUrls = normalizeImageDataUrls({ imageDataUrls: metadata.sourceScreenshotDataUrls || [] });
   const sourceImageUrls = analysisSourceImageUrls(metadata);
   const downloadedSourceImages = await fetchRemoteImageDataUrls(sourceImageUrls, {
     referer: input.sourceUrl || metadata.finalUrl || metadata.url || "",
   });
-  const modelImageDataUrls = [...uploadedImageUrls, ...downloadedSourceImages.dataUrls].slice(0, maxModelImageCount);
+  const modelImageDataUrls = [...uploadedImageUrls, ...sourceScreenshotDataUrls, ...downloadedSourceImages.dataUrls].slice(0, maxModelImageCount);
   assertEnoughAnalysisEvidence(input, metadata, uploadedFile, modelImageDataUrls);
   const oversizedImageUrl = modelImageDataUrls.find((imageUrl) => imageUrl.length > maxModelImageDataUrlChars);
   if (oversizedImageUrl) {
@@ -1571,17 +1736,21 @@ async function analyzeProduct(input) {
   }
   if (
     input.sourceUrl &&
-    sourceImageUrls.length &&
     !downloadedSourceImages.dataUrls.length &&
+    !sourceScreenshotDataUrls.length &&
     !uploadedImageUrls.length &&
-    !uploadedFile &&
-    !metadata.price &&
-    !metadata.priceCandidates?.length &&
-    !meaningfulTextSnippets(metadata).length
+    !uploadedFile
   ) {
+    const sizeHint = `图片要求：宽度至少 ${minAutoSourceImageWidth}px，短边至少 ${minAutoSourceImageShortEdge}px，像素量至少 ${minAutoSourceImagePixels}。`;
+    if (!sourceImageUrls.length) {
+      throw new HttpError(
+        422,
+        `未获取到可用于视觉识别的详情页图片，不能只读取文字完成分析。${sizeHint}请使用“打开浏览器获取”登录后继续，或上传详情页截图/长图。`,
+      );
+    }
     throw new HttpError(
       422,
-      `已发现 ${sourceImageUrls.length} 张详情页图片候选，但都无法自动下载成可分析图片。请使用“打开浏览器获取”登录后继续，或上传详情页截图/长图。`,
+      `已发现 ${sourceImageUrls.length} 张详情页图片候选，但都无法自动下载成符合视觉识别尺寸的图片。${sizeHint}请使用“打开浏览器获取”登录后继续，或上传详情页截图/长图。`,
     );
   }
   const prompt = [
@@ -1601,6 +1770,9 @@ async function analyzeProduct(input) {
     `图片候选数: ${metadata.imageCandidates?.length || 0}`,
     `自动下载详情页图片数: ${downloadedSourceImages.dataUrls.length}/${sourceImageUrls.length}`,
     `自动下载图片来源: ${downloadedSourceImages.fetchedUrls.length ? JSON.stringify(downloadedSourceImages.fetchedUrls.slice(0, 4)) : "[]"}`,
+    `自动下载图片尺寸: ${downloadedSourceImages.fetchedDimensions.length ? JSON.stringify(downloadedSourceImages.fetchedDimensions.slice(0, 4)) : "[]"}`,
+    `浏览器整页截图数: ${sourceScreenshotDataUrls.length}`,
+    `浏览器截图范围: ${metadata.sourceScreenshotFetch ? JSON.stringify(metadata.sourceScreenshotFetch) : "无"}`,
     `详情页图片下载问题: ${downloadedSourceImages.warnings.length ? JSON.stringify(downloadedSourceImages.warnings) : "[]"}`,
     `页面文案证据片段: ${metadata.textSnippets?.length ? JSON.stringify(metadata.textSnippets.slice(0, 12)) : "[]"}`,
     `上传图片数: ${uploadedImageUrls.length}`,
@@ -1709,21 +1881,27 @@ async function analyzeProduct(input) {
     prompt,
     imageDataUrl: input.imageDataUrl,
     imageDataUrls: modelImageDataUrls,
-    remoteImageUrls: downloadedSourceImages.dataUrls.length ? [] : sourceImageUrls,
+    remoteImageUrls: modelImageDataUrls.length ? [] : sourceImageUrls,
     fileAttachment: input.fileAttachment,
     schemaName: "cleaner_product_analysis",
     schema,
   });
+  const { sourceScreenshotDataUrls: _sourceScreenshotDataUrls, ...persistedMetadata } = metadata;
   return {
     product: {
       ...product,
       sourceMetadata: {
-        ...metadata,
+        ...persistedMetadata,
         url: input.sourceUrl || metadata.url || "",
+        sourceScreenshotFetch: {
+          ...(metadata.sourceScreenshotFetch || {}),
+          usedCount: sourceScreenshotDataUrls.length,
+        },
         sourceImageFetch: {
           candidateCount: downloadedSourceImages.candidateCount,
           fetchedCount: downloadedSourceImages.dataUrls.length,
           fetchedUrls: downloadedSourceImages.fetchedUrls,
+          fetchedDimensions: downloadedSourceImages.fetchedDimensions,
           warnings: downloadedSourceImages.warnings,
         },
         ...(uploadedFile ? { uploadedFile } : {}),

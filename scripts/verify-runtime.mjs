@@ -124,8 +124,8 @@ try {
   });
   assert(insufficientAnalysis.status === 422, "/api/analyze should reject URL-only commerce input without product evidence");
   assert(
-    JSON.parse(insufficientAnalysis.body).error.includes("未获取到天猫 有效详情页内容"),
-    "/api/analyze insufficient evidence error should explain missing detail content",
+    JSON.parse(insufficientAnalysis.body).error.includes("未获取到天猫 有效详情页图片和内容"),
+    "/api/analyze insufficient evidence error should explain missing detail image content",
   );
 
   const missingBrowserSession = await invoke(server, {
@@ -160,6 +160,7 @@ try {
   const analysis = await postJson(server, "/api/analyze", {
     sourceUrl: "https://example.com/floor-washer",
     notes: "洗地机详情页，重点关注自清洁和贴边能力。",
+    imageDataUrls: ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2w=="],
     featureFields: [
       { key: "hotWash", name: "热水洗", type: "boolean" },
       { key: "base", name: "基站", type: "text" },

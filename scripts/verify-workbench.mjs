@@ -458,10 +458,18 @@ for (const token of [
   "fetchMetadata",
   "startBrowserFetch",
   "collectBrowserFetch",
+  "captureBrowserPageScreenshots",
   "metadataFromBrowserSnapshot",
   "fetchRemoteImageDataUrls",
   "sourceImageFetch",
+  "sourceScreenshotDataUrls",
+  "sourceScreenshotFetch",
+  "浏览器整页截图数",
   "自动下载详情页图片数",
+  "自动下载图片尺寸",
+  "AUTO_SOURCE_IMAGE_MIN_WIDTH",
+  "图片尺寸太小",
+  "不能只读取文字完成分析",
   "图片过大，已跳过",
   "normalizeImageDataUrls",
   "metaContent",
@@ -647,6 +655,10 @@ assertIncludes(scriptJs, "/api/browser-fetch/cancel", "script.js browser assiste
 assertIncludes(scriptJs, "source-fetch-meta", "script.js metadata fetch status display");
 assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback warning display");
 assertIncludes(scriptJs, "自动下载详情页图片", "script.js analysis status explains automatic detail image fetch");
+assertIncludes(scriptJs, "正在打开浏览器获取真实详情页", "script.js opens browser fetch when public detail page evidence is missing");
+assertIncludes(scriptJs, "继续获取", "script.js tells users to collect after browser login");
+assertIncludes(scriptJs, "自动截取整页截图", "script.js browser collect explains full-page screenshots");
+assertIncludes(scriptJs, "persistableSourceMetadata", "script.js strips transient screenshot data before persisting products");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");

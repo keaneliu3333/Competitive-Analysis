@@ -54,18 +54,36 @@ if (!snippets.some((snippet) => snippet.includes("12000Pa") && snippet.includes(
   fail("feature text snippet should include suction and base-station evidence");
 }
 
-const tinyPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
-  "base64",
-);
+function pngHeader(width, height) {
+  const header = Buffer.alloc(33);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(header, 0);
+  header.writeUInt32BE(13, 8);
+  header.write("IHDR", 12, "ascii");
+  header.writeUInt32BE(width, 16);
+  header.writeUInt32BE(height, 20);
+  header[24] = 8;
+  header[25] = 2;
+  return header;
+}
+const largePng = pngHeader(800, 600);
+const smallPng = pngHeader(120, 120);
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url) => {
   if (url === "https://cdn.example.com/product-main.png") {
-    return new Response(tinyPng, {
+    return new Response(largePng, {
       status: 200,
       headers: {
         "Content-Type": "image/png",
-        "Content-Length": String(tinyPng.length),
+        "Content-Length": String(largePng.length),
+      },
+    });
+  }
+  if (url === "https://cdn.example.com/product-thumb.png") {
+    return new Response(smallPng, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/png",
+        "Content-Length": String(smallPng.length),
       },
     });
   }
@@ -78,6 +96,16 @@ try {
   if (imageFetch.dataUrls.length !== 1) fail("remote detail image should be downloaded as data URL");
   if (!imageFetch.dataUrls[0]?.startsWith("data:image/png;base64,")) fail("downloaded detail image should keep image MIME type");
   if (imageFetch.fetchedUrls.length !== 1) fail("downloaded detail image should record fetched source URL");
+  if (imageFetch.fetchedDimensions[0]?.width !== 800 || imageFetch.fetchedDimensions[0]?.height !== 600) {
+    fail("downloaded detail image should record dimensions");
+  }
+  const smallImageFetch = await fetchRemoteImageDataUrls(["https://cdn.example.com/product-thumb.png"], {
+    referer: "https://example.com/product/x1",
+  });
+  if (smallImageFetch.dataUrls.length !== 0) fail("small remote detail image should be skipped before vision analysis");
+  if (!smallImageFetch.warnings.some((warning) => warning.includes("图片尺寸太小"))) {
+    fail("small remote detail image should report a size warning");
+  }
 } finally {
   globalThis.fetch = originalFetch;
 }
