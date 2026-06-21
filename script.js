@@ -2256,6 +2256,50 @@ function compareFields() {
   return allCompareFields().filter((field) => selectedKeys.has(field.key));
 }
 
+function normalizedCompareValue(value) {
+  return String(value ?? "").replace(/(?<=\d),(?=\d)/g, "").trim();
+}
+
+function compareValueScore(field, value) {
+  const text = normalizedCompareValue(value);
+  if (!text || /待确认|未知|-/.test(text)) return null;
+  if (/不支持|无|false/i.test(text)) return 0;
+  if (/支持|有|true/i.test(text)) return 1;
+  const levelScores = [
+    ["旗舰", 4],
+    ["高端", 3],
+    ["进阶", 2],
+    ["基础", 1],
+  ];
+  const level = levelScores.find(([label]) => text.includes(label));
+  if (level) return level[1];
+  const numbers = [...text.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => Number(match[0])).filter(Number.isFinite);
+  if (!numbers.length) return null;
+  const fieldText = `${field.key || ""} ${field.name || ""}`.toLowerCase();
+  const lowerIsBetter = /price|价格|noise|噪音|db/.test(fieldText) || /db/i.test(text);
+  const valueForScore = lowerIsBetter ? Math.min(...numbers) : Math.max(...numbers);
+  return lowerIsBetter ? -valueForScore : valueForScore;
+}
+
+function compareStrongValueIndexes(field, values) {
+  const scored = values.map((value, index) => ({ index, score: compareValueScore(field, value) })).filter((item) => item.score !== null);
+  if (scored.length === 1 && unique(values).length > 1) return new Set([scored[0].index]);
+  if (scored.length < 2) return new Set();
+  const scores = scored.map((item) => item.score);
+  const bestScore = Math.max(...scores);
+  const worstScore = Math.min(...scores);
+  if (bestScore === worstScore) return new Set();
+  return new Set(scored.filter((item) => item.score === bestScore).map((item) => item.index));
+}
+
+function compareModuleRowSpans(fields) {
+  const spans = new Map();
+  fields.forEach((field) => {
+    spans.set(field.module, (spans.get(field.module) || 0) + 1);
+  });
+  return spans;
+}
+
 function renderCompareStatus(selected, fields) {
   if (!els.compareStatus) return;
   const selectedCount = selected.length;
@@ -2338,17 +2382,26 @@ function renderCompare() {
   renderCompareStatus(selected, fields);
 
   els.compareHead.innerHTML = `<tr><th>模块</th><th>字段</th>${selected
-    .map((product) => `<th>${escapeHtml(product.model)}</th>`)
+    .map((product) => `<th><strong>${escapeHtml(productDisplayTitle(product))}</strong></th>`)
     .join("")}</tr>`;
 
+  const moduleRowSpans = compareModuleRowSpans(fields);
+  const renderedModules = new Set();
   els.compareBody.innerHTML = fields
     .map((field) => {
       const values = selected.map((product) => field.value(product));
       const hasDiff = unique(values).length > 1;
+      const strongIndexes = compareStrongValueIndexes(field, values);
+      const moduleCell = renderedModules.has(field.module)
+        ? ""
+        : `<td class="compare-module-cell" rowspan="${moduleRowSpans.get(field.module) || 1}">${escapeHtml(field.module)}</td>`;
+      renderedModules.add(field.module);
       return `<tr>
-        <td>${escapeHtml(field.module)}</td>
+        ${moduleCell}
         <td>${escapeHtml(field.name)}</td>
-        ${values.map((value) => `<td class="${hasDiff ? "diff-cell" : ""}">${escapeHtml(value)}</td>`).join("")}
+        ${values
+          .map((value, index) => `<td class="${[hasDiff ? "diff-cell" : "", strongIndexes.has(index) ? "compare-strong-cell" : ""].filter(Boolean).join(" ")}">${escapeHtml(value)}</td>`)
+          .join("")}
       </tr>`;
     })
     .join("");
@@ -3266,7 +3319,7 @@ function isGenericProductName(name, category) {
 
 function normalizedAnalysisProductName(result, brand, model, category) {
   const name = String(result.name || "").trim();
-  const title = [displayBrandName(brand), model].filter(Boolean).join(" ");
+  const title = [String(brand || "").trim(), String(model || "").trim()].filter(Boolean).join(" ");
   return isGenericProductName(name, category) && title ? title : name || title || model || "待确认产品";
 }
 

@@ -642,6 +642,9 @@ assertIncludes(scriptJs, "sidebarCollapsed", "script.js sidebar collapse state")
 assertIncludes(scriptJs, "sidebarToggle", "script.js sidebar collapse control");
 assertIncludes(scriptJs, "page.hidden = !isActive", "script.js workspace exclusive visibility");
 assertIncludes(scriptJs, "getCompareCandidateProducts", "script.js compare scoped product candidates");
+assertIncludes(scriptJs, "compareModuleRowSpans", "script.js compare matrix groups module rows");
+assertIncludes(scriptJs, "compareStrongValueIndexes", "script.js compare matrix highlights stronger values");
+assertIncludes(scriptJs, "productDisplayTitle(product)", "script.js compare header uses product title");
 assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-select state");
 assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
 assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
@@ -669,6 +672,7 @@ assertIncludes(scriptJs, "commerce-url-fallback", "script.js commerce fallback w
 assertIncludes(scriptJs, "自动下载详情页图片", "script.js analysis status explains automatic detail image fetch");
 assertIncludes(scriptJs, "productDisplayTitle", "script.js product library title uses brand and model");
 assertIncludes(scriptJs, "normalizedAnalysisProductName", "script.js normalizes generic AI product names");
+assertIncludes(scriptJs, "String(brand || \"\").trim()", "script.js product names use raw brand text instead of display labels");
 assertIncludes(scriptJs, "T90PRO", "script.js normalizes ECOVACS T90PRO model from Tmall title");
 assertIncludes(scriptJs, "正在打开浏览器获取真实详情页", "script.js opens browser fetch when public detail page evidence is missing");
 assertIncludes(scriptJs, "继续获取", "script.js tells users to collect after browser login");
@@ -677,6 +681,8 @@ assertIncludes(scriptJs, "persistableSourceMetadata", "script.js strips transien
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
+assertIncludes(stylesCss, ".compare-module-cell", "styles.css compare grouped module cell");
+assertIncludes(stylesCss, ".compare-strong-cell", "styles.css compare strong value highlight");
 assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");
