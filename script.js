@@ -461,8 +461,9 @@ async function apiFetch(url, options = {}) {
 }
 
 const els = {
-  keywordSearch: document.querySelector("#keywordSearch"),
   categoryFilters: document.querySelector("#categoryFilters"),
+  categoryFilterOptions: document.querySelector("#categoryFilterOptions"),
+  categoryFilterSearch: document.querySelector("#categoryFilterSearch"),
   categoryFilterDropdown: document.querySelector("#categoryFilterDropdown"),
   categoryFilterToggle: document.querySelector("#categoryFilterToggle"),
   categoryFilterLabel: document.querySelector("#categoryFilterLabel"),
@@ -472,7 +473,12 @@ const els = {
   navCompareCount: document.querySelector("#navCompareCount"),
   navRoadmapCount: document.querySelector("#navRoadmapCount"),
   sidebarToggle: document.querySelector("#sidebarToggle"),
-  brandFilter: document.querySelector("#brandFilter"),
+  brandFilterDropdown: document.querySelector("#brandFilterDropdown"),
+  brandFilterToggle: document.querySelector("#brandFilterToggle"),
+  brandFilterLabel: document.querySelector("#brandFilterLabel"),
+  brandFilters: document.querySelector("#brandFilters"),
+  brandFilterOptions: document.querySelector("#brandFilterOptions"),
+  brandFilterSearch: document.querySelector("#brandFilterSearch"),
   channelFilter: document.querySelector("#channelFilter"),
   statusFilter: document.querySelector("#statusFilter"),
   minPrice: document.querySelector("#minPrice"),
@@ -1598,9 +1604,8 @@ function getFilteredProducts() {
     const statusOk = filters.status === "全部" || product.status === filters.status;
     const priceOk = product.price >= min && product.price <= max;
     const confidenceOk = Number(product.confidence || 0) >= Number(filters.confidence);
-    const keywordOk = keywordMatches(product);
     const featureOk = featureFilterMatches(product);
-    return keywordOk && categoryOk && brandOk && channelOk && statusOk && priceOk && confidenceOk && featureOk;
+    return categoryOk && brandOk && channelOk && statusOk && priceOk && confidenceOk && featureOk;
   });
 }
 
@@ -1668,12 +1673,39 @@ function displayBrandName(brand) {
   return cn && cn !== raw ? `${cn}（${raw}）` : raw;
 }
 
+function optionMatchesSearch(value, keyword) {
+  const text = normalizeText(value);
+  const query = normalizeText(keyword);
+  if (!query) return true;
+  return text.includes(query);
+}
+
+function renderSearchableOptions(container, options, selectedValue, { allValue = "全部", display = (value) => value, dataName }) {
+  if (!container) return;
+  container.innerHTML = options
+    .map((option) => {
+      const active = option === selectedValue;
+      return `
+        <button class="multi-select-option ${active ? "is-active" : ""}" type="button" data-${dataName}="${escapeHtml(option)}">
+          <span>${escapeHtml(display(option))}</span>
+          ${active ? `<strong aria-hidden="true">✓</strong>` : ""}
+        </button>
+      `;
+    })
+    .join("");
+  const activeOption = options.includes(selectedValue) ? selectedValue : allValue;
+  if (activeOption !== selectedValue) {
+    const fallback = container.querySelector(`[data-${dataName}="${CSS.escape(activeOption)}"]`);
+    fallback?.classList.add("is-active");
+  }
+}
+
 function renderFilters() {
   const catalogProducts = state.products.filter(isCatalogProduct);
   const categories = unique(catalogProducts.map((p) => p.category));
-  els.keywordSearch.value = state.filters.keyword || "";
+  state.filters.keyword = "";
   els.categoryFilterLabel.textContent = categoryFilterLabel(categories, state.filters.categories);
-  els.categoryFilters.innerHTML = categories
+  els.categoryFilterOptions.innerHTML = categories
     .map((category) => {
       const active = state.filters.categories.includes(category);
       return `
@@ -1690,7 +1722,11 @@ function renderFilters() {
     : catalogProducts;
   const brandOptions = ["全部", ...unique(brandScopeProducts.map((p) => p.brand))];
   if (!brandOptions.includes(state.filters.brand)) state.filters.brand = "全部";
-  fillSelect(els.brandFilter, brandOptions, state.filters.brand);
+  els.brandFilterLabel.textContent = displayBrandName(state.filters.brand);
+  renderSearchableOptions(els.brandFilterOptions, brandOptions, state.filters.brand, {
+    display: displayBrandName,
+    dataName: "brand-filter",
+  });
   fillSelect(els.channelFilter, ["全部", ...unique(catalogProducts.map((p) => p.channel))], state.filters.channel);
   fillSelect(els.statusFilter, ["全部", ...unique(catalogProducts.map((p) => p.status))], state.filters.status);
   els.minPrice.value = state.filters.minPrice;
@@ -1772,7 +1808,6 @@ function filterSummaryItems(products) {
   const filters = state.filters;
   const items = [];
   const catalogTotal = state.products.filter(isCatalogProduct).length;
-  if (filters.keyword) items.push(`关键词：${filters.keyword}`);
   if (filters.categories.length) items.push(`品类：${filters.categories.join("、")}`);
   if (filters.minPrice !== "" || filters.maxPrice !== "") {
     items.push(`价格：${filters.minPrice || "不限"}-${filters.maxPrice || "不限"}`);
@@ -2185,6 +2220,7 @@ function renderReviewDetail() {
     <div class="review-field-tags">
       ${pendingItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
     </div>
+    ${renderProductImageCandidates(selectedReviewProduct)}
     ${renderProductEditForm(selectedReviewProduct, { submitLabel: "保存调整", showCancel: false, formId: "reviewProductEditForm" })}
   `;
 }
@@ -5045,12 +5081,23 @@ function bindEvents() {
   els.categoryFilterToggle.addEventListener("click", () => {
     const isOpen = els.categoryFilterDropdown.classList.toggle("is-open");
     els.categoryFilterToggle.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) els.categoryFilterSearch?.focus();
+  });
+
+  els.brandFilterToggle.addEventListener("click", () => {
+    const isOpen = els.brandFilterDropdown.classList.toggle("is-open");
+    els.brandFilterToggle.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) els.brandFilterSearch?.focus();
   });
 
   document.addEventListener("click", (event) => {
     if (!els.categoryFilterDropdown.contains(event.target)) {
       els.categoryFilterDropdown.classList.remove("is-open");
       els.categoryFilterToggle.setAttribute("aria-expanded", "false");
+    }
+    if (!els.brandFilterDropdown.contains(event.target)) {
+      els.brandFilterDropdown.classList.remove("is-open");
+      els.brandFilterToggle.setAttribute("aria-expanded", "false");
     }
     if (els.roadmapBrandDropdown && !els.roadmapBrandDropdown.contains(event.target)) {
       els.roadmapBrandDropdown.classList.remove("is-open");
@@ -5069,13 +5116,34 @@ function bindEvents() {
     renderAll();
   });
 
-  els.brandFilter.addEventListener("change", () => updateFilter("brand", els.brandFilter.value));
+  els.categoryFilterSearch?.addEventListener("input", () => {
+    const keyword = els.categoryFilterSearch.value;
+    els.categoryFilterOptions.querySelectorAll(".multi-select-option").forEach((option) => {
+      option.hidden = !optionMatchesSearch(option.textContent || "", keyword);
+    });
+  });
+
+  els.brandFilterSearch?.addEventListener("input", () => {
+    const keyword = els.brandFilterSearch.value;
+    els.brandFilterOptions.querySelectorAll(".multi-select-option").forEach((option) => {
+      option.hidden = !optionMatchesSearch(option.textContent || "", keyword);
+    });
+  });
+
+  els.brandFilters.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-brand-filter]");
+    if (!button) return;
+    state.filters.brand = button.dataset.brandFilter;
+    els.brandFilterDropdown.classList.remove("is-open");
+    els.brandFilterToggle.setAttribute("aria-expanded", "false");
+    renderAll();
+  });
+
   els.channelFilter.addEventListener("change", () => updateFilter("channel", els.channelFilter.value));
   els.statusFilter.addEventListener("change", () => updateFilter("status", els.statusFilter.value));
   els.minPrice.addEventListener("input", () => updateFilterSoon("minPrice", els.minPrice.value));
   els.maxPrice.addEventListener("input", () => updateFilterSoon("maxPrice", els.maxPrice.value));
   els.confidenceFilter.addEventListener("input", () => updateFilterSoon("confidence", Number(els.confidenceFilter.value)));
-  els.keywordSearch.addEventListener("input", () => updateFilterSoon("keyword", els.keywordSearch.value));
   els.featureFilterField.addEventListener("change", () => {
     state.filters.featureField = els.featureFilterField.value;
     state.filters.featureValue = "";
@@ -5169,6 +5237,11 @@ function bindEvents() {
   });
 
   els.reviewProductDetail?.addEventListener("click", (event) => {
+    const imageButton = event.target.closest("[data-set-product-image]");
+    if (imageButton) {
+      setProductImageFromCandidate(imageButton.dataset.setProductImage, imageButton.dataset.imageUrl);
+      return;
+    }
     const confirmButton = event.target.closest("[data-confirm-review-detail]");
     if (confirmButton) {
       const form = els.reviewProductDetail.querySelector("[data-edit-product]");

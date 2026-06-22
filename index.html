@@ -90,10 +90,6 @@
             </button>
           </div>
           <div class="filter-toolbar">
-            <label class="filter-search">
-              搜索范围
-              <input id="keywordSearch" type="search" placeholder="品牌、型号、卖点、功能、来源" />
-            </label>
             <label>
               品类
               <div class="multi-select" id="categoryFilterDropdown">
@@ -107,12 +103,30 @@
                   <span id="categoryFilterLabel">全部品类</span>
                   <span aria-hidden="true">⌄</span>
                 </button>
-                <div class="multi-select-menu" id="categoryFilters"></div>
+                <div class="multi-select-menu" id="categoryFilters">
+                  <input id="categoryFilterSearch" class="select-search-input" type="search" placeholder="搜索品类" aria-label="搜索品类" />
+                  <div id="categoryFilterOptions" class="multi-select-options"></div>
+                </div>
               </div>
             </label>
             <label>
               品牌
-              <select id="brandFilter"></select>
+              <div class="multi-select single-select" id="brandFilterDropdown">
+                <button
+                  class="multi-select-toggle"
+                  type="button"
+                  id="brandFilterToggle"
+                  aria-expanded="false"
+                  aria-controls="brandFilters"
+                >
+                  <span id="brandFilterLabel">全部品牌</span>
+                  <span aria-hidden="true">⌄</span>
+                </button>
+                <div class="multi-select-menu" id="brandFilters">
+                  <input id="brandFilterSearch" class="select-search-input" type="search" placeholder="搜索品牌" aria-label="搜索品牌" />
+                  <div id="brandFilterOptions" class="multi-select-options"></div>
+                </div>
+              </div>
             </label>
             <label>
               渠道

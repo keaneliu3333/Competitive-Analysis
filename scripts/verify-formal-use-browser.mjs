@@ -152,7 +152,8 @@ async function verifyResponsiveViewports(browser) {
       await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
       await ensureProductsWorkspace(page);
       for (const selector of [
-        "#keywordSearch",
+        "#categoryFilterDropdown",
+        "#brandFilterDropdown",
         "[data-workspace='import']",
         "#productTableBody",
         "[data-analysis-tab='compare']",
@@ -243,15 +244,18 @@ async function main() {
     record("启动与首页", "passed", "首页直接进入工作台，核心模块可见，no in-page trial module");
 
     await page.locator("#clearFilters").click();
-    await page.locator("#keywordSearch").fill("石头");
+    await page.locator("#categoryFilterToggle").click();
+    await page.locator("#categoryFilterSearch").fill("扫");
+    await page.locator("[data-category='扫地机']").check();
+    await page.locator("#brandFilterToggle").click();
+    await page.locator("#brandFilterSearch").fill("石");
+    const roborockFilter = page.locator("[data-brand-filter]").filter({ hasText: /石头|Roborock/ }).first();
+    if ((await roborockFilter.count()) > 0) await roborockFilter.click();
     await page.locator("#minPrice").fill("3000");
     await page.locator("#maxPrice").fill("7000");
     await page.locator(".advanced-filters").evaluate((element) => {
       element.open = true;
     });
-    const brandOptions = await optionLabels(page, "#brandFilter");
-    const roborock = brandOptions.find((option) => option.label.includes("石头"));
-    if (roborock) await page.locator("#brandFilter").selectOption(roborock.value);
     const featureOptions = await optionLabels(page, "#featureFilterField");
     const featureTarget = featureOptions.find((option) => option.value !== "全部");
     if (featureTarget) {
@@ -276,7 +280,7 @@ async function main() {
     const restored = reloadedViews.find((option) => option.label === viewName);
     assert(restored, "刷新后保存视图丢失");
     await page.locator("#savedViews").selectOption(restored.value);
-    record("筛选工作台", "passed", "关键词、价格、品牌/渠道/状态、自定义字段和保存视图通过");
+    record("筛选工作台", "passed", "品类、品牌、价格、渠道/状态、自定义字段和保存视图通过");
 
     await page.locator("#clearFilters").click();
     await page.waitForFunction(() => document.querySelectorAll("#productTableBody tr").length > 0, null, {

@@ -50,7 +50,8 @@ for (const requirement of [
 }
 
 for (const token of [
-  "keywordSearch",
+  "categoryFilterDropdown",
+  "brandFilterDropdown",
   "minPrice",
   "maxPrice",
   "sourceImage",

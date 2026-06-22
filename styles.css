@@ -16,7 +16,7 @@
   --success: #197a45;
   --shadow: 0 10px 28px rgba(30, 58, 138, 0.08);
   --radius: 8px;
-  --sidebar: 286px;
+  --sidebar: 224px;
   --sidebar-collapsed: 72px;
 }
 
@@ -81,19 +81,25 @@ textarea:focus-visible {
 }
 
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  align-self: start;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  width: var(--sidebar);
   gap: 14px;
   height: 100vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-right: 1px solid var(--line);
   background: #fbfcfd;
   padding: 16px 14px;
 }
 
 .app-shell.is-sidebar-collapsed .sidebar {
+  width: var(--sidebar-collapsed);
   padding: 14px 10px;
 }
 
@@ -297,6 +303,7 @@ textarea:focus-visible {
 }
 
 .main-area {
+  grid-column: 2;
   min-width: 0;
   width: 100%;
   max-width: 100%;
@@ -509,16 +516,41 @@ textarea {
   gap: 4px;
 }
 
+.multi-select-options {
+  display: grid;
+  gap: 4px;
+}
+
+.select-search-input {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 36px;
+  margin-bottom: 4px;
+  background: #fff;
+  font-size: 13px;
+}
+
 .multi-select-option {
   display: flex;
   min-height: 38px;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
+  width: 100%;
+  border: 0;
   border-radius: 6px;
+  background: transparent;
   color: var(--text);
   padding: 6px 8px;
+  text-align: left;
   font-size: 13px;
   font-weight: 750;
+}
+
+.multi-select-option strong {
+  margin-left: auto;
+  color: var(--primary);
 }
 
 .multi-select-option:hover,
@@ -2208,13 +2240,19 @@ tbody tr.is-selected {
 
   .sidebar {
     position: static;
+    width: auto;
     height: auto;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 22px;
   }
 
+  .main-area {
+    grid-column: auto;
+  }
+
   .app-shell.is-sidebar-collapsed .sidebar {
+    width: auto;
     padding: 18px;
   }
 

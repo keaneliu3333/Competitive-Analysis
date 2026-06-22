@@ -115,14 +115,20 @@ for (const file of [
 }
 
 const requiredElementIds = [
-  "keywordSearch",
   "categoryFilterDropdown",
   "categoryFilterToggle",
   "categoryFilterLabel",
   "categoryFilters",
+  "categoryFilterSearch",
+  "categoryFilterOptions",
   "minPrice",
   "maxPrice",
-  "brandFilter",
+  "brandFilterDropdown",
+  "brandFilterToggle",
+  "brandFilterLabel",
+  "brandFilters",
+  "brandFilterSearch",
+  "brandFilterOptions",
   "channelFilter",
   "statusFilter",
   "confidenceFilter",
@@ -585,8 +591,6 @@ for (const token of [
   "quality-issues-",
   "data-focus-quality",
   "缺少真实产品图",
-  "keyword",
-  "keywordSearch",
   "功能参数矩阵",
   "Top3 优先级卖点",
   "productSort",
@@ -634,6 +638,10 @@ for (const token of [
   "发现同品牌同型号产品",
   "AI 更新入库",
   "按品牌+型号匹配更新",
+  "categoryFilterSearch",
+  "brandFilterSearch",
+  "brandFilterOptions",
+  "data-brand-filter",
 ]) {
   assertIncludes(scriptJs, token, "script.js upload capability");
 }
@@ -643,7 +651,9 @@ assertIncludes(indexHtml, "role=\"status\"", "index.html analysis progress statu
 assertIncludes(indexHtml, "styles.css?v=ai-progress-20260621", "index.html stylesheet cache busting");
 assertIncludes(indexHtml, "script.js?v=ai-progress-20260621", "index.html script cache busting");
 assertIncludes(indexHtml, "估算成本", "index.html usage cost column");
-assertIncludes(indexHtml, "品牌、型号、卖点、功能、来源", "index.html keyword search placeholder");
+assertIncludes(indexHtml, "placeholder=\"搜索品类\"", "index.html category filter search");
+assertIncludes(indexHtml, "placeholder=\"搜索品牌\"", "index.html brand filter search");
+if (indexHtml.includes("搜索范围")) fail("index.html should not render product library keyword search scope.");
 assertIncludes(indexHtml, "获取详情页信息", "index.html URL fetch analysis action");
 assertIncludes(indexHtml, "继续获取", "index.html browser assisted collect action");
 assertIncludes(indexHtml, "取消浏览器获取", "index.html browser assisted cancel action");
@@ -705,6 +715,7 @@ assertIncludes(scriptJs, "页面超过当前截图上限", "script.js source pre
 assertIncludes(scriptJs, "productImageCandidates(product)", "script.js renders source image candidates for product detail");
 assertIncludes(scriptJs, "setProductImageFromCandidate", "script.js can set product image from source candidates");
 assertIncludes(scriptJs, "data-set-product-image", "script.js candidate image buttons update the product image");
+assertIncludes(scriptJs, "renderProductImageCandidates(selectedReviewProduct)", "script.js review detail can set product image before confirmation");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
@@ -767,7 +778,8 @@ for (const topic of [
   "APP_READ_TOKEN",
   "APP_WRITE_TOKEN",
   "系统状态",
-  "关键词搜索",
+  "品类可搜索多选",
+  "品牌可搜索筛选",
   "数据质量检查",
   "重复型号",
   "导出问题",

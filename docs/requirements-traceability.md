@@ -5,7 +5,7 @@
 | 需求 | MVP 覆盖 | 主要实现 | 自动验证 | 人工验收 |
 | --- | --- | --- | --- | --- |
 | 简洁明了的 UI/UX 交互 | 工作台首页直接展示筛选、产品库、AI 导入、对比、路线图和数据质量，不做营销页 | `index.html`、`styles.css`、`script.js` | `node scripts/verify-runtime.mjs` 检查首页和核心控件；`node scripts/generate-smoke-checklist.mjs` 生成浏览器验收清单 | 打开页面，确认首屏能进入主要工作流，并记录到人工冒烟清单 |
-| 品类筛选、价格段自定义和筛选 | 左侧筛选栏支持品类、品牌、渠道、状态、关键词、自定义价格段、AI 置信度和功能字段筛选 | `keywordMatches`、`featureFilterMatches`、`getVisibleProducts` | `node scripts/verify-workbench.mjs`、`node scripts/verify-mvp.mjs` | 修改品类和价格段，确认产品表结果变化 |
+| 品类筛选、价格段自定义和筛选 | 顶部筛选栏支持品类可搜索多选、品牌可搜索筛选、渠道、状态、自定义价格段、AI 置信度和功能字段筛选 | `featureFilterMatches`、`getVisibleProducts` | `node scripts/verify-workbench.mjs`、`node scripts/verify-mvp.mjs` | 修改品类、品牌和价格段，确认产品表结果变化 |
 | 竞品功能对比模块自定义、元素自定义 | 支持新增模块、字段、枚举选项、字段排序、字段重命名、字段删除保留历史值 | `addField`、`renderModules`、`renameFeatureField`、`deleteFeatureField` | `node scripts/verify-data-package.mjs`、`node scripts/verify-workbench.mjs` 检查函数、历史保留和文档覆盖 | 新增枚举字段，在产品详情录入并进入对比矩阵 |
 | 导出 Excel | 支持产品库、对比表、路线图 `.xls` 导出，包含产品图、价格、卖点、来源证据和自定义字段 | `exportExcel`、`exportCompare`、`exportRoadmap` | `node scripts/verify-exports.mjs`、`node scripts/verify-mvp.mjs` 检查导出入口、关键列和函数 | 打开导出的 `.xls`，确认列和图片链接可读 |
 | 各品牌路线图带产品图、价格、Top3 优先级卖点 | 路线图按品类/品牌多选/状态/半年度周期筛选，支持 Excel、SVG、各品牌分页 PDF | `renderRoadmap`、`roadmapSvgDocument`、`brandRoadmapReportHtml` | `node scripts/verify-exports.mjs`、`node scripts/verify-runtime.mjs`、`node scripts/verify-workbench.mjs` | 导出各品牌 PDF，确认每品牌分页、卡片不溢出 |

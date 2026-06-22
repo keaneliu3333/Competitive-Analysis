@@ -99,7 +99,8 @@ for (const token of [
 
 for (const topic of [
   "无依赖 MVP",
-  "关键词搜索",
+  "品类",
+  "品牌",
   "自定义价格段",
   "自定义功能参数",
   "多张图片",
@@ -126,7 +127,12 @@ for (const topic of [
 }
 
 for (const id of [
-  "keywordSearch",
+  "categoryFilterDropdown",
+  "categoryFilterSearch",
+  "categoryFilterOptions",
+  "brandFilterDropdown",
+  "brandFilterSearch",
+  "brandFilterOptions",
   "minPrice",
   "maxPrice",
   "featureFilterField",
