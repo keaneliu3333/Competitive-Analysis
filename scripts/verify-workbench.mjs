@@ -642,6 +642,9 @@ for (const token of [
   "brandFilterSearch",
   "brandFilterOptions",
   "data-brand-filter",
+  "analysisPreflightMessage",
+  "analysisProviderPlan",
+  "模型已配置；如果网络或平台临时失败",
 ]) {
   assertIncludes(scriptJs, token, "script.js upload capability");
 }
@@ -704,6 +707,10 @@ assertIncludes(scriptJs, "productDisplayTitle", "script.js product library title
 assertIncludes(scriptJs, "normalizedAnalysisProductName", "script.js normalizes generic AI product names");
 assertIncludes(scriptJs, "String(brand || \"\").trim()", "script.js product names use raw brand text instead of display labels");
 assertIncludes(scriptJs, "T90PRO", "script.js normalizes ECOVACS T90PRO model from Tmall title");
+assertIncludes(scriptJs, "autoMatchFeatureForProducts", "script.js auto matches new fields from existing evidence");
+assertIncludes(scriptJs, "inferFeatureValueFromEvidence", "script.js infers feature values from stored source evidence");
+assertIncludes(scriptJs, "字段更新后自动匹配", "script.js records auto matched field evidence");
+assertIncludes(scriptJs, "已有证据未匹配到明确值", "script.js keeps uncertain new fields pending");
 assertIncludes(scriptJs, "正在打开浏览器获取真实详情页", "script.js opens browser fetch when public detail page evidence is missing");
 assertIncludes(scriptJs, "继续获取", "script.js tells users to collect after browser login");
 assertIncludes(scriptJs, "自动截取整页截图", "script.js browser collect explains full-page screenshots");

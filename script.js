@@ -429,6 +429,61 @@ function healthModelForProvider(provider) {
   return healthState.model || "-";
 }
 
+function isProviderConfigured(provider) {
+  if (provider === "deepseek") return Boolean(healthState.deepseekConfigured);
+  if (provider === "qwen") return Boolean(healthState.qwenConfigured);
+  if (provider === "openai") return Boolean(healthState.openaiConfigured);
+  return false;
+}
+
+function analysisUsesVision(files, metadata) {
+  const uploadFiles = Array.from(files || []);
+  return Boolean(
+    uploadFiles.some((file) => /^image\//.test(file.type || "") || /\.pdf$/i.test(file.name || "")) ||
+      metadata?.image ||
+      metadata?.imageCandidates?.length,
+  );
+}
+
+function analysisProviderPlan(files, metadata) {
+  const plan = [];
+  if (analysisUsesVision(files, metadata)) {
+    plan.push({
+      task: "图片/长图识别",
+      provider: healthState.visionProvider || "qwen",
+    });
+  }
+  plan.push({
+    task: "文字抽取",
+    provider: healthState.aiProvider || "deepseek",
+  });
+  const uniquePlan = [];
+  const seen = new Set();
+  for (const item of plan) {
+    const key = `${item.task}:${item.provider}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniquePlan.push({
+      ...item,
+      model: healthModelForProvider(item.provider),
+      configured: isProviderConfigured(item.provider),
+    });
+  }
+  return uniquePlan;
+}
+
+function analysisPreflightMessage(files, metadata) {
+  const plan = analysisProviderPlan(files, metadata);
+  const planText = plan
+    .map((item) => `${item.task}走 ${item.provider} / ${item.model || "-"}`)
+    .join("；");
+  const missing = plan.filter((item) => !item.configured).map((item) => `${item.provider} API Key`);
+  if (missing.length) {
+    return `本次计划：${planText}。但 ${unique(missing).join("、")} 未配置，系统会生成待人工复核记录。`;
+  }
+  return `本次计划：${planText}。模型已配置；如果网络或平台临时失败，系统会保留待人工复核记录。`;
+}
+
 async function apiFetch(url, options = {}) {
   const headers = {
     ...(options.headers || {}),
@@ -1557,6 +1612,115 @@ function keywordMatches(product) {
   return terms.every((term) => searchText.includes(term));
 }
 
+function meaningfulFeatureValue(value) {
+  const text = String(value ?? "").trim();
+  return Boolean(text && text !== "待确认" && text !== "未知");
+}
+
+function featureMatchLabels(field) {
+  return unique([
+    field.name,
+    field.key,
+    ...String(field.name || "").split(/[\/、·\s｜|,，:：-]+/),
+  ])
+    .map((label) => String(label || "").trim())
+    .filter((label) => label.length >= 2 && !["能力", "功能", "参数", "是否", "支持"].includes(label));
+}
+
+function productEvidenceText(product) {
+  const metadata = product.sourceMetadata || {};
+  return [
+    product.brand,
+    product.name,
+    product.model,
+    product.category,
+    product.channel,
+    ...(product.sellingPoints || []).flatMap((point) => [point.title, point.evidence]),
+    ...Object.entries(product.features || {}).flatMap(([key, value]) => [key, formatBool(value)]),
+    metadata.title,
+    metadata.description,
+    ...(metadata.textSnippets || []),
+    ...(metadata.selectedSkuTexts || []),
+    ...(metadata.skuTextSnippets || []),
+    ...(metadata.priceCandidates || []).map((item) => `${item.price || ""} ${item.source || ""}`),
+    ...(metadata.customFeatureEvidence || []).flatMap((item) => [item.key, item.value, item.evidence]),
+  ].join(" ");
+}
+
+function evidenceIncludes(text, label) {
+  return normalizeText(text).includes(normalizeText(label));
+}
+
+function inferFeatureValueFromEvidence(product, field) {
+  const evidenceText = productEvidenceText(product);
+  if (!evidenceText.trim()) return null;
+  const labels = featureMatchLabels(field);
+  const matchedLabel = labels.find((label) => evidenceIncludes(evidenceText, label));
+  if (field.type === "enum") {
+    const option = enumOptions(field).find((item) => evidenceIncludes(evidenceText, item));
+    if (!option) return null;
+    return {
+      value: option,
+      confidence: matchedLabel ? 78 : 68,
+      evidence: matchedLabel ? `来源证据同时出现“${matchedLabel}”和“${option}”` : `来源证据出现选项“${option}”`,
+    };
+  }
+  if (field.type === "boolean") {
+    if (!matchedLabel) return null;
+    const normalized = normalizeText(evidenceText);
+    const label = normalizeText(matchedLabel);
+    const negativePatterns = [`不支持${label}`, `无${label}`, `没有${label}`, `${label}不支持`, `${label}无`];
+    const negative = negativePatterns.some((pattern) => normalized.includes(pattern));
+    return {
+      value: !negative,
+      confidence: negative ? 72 : 66,
+      evidence: negative ? `来源证据出现“${matchedLabel}”的否定描述` : `来源证据出现“${matchedLabel}”`,
+    };
+  }
+  if (field.type === "number" || field.type === "price") {
+    if (!matchedLabel) return null;
+    const raw = String(evidenceText || "");
+    const index = raw.indexOf(matchedLabel);
+    const nearby = raw.slice(Math.max(0, index), index + 80);
+    const number = nearby.match(/\d+(?:\.\d+)?\s*(?:pa|kpa|mah|min|分钟|db|w|元|㎡|%)?/i)?.[0] || "";
+    if (!number) return null;
+    return { value: number.trim(), confidence: 70, evidence: `来源证据在“${matchedLabel}”附近出现“${number.trim()}”` };
+  }
+  if (!matchedLabel) return null;
+  return { value: matchedLabel, confidence: 62, evidence: `来源证据出现“${matchedLabel}”` };
+}
+
+function autoMatchFeatureForProducts(field, { force = false } = {}) {
+  let matchedCount = 0;
+  for (const product of state.products) {
+    product.features = product.features || {};
+    const currentValue = product.features[field.key];
+    if (!force && meaningfulFeatureValue(currentValue)) continue;
+    const match = inferFeatureValueFromEvidence(product, field);
+    if (!match) continue;
+    product.features[field.key] = normalizeCustomFeatureValue(field, match.value);
+    product.sourceMetadata = product.sourceMetadata || {};
+    product.sourceMetadata.customFeatureEvidence = product.sourceMetadata.customFeatureEvidence || [];
+    const existingIndex = product.sourceMetadata.customFeatureEvidence.findIndex((item) => item.key === field.key);
+    const evidenceItem = {
+      key: field.key,
+      value: product.features[field.key],
+      confidence: match.confidence,
+      evidence: `${match.evidence}（字段更新后自动匹配）`,
+    };
+    if (existingIndex >= 0) product.sourceMetadata.customFeatureEvidence[existingIndex] = evidenceItem;
+    else product.sourceMetadata.customFeatureEvidence.push(evidenceItem);
+    fieldReviewStatus(product)[field.key] = {
+      status: "auto-matched",
+      matchedAt: nowIso(),
+      actor: "system",
+    };
+    addAudit(product, "字段自动匹配", `字段「${field.module || ""} · ${field.name}」自动匹配为「${formatBool(product.features[field.key])}」`, "system");
+    matchedCount += 1;
+  }
+  return matchedCount;
+}
+
 function isPlaceholderText(value) {
   const text = String(value || "").trim();
   return !text || ["待确认", "未知", "待确认品牌", "待确认型号", "待确认产品", "AI 待确认产品"].includes(text);
@@ -2667,6 +2831,10 @@ function editFeatureFieldOptions(fieldKey) {
     const target = module.fields.find((item) => item.key === fieldKey);
     if (target) {
       target.options = options;
+      const matchedCount = autoMatchFeatureForProducts({ ...target, module: module.name });
+      if (matchedCount) {
+        setAnalysisStatus(`已更新选项，并从已有详情页证据中自动匹配 ${matchedCount} 个产品。`, "success");
+      }
       break;
     }
   }
@@ -3860,7 +4028,9 @@ async function runAnalysis() {
   showRetryAnalysis(false);
   resetAnalysisSteps();
   setAnalysisStep("input", "done");
-  setAnalysisStatus(files.length ? "正在准备上传文件..." : "正在自动获取详情页图片和文字证据...", "progress");
+  await loadHealth();
+  renderHealth();
+  setAnalysisStatus(analysisPreflightMessage(files, sourceMetadata), "progress");
   try {
     setAnalysisStep(files.length ? "files" : "request", "active");
     const attachments = await filesToAnalysisAttachments(files, (message) => setAnalysisStatus(message, "progress"));
@@ -4396,6 +4566,14 @@ function addField() {
       product.features = product.features || {};
       if (product.features[key] === undefined) product.features[key] = defaultFeatureValue(field);
     });
+    const matchedCount = autoMatchFeatureForProducts({ ...field, module: module.name });
+    if (matchedCount) {
+      setAnalysisStatus(`已新增字段，并从已有详情页证据中自动匹配 ${matchedCount} 个产品。`, "success");
+    } else {
+      setAnalysisStatus("已新增字段。已有证据未匹配到明确值，相关产品保持待确认。", "warning");
+    }
+  } else {
+    setAnalysisStatus("字段已存在，未重复新增。", "warning");
   }
   els.moduleName.value = "";
   els.fieldName.value = "";
