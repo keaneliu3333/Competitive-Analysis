@@ -124,8 +124,8 @@ try {
   });
   assert(insufficientAnalysis.status === 422, "/api/analyze should reject URL-only commerce input without product evidence");
   assert(
-    JSON.parse(insufficientAnalysis.body).error.includes("未获取到天猫 有效详情页图片和内容"),
-    "/api/analyze insufficient evidence error should explain missing detail image content",
+    JSON.parse(insufficientAnalysis.body).error.includes("请使用“打开浏览器获取”"),
+    "/api/analyze insufficient evidence error should require browser-assisted detail capture",
   );
 
   const missingBrowserSession = await invoke(server, {
@@ -140,12 +140,12 @@ try {
   );
 
   const html = await requestText(server, "/");
-  for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
+  for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "manualCapturePanel", "openExternalBrowser", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
     assert(html.includes(token), `index page missing ${token}`);
   }
 
   const script = await requestText(server, "/script.js");
-  for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
+  for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "shouldUseManualCaptureFlow", "handleAnalysisPaste", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
     assert(script.includes(token), `script.js missing ${token}`);
   }
 

@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
@@ -537,6 +538,13 @@ async function fetchMetadata(url) {
   const priceCandidates = uniquePriceCandidates([structuredPrice, metaPrice, textPrice, ...pricesFromText(html)]);
   const priceCandidate = priceCandidates[0];
   const textSnippets = uniqueStrings([...extractTextSnippets(html), ...(commerceFallback?.textSnippets || [])], 12);
+  const pageText = htmlToText(html);
+  const jdPcFrequencyControlled = isJdPcFrequencyControlEvidence(`${response.url || parsedUrl} ${title} ${description} ${pageText}`);
+  const fetchWarning = jdPcFrequencyControlled
+    ? "当前链接打开的是京东 PC 频控页，不是真实商品详情页；系统会优先尝试可下载的大图候选，若仍失败请稍后重试或上传详情页截图/长图。"
+    : contentType && !/html|xml|text/i.test(contentType)
+      ? `页面类型是 ${contentType}，可能不是标准详情页 HTML。`
+      : commerceFallback?.fetchWarning || "";
   return {
     ...(commerceFallback || {}),
     title: title || commerceFallback?.title || "",
@@ -550,7 +558,7 @@ async function fetchMetadata(url) {
     textSnippets,
     htmlBytes: Buffer.byteLength(html, "utf8"),
     fetchMode: commerceFallback && !title && !description && !textSnippets.length ? "commerce-url-fallback" : "html",
-    fetchWarning: contentType && !/html|xml|text/i.test(contentType) ? `页面类型是 ${contentType}，可能不是标准详情页 HTML。` : commerceFallback?.fetchWarning || "",
+    fetchWarning,
     httpStatus: response.status,
     contentType,
     finalUrl: response.url || parsedUrl,
@@ -674,6 +682,33 @@ async function launchBrowserFetchContext(chromium, launchOptions) {
     503,
     `无法打开本机浏览器。已按顺序尝试 Google Chrome、Microsoft Edge、Playwright Chromium。请安装 Chrome/Edge，或上传详情页截图/长图。失败原因：${errors.join(" | ")}`,
   );
+}
+
+function openUrlInExternalBrowser(rawUrl) {
+  const url = normalizeFetchUrl(rawUrl);
+  const command =
+    process.platform === "darwin"
+      ? "open"
+      : process.platform === "win32"
+        ? "cmd"
+        : "xdg-open";
+  const args =
+    process.platform === "darwin"
+      ? [url]
+      : process.platform === "win32"
+        ? ["/c", "start", "", url]
+        : [url];
+  try {
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.unref();
+  } catch (error) {
+    throw new HttpError(503, `无法打开系统浏览器：${error.message}。请手动复制链接到 Chrome 或 Edge 打开。`);
+  }
+  return {
+    ok: true,
+    url,
+    message: "已使用系统默认浏览器打开链接。请在普通浏览器里手动进入真实详情页、滚动并截图，然后回到工作台粘贴或上传截图。",
+  };
 }
 
 async function startBrowserFetch(input = {}) {
@@ -979,11 +1014,16 @@ async function warmUpLazyLoadedPage(page, scrollHeight, collectDeadlineAt, warni
   await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
 }
 
+function isJdPcFrequencyControlEvidence(value = "") {
+  return /pc-frequent-pro|reason=403|暂时无法展示该商品的信息|反馈问题|频控页|频繁访问|访问过于频繁/i.test(String(value || ""));
+}
+
 function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
   const currentUrl = snapshot.url || originalUrl;
   const commerceFallback = metadataFromCommerceUrl(currentUrl) || metadataFromCommerceUrl(originalUrl) || {};
   const html = snapshot.html || "";
   const text = snapshot.text || "";
+  const pageEvidence = `${currentUrl} ${snapshot.title || ""} ${text}`;
   const jsonLd = extractJsonLdObjects(html);
   const imageCandidates = normalizeProductImageCandidates([...(snapshot.images || []), ...extractImageCandidates(html, currentUrl)], currentUrl);
   const priceCandidates = uniquePriceCandidates([
@@ -998,9 +1038,12 @@ function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {
   const textSnippets = uniqueStrings([...extractTextSnippets(html), ...extractTextSnippets(text), ...(commerceFallback.textSnippets || [])], 12);
   const selectedSkuTexts = uniqueStrings([...(commerceFallback.selectedSkuTexts || []), ...(snapshot.selectedSkuTexts || [])], 12);
   const skuTextSnippets = uniqueStrings([...(commerceFallback.skuTextSnippets || []), ...(snapshot.skuTextSnippets || [])], 16);
-  const blocked = /验证码|安全验证|登录后|请登录|当前页面异常|内容太火爆|请刷新|访问受限|滑块验证/.test(text);
+  const jdPcFrequencyControlled = isJdPcFrequencyControlEvidence(pageEvidence);
+  const blocked = jdPcFrequencyControlled || /验证码|安全验证|登录后|请登录|当前页面异常|内容太火爆|请刷新|访问受限|滑块验证/.test(text);
   const fetchWarning = blocked
-    ? "浏览器页面仍像是登录、验证或异常页面；请在浏览器窗口完成登录/验证并停留在真实详情页后重新获取。"
+    ? jdPcFrequencyControlled
+      ? "浏览器当前页面是京东 PC 频控页，不是真实商品详情页；系统会优先使用可下载的大图候选，若仍失败请稍后重试或上传详情页截图/长图。"
+      : "浏览器页面仍像是登录、验证或异常页面；请在浏览器窗口完成登录/验证并停留在真实详情页后重新获取。"
     : "";
   return {
     ...commerceFallback,
@@ -1184,6 +1227,20 @@ function attrValue(tag, name) {
   return match?.[1] || "";
 }
 
+function jdImageUrlVariants(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return [url];
+  }
+  if (!/360buyimg\.com$/i.test(parsed.hostname) && !/jdimg\.com$/i.test(parsed.hostname)) return [url];
+  const match = parsed.pathname.match(/^\/(?:img|sku|n\d|s\d+x\d+_[^/]+)?\/?(jfs\/.+)$/i);
+  if (!match) return [url];
+  const largeUrl = `${parsed.protocol}//${parsed.host}/n0/${match[1]}${parsed.search || ""}`;
+  return uniqueStrings([largeUrl, url], 2);
+}
+
 function normalizeProductImageCandidates(candidates, baseUrl, limit = 12) {
   const scored = [];
   const seen = new Set();
@@ -1191,21 +1248,26 @@ function normalizeProductImageCandidates(candidates, baseUrl, limit = 12) {
     const item = typeof candidate === "string" ? { src: candidate } : candidate || {};
     const url = absoluteUrl(decodeHtml(item.src || item.url || ""), baseUrl);
     if (!/^https?:\/\//i.test(url) || /\.(gif|ico|js|css|map)(?:[?#].*)?$/i.test(url)) continue;
-    if (seen.has(url)) continue;
-    const context = `${url} ${item.alt || ""} ${item.className || ""} ${item.id || ""} ${item.parentClassName || ""} ${item.kind || ""}`;
+    const candidateUrls = jdImageUrlVariants(url);
+    const context = `${candidateUrls.join(" ")} ${item.alt || ""} ${item.className || ""} ${item.id || ""} ${item.parentClassName || ""} ${item.kind || ""}`;
     const lower = context.toLowerCase();
     if (/\b(logo|icon|sprite|avatar|qrcode|qr|captcha|blank|transparent|placeholder|loading)\b/i.test(context)) continue;
     const width = Number(item.width || 0);
     const height = Number(item.height || 0);
-    if (width && height && (Math.min(width, height) < 80 || width * height < 12000)) continue;
-    let score = 100 - index / 1000;
-    if (/og:image|twitter:image|meta-product-image/i.test(context)) score += 80;
-    if (/商品|产品|主图|详情|sku|goods|product|item|main|gallery|thumb|booth|magnifier|spec|hero/i.test(context)) score += 60;
-    if (/alicdn|tbcdn|360buyimg|jdimg|pinduoduo|yangkeduo|alicdn|amazon|media-amazon|alicdn|alicdn\.com|img\.alicdn/i.test(lower)) score += 20;
-    if (width && height) score += Math.min(40, Math.log10(width * height) * 8);
-    if (/banner|coupon|promo|activity|ad-|ads|shop|store|brand|badge|nav|footer|header|recommend|floor|babel/i.test(lower)) score -= 45;
-    scored.push({ url, score });
-    seen.add(url);
+    const hasJdLargeVariant = candidateUrls[0] !== url && /\/n0\/jfs\//i.test(candidateUrls[0]);
+    if (!hasJdLargeVariant && width && height && (Math.min(width, height) < 80 || width * height < 12000)) continue;
+    for (const [variantIndex, candidateUrl] of candidateUrls.entries()) {
+      if (seen.has(candidateUrl)) continue;
+      let score = 100 - index / 1000 - variantIndex / 100;
+      if (/og:image|twitter:image|meta-product-image/i.test(context)) score += 80;
+      if (/商品|产品|主图|详情|sku|goods|product|item|main|gallery|thumb|booth|magnifier|spec|hero/i.test(context)) score += 60;
+      if (/alicdn|tbcdn|360buyimg|jdimg|pinduoduo|yangkeduo|alicdn|amazon|media-amazon|alicdn|alicdn\.com|img\.alicdn/i.test(lower)) score += 20;
+      if (/\/n0\/jfs\//i.test(candidateUrl)) score += 70;
+      if (width && height && !/\/n0\/jfs\//i.test(candidateUrl)) score += Math.min(40, Math.log10(width * height) * 8);
+      if (/banner|coupon|promo|activity|ad-|ads|shop|store|brand|badge|nav|footer|header|recommend|floor|babel/i.test(lower)) score -= 45;
+      scored.push({ url: candidateUrl, score });
+      seen.add(candidateUrl);
+    }
   }
   return scored
     .sort((a, b) => b.score - a.score)
@@ -1405,6 +1467,19 @@ function analysisSourceImageUrls(metadata = {}) {
   return normalizeRemoteImageUrls([metadata.image, ...(metadata.imageCandidates || [])], 4);
 }
 
+function isBlockedSourcePageMetadata(metadata = {}) {
+  return /PC 频控页|pc-frequent-pro|reason=403|暂时无法展示该商品的信息|验证码|安全验证|登录|访问受限|滑块验证/.test(
+    String(metadata.fetchWarning || ""),
+  );
+}
+
+function requiresBrowserAssistedDetailCapture(metadata = {}) {
+  if (!metadata || metadata.browserAssisted || isBlockedSourcePageMetadata(metadata)) return false;
+  const platform = String(metadata.platform || "");
+  const warningText = String(metadata.fetchWarning || "");
+  return /京东|天猫|淘宝/.test(platform) && /动态加载|限制服务端抓取|需要登录|验证/.test(warningText);
+}
+
 function imageMimeTypeFromUrl(url) {
   const pathname = new URL(url).pathname.toLowerCase();
   if (pathname.endsWith(".png")) return "image/png";
@@ -1550,8 +1625,11 @@ function meaningfulTextSnippets(metadata = {}) {
 function hasMeaningfulSourceEvidence(metadata = {}) {
   if (metadata.price || metadata.priceCandidates?.length) return true;
   if (meaningfulTextSnippets(metadata).length) return true;
-  if (!metadata.fetchWarning && metadata.sourceScreenshotDataUrls?.length) return true;
-  if (!metadata.fetchWarning && metadata.fetchMode !== "commerce-url-fallback" && metadata.imageCandidates?.length) return true;
+  if (!isBlockedSourcePageMetadata(metadata) && metadata.sourceScreenshotDataUrls?.length) return true;
+  if (!isBlockedSourcePageMetadata(metadata) && metadata.fetchMode !== "commerce-url-fallback" && metadata.imageCandidates?.length) return true;
+  if (!isBlockedSourcePageMetadata(metadata) && metadata.imageCandidates?.some((url) => /360buyimg\.com\/n0\/jfs\//i.test(String(url || "")))) {
+    return true;
+  }
   return false;
 }
 
@@ -1563,6 +1641,12 @@ function assertEnoughAnalysisEvidence(input = {}, metadata = {}, uploadedFile, i
   if (!input.sourceUrl || hasManualAnalysisEvidence(input, uploadedFile, imageUrls)) return;
   if (hasMeaningfulSourceEvidence(metadata)) return;
   const platformText = metadata.platform ? `${metadata.platform} ` : "";
+  if (isBlockedSourcePageMetadata(metadata)) {
+    throw new HttpError(
+      422,
+      `当前页面是${platformText}PC 频控页或验证页，不是真实商品详情页；不会生成空产品。系统会优先尝试可下载的大图候选，若仍失败请稍后重试，或上传详情页截图/长图。`,
+    );
+  }
   throw new HttpError(
     422,
     `未获取到${platformText}有效详情页图片和内容：没有商品名、价格、参数或可用于视觉识别的详情图。不能只读取文字完成分析；请使用“打开浏览器获取”完成登录/验证后继续，或上传合格尺寸的详情页截图/长图。`,
@@ -1953,7 +2037,20 @@ async function analyzeProduct(input) {
   const featureFields = sanitizeFeatureFields(input.featureFields);
   const analysisExamples = sanitizeAnalysisExamples(input.analysisExamples);
   const uploadedImageUrls = normalizeImageDataUrls(input);
-  const sourceScreenshotDataUrls = normalizeImageDataUrls({ imageDataUrls: metadata.sourceScreenshotDataUrls || [] });
+  const sourceScreenshotDataUrls = isBlockedSourcePageMetadata(metadata)
+    ? []
+    : normalizeImageDataUrls({ imageDataUrls: metadata.sourceScreenshotDataUrls || [] });
+  if (
+    input.sourceUrl &&
+    requiresBrowserAssistedDetailCapture(metadata) &&
+    !sourceScreenshotDataUrls.length &&
+    !hasManualAnalysisEvidence(input, uploadedFile, uploadedImageUrls)
+  ) {
+    throw new HttpError(
+      422,
+      "该电商详情页只抓到了首图或部分信息，不能直接分析。请使用“打开浏览器获取”截取真实详情页，或上传详情页截图/长图后再分析。",
+    );
+  }
   const sourceImageUrls = analysisSourceImageUrls(metadata);
   const downloadedSourceImages = await fetchRemoteImageDataUrls(sourceImageUrls, {
     referer: input.sourceUrl || metadata.finalUrl || metadata.url || "",
@@ -1990,7 +2087,8 @@ async function analyzeProduct(input) {
     "Top3 sellingPoints 要按竞品优先级排序，每条包含 title 和 evidence。",
     "如果输入包含 PDF、上传图片或自动下载的详情页图片，请优先从图片中的详情页文案、参数表、价格和商品图证据抽取。",
     "同一 SPU 商品下可能存在多个 SKU；型号和版本必须优先参考当前 URL skuId、页面已选 SKU/规格/版本、截图里的选中规格，不要只按 SPU 主标题或泛称填写。",
-    "不要把平台货号、内部 SKU 或商品编码当成正式型号，例如云鲸/NARWAL 的 YJC034、YJCC034 这类编码；若标题同时出现“扫地机器人 JX 水箱版”等销售型号，应输出 JX 水箱版。",
+    "扫地机常见同一产品家族下有水箱版、上下水版、超薄版等价格/安装版本；这些通常不单独作为新产品型号，model 保留主型号即可。若出现旋风集尘、特殊基站、明显功能配置差异，应保留为独立版本，例如 X12 旋风集尘。",
+    "不要把平台货号、内部 SKU 或商品编码当成正式型号，例如云鲸/NARWAL 的 YJC034、YJCC034 这类编码；若标题同时出现“扫地机器人 JX 水箱版”等销售型号，应输出 JX，不要把水箱版/上下水版/超薄版拼进型号。",
     "image 字段只能使用页面中明确出现的产品图 URL；没有可靠 URL 时返回空字符串，不要生成虚构图片。",
     "customFeatures 必须只使用下方自定义字段列表里的 key；没有证据时 value 填待确认、confidence 降低。",
     "enum 类型的 customFeatures 应优先从字段 options 中选择取值；详情页没有明确证据时填待确认。",
@@ -2326,6 +2424,17 @@ async function handleApi(request, response, pathname) {
     const input = await readJson(request);
     try {
       sendJson(response, 200, await startBrowserFetch(input));
+    } catch (error) {
+      sendJson(response, error instanceof HttpError ? error.status : 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/open-external-browser") {
+    if (!requireAccess(request, response, "read")) return;
+    const input = await readJson(request);
+    try {
+      sendJson(response, 200, openUrlInExternalBrowser(input.url));
     } catch (error) {
       sendJson(response, error instanceof HttpError ? error.status : 500, { error: error.message });
     }

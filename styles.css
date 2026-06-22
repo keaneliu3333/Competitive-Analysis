@@ -1210,6 +1210,34 @@ textarea {
   padding: 6px 8px;
 }
 
+.manual-capture-panel {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warning);
+  border-radius: 8px;
+  background: #fffaf0;
+  padding: 12px;
+}
+
+.manual-capture-panel strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.manual-capture-panel p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.manual-capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .source-evidence {
   display: grid;
   gap: 8px;

@@ -146,6 +146,8 @@ const requiredElementIds = [
   "createProduct",
   "fetchSourceMetadata",
   "sourcePreview",
+  "manualCapturePanel",
+  "openExternalBrowser",
   "analysisStatus",
   "analysisSteps",
   "analysisPlan",
@@ -468,6 +470,8 @@ for (const token of [
   "413",
   "fetchMetadata",
   "startBrowserFetch",
+  "openUrlInExternalBrowser",
+  "/api/open-external-browser",
   "collectBrowserFetch",
   "browserExecutablePaths",
   "BROWSER_EXECUTABLE_PATH",
@@ -478,7 +482,11 @@ for (const token of [
   "msedge.exe",
   "Playwright Chromium",
   "captureBrowserPageScreenshots",
+  "isJdPcFrequencyControlEvidence",
   "metadataFromBrowserSnapshot",
+  "京东 PC 频控页",
+  "pc-frequent-pro",
+  "reason=403",
   "withTimeout",
   "BROWSER_FETCH_DOM_READ_TIMEOUT_MS",
   "BROWSER_FETCH_SCREENSHOT_TIMEOUT_MS",
@@ -509,6 +517,12 @@ for (const token of [
   "extractJsonLdObjects",
   "extractImageCandidates",
   "normalizeProductImageCandidates",
+  "jdImageUrlVariants",
+  "/n0/",
+  "360buyimg\\.com",
+  "isBlockedSourcePageMetadata",
+  "requiresBrowserAssistedDetailCapture",
+  "只抓到了首图或部分信息",
   "extractTextSnippets",
   "pricesFromText",
   "priceFromJsonLd",
@@ -704,12 +718,22 @@ assertIncludes(scriptJs, "analysisSteps", "script.js analysis progress steps");
 assertIncludes(scriptJs, "showRetryAnalysis", "script.js analysis retry action");
 assertIncludes(scriptJs, "resetAnalysisSteps", "script.js analysis progress reset");
 assertIncludes(scriptJs, "friendlyAnalysisError", "script.js AI error translation");
+assertIncludes(scriptJs, "shouldFallbackToBrowserFetch", "script.js URL image failures fall back to browser fetch");
+assertIncludes(scriptJs, "正在打开浏览器获取真实详情页截图", "script.js auto opens browser screenshots after source image failure");
 assertIncludes(scriptJs, "关键参数/卖点区域截图", "script.js actionable image-limit guidance");
+assertIncludes(scriptJs, "shouldUseManualCaptureFlow", "script.js sends JD links to manual screenshot capture");
+assertIncludes(scriptJs, "openExternalBrowserForManualCapture", "script.js opens normal browser for JD manual capture");
+assertIncludes(scriptJs, "handleAnalysisPaste", "script.js accepts pasted screenshots for manual capture");
+assertIncludes(scriptJs, "不调用自动抓取", "script.js explains JD manual mode does not use automatic crawling");
 assertIncludes(scriptJs, "focusPendingAnalysisResult", "script.js pending analysis result focus");
 assertIncludes(scriptJs, "已进入待确认队列", "script.js pending analysis result status copy");
 assertIncludes(scriptJs, "scrollToReviewProduct", "script.js pending review scroll behavior");
 assertIncludes(scriptJs, "未获取到", "script.js insufficient URL-only source warning");
 assertIncludes(scriptJs, "不会生成空产品", "script.js avoids empty product creation when metadata is weak");
+assertIncludes(scriptJs, "PC 频控页", "script.js explains JD PC frequency-control pages");
+assertIncludes(scriptJs, "360buyimg\\.com\\/n0\\/jfs", "script.js treats JD n0 product images as usable evidence");
+assertIncludes(scriptJs, "shouldUseBrowserAssistedFlow", "script.js sends dynamic commerce pages to browser-assisted capture");
+assertIncludes(scriptJs, "只抓到了首图/部分信息", "script.js does not analyze dynamic commerce first images directly");
 assertIncludes(scriptJs, "/api/browser-fetch/start", "script.js browser assisted fetch start API");
 assertIncludes(scriptJs, "/api/browser-fetch/collect", "script.js browser assisted fetch collect API");
 assertIncludes(scriptJs, "/api/browser-fetch/cancel", "script.js browser assisted fetch cancel API");
@@ -723,6 +747,11 @@ assertIncludes(scriptJs, "T90PRO", "script.js normalizes ECOVACS T90PRO model fr
 assertIncludes(scriptJs, "isNarwalInternalSkuCode", "script.js detects Narwal internal SKU codes");
 assertIncludes(scriptJs, "extractNarwalSalesModel", "script.js extracts Narwal sales model from title evidence");
 assertIncludes(scriptJs, "YJCC?\\d{3,}", "script.js treats YJC/YJCC codes as internal SKUs");
+assertIncludes(scriptJs, "extractCleaningApplianceSalesVariant", "script.js extracts cleaning appliance sales variants");
+assertIncludes(scriptJs, "旋风集尘基站", "script.js preserves variant suffixes such as cyclone dust base");
+assertIncludes(scriptJs, "isLikelyInternalSkuCode", "script.js avoids platform SKU codes as formal models");
+assertIncludes(serverMjs, "水箱版、上下水版、超薄版等价格/安装版本", "server prompt merges non-functional SKU variants");
+assertIncludes(serverMjs, "明显功能配置差异", "server prompt preserves functional SKU variants");
 assertIncludes(scriptJs, "autoMatchFeatureForProducts", "script.js auto matches new fields from existing evidence");
 assertIncludes(scriptJs, "inferFeatureValueFromEvidence", "script.js infers feature values from stored source evidence");
 assertIncludes(scriptJs, "字段更新后自动匹配", "script.js records auto matched field evidence");
