@@ -648,6 +648,10 @@ textarea {
   align-items: end;
 }
 
+.filter-toolbar > label {
+  min-width: 0;
+}
+
 .filter-search {
   grid-column: span 2;
   min-width: 0;
@@ -2231,6 +2235,16 @@ tbody tr.is-selected {
   .sidebar-panel .review-actions {
     grid-column: auto;
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 1121px) {
+  .filter-toolbar {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .filter-search {
+    grid-column: span 2;
   }
 }
 

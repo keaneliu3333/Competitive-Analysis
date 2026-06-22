@@ -25,9 +25,12 @@ const minAutoSourceImageWidth = Number(env.AUTO_SOURCE_IMAGE_MIN_WIDTH || 640);
 const minAutoSourceImageShortEdge = Number(env.AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE || 320);
 const minAutoSourceImagePixels = Number(env.AUTO_SOURCE_IMAGE_MIN_PIXELS || 250_000);
 const browserScreenshotWidth = Number(env.BROWSER_FETCH_SCREENSHOT_WIDTH || 1365);
-const browserScreenshotHeight = Number(env.BROWSER_FETCH_SCREENSHOT_HEIGHT || 1100);
-const maxBrowserScreenshotCount = Number(env.BROWSER_FETCH_SCREENSHOT_COUNT || 24);
-const maxBrowserScreenshotScrollHeight = Number(env.BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT || 30000);
+const browserScreenshotHeight = Number(env.BROWSER_FETCH_SCREENSHOT_HEIGHT || 1600);
+const maxBrowserScreenshotCount = Math.min(maxModelImageCount, Number(env.BROWSER_FETCH_SCREENSHOT_COUNT || 32));
+const maxBrowserScreenshotScrollHeight = Number(env.BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT || 60000);
+const browserFetchDomReadTimeoutMs = Number(env.BROWSER_FETCH_DOM_READ_TIMEOUT_MS || 8000);
+const browserFetchScreenshotTimeoutMs = Number(env.BROWSER_FETCH_SCREENSHOT_TIMEOUT_MS || 10000);
+const browserFetchCollectTimeoutMs = Number(env.BROWSER_FETCH_COLLECT_TIMEOUT_MS || 120000);
 const browserFetchSessions = new Map();
 const browserFetchProfileRootDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
 
@@ -721,9 +724,10 @@ async function collectBrowserFetch(input = {}) {
   if (!session) throw new HttpError(404, "浏览器获取会话已失效，请重新打开浏览器获取。");
   const { page, originalUrl } = session;
   try {
+    const collectDeadlineAt = Date.now() + browserFetchCollectTimeoutMs;
     await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(1200);
-    const snapshot = await page.evaluate(() => {
+    const snapshot = await withTimeout(page.evaluate(() => {
       const cleanText = (value) => String(value || "").replace(/\s+/g, " ").trim();
       const unique = (items, limit) => {
         const seen = new Set();
@@ -754,8 +758,8 @@ async function collectBrowserFetch(input = {}) {
       const skuCandidates = Array.from(document.querySelectorAll(skuSelector))
         .slice(0, 240)
         .map((element) => {
-          const optionText = cleanText(element.innerText || element.textContent).slice(0, 180);
-          const parentText = cleanText(element.closest("li,dd,dl,section,div")?.innerText || "").slice(0, 220);
+          const optionText = cleanText(element.textContent).slice(0, 180);
+          const parentText = cleanText(element.closest("li,dd,dl,section,div")?.textContent || "").slice(0, 220);
           const labelText = cleanText(
             element.getAttribute("title") ||
               element.getAttribute("aria-label") ||
@@ -793,7 +797,7 @@ async function collectBrowserFetch(input = {}) {
           document.querySelector('meta[name="description"]')?.getAttribute("content") ||
           document.querySelector('meta[property="og:description"]')?.getAttribute("content") ||
           "",
-        text: document.body?.innerText || "",
+        text: cleanText(document.body?.textContent || "").slice(0, 240000),
         html: document.documentElement?.outerHTML?.slice(0, 700000) || "",
         selectedSkuTexts,
         skuTextSnippets,
@@ -811,8 +815,18 @@ async function collectBrowserFetch(input = {}) {
           .filter(Boolean)
           .slice(0, 80),
       };
-    });
-    const screenshots = await captureBrowserPageScreenshots(page);
+    }), browserFetchDomReadTimeoutMs, "详情页 DOM 读取超时，已改用 URL 和截图继续。").catch((error) => ({
+      title: "",
+      url: page.url(),
+      description: "",
+      text: "",
+      html: "",
+      images: [],
+      selectedSkuTexts: [],
+      skuTextSnippets: [],
+      fetchWarnings: [error.message],
+    }));
+    const screenshots = await captureBrowserPageScreenshots(page, collectDeadlineAt);
     snapshot.sourceScreenshotDataUrls = screenshots.dataUrls;
     snapshot.sourceScreenshotFetch = {
       count: screenshots.dataUrls.length,
@@ -820,12 +834,20 @@ async function collectBrowserFetch(input = {}) {
       viewportWidth: screenshots.viewportWidth,
       viewportHeight: screenshots.viewportHeight,
       positions: screenshots.positions,
-      warnings: screenshots.warnings,
+      warnings: [...(snapshot.fetchWarnings || []), ...screenshots.warnings].slice(0, 10),
     };
     return metadataFromBrowserSnapshot(snapshot, originalUrl);
   } finally {
     await closeBrowserFetchSession(sessionId);
   }
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), Math.max(1, timeoutMs));
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
 }
 
 function selectScreenshotPositions(allPositions, limit) {
@@ -840,13 +862,17 @@ function selectScreenshotPositions(allPositions, limit) {
 async function screenshotDataUrl(page) {
   const qualities = [76, 64, 52, 42, 34];
   for (const quality of qualities) {
-    const buffer = await page.screenshot({
-      type: "jpeg",
-      quality,
-      fullPage: false,
-      animations: "disabled",
-      caret: "hide",
-    });
+    const buffer = await withTimeout(
+      page.screenshot({
+        type: "jpeg",
+        quality,
+        fullPage: false,
+        animations: "disabled",
+        caret: "hide",
+      }),
+      browserFetchScreenshotTimeoutMs,
+      `单张截图超过 ${Math.round(browserFetchScreenshotTimeoutMs / 1000)} 秒，已跳过。`,
+    );
     const dataUrl = `data:image/jpeg;base64,${buffer.toString("base64")}`;
     if (dataUrl.length <= maxAutoSourceImageDataUrlChars && dataUrl.length <= maxModelImageDataUrlChars) {
       return { dataUrl, quality };
@@ -855,26 +881,45 @@ async function screenshotDataUrl(page) {
   return null;
 }
 
-async function captureBrowserPageScreenshots(page) {
+async function captureBrowserPageScreenshots(page, collectDeadlineAt = Date.now() + browserFetchCollectTimeoutMs) {
   const warnings = [];
   await page.setViewportSize({ width: browserScreenshotWidth, height: browserScreenshotHeight }).catch((error) => {
     warnings.push(`设置截图视口失败：${error.message}`);
   });
+  const readMetrics = () =>
+    withTimeout(
+      page.evaluate(() => {
+        const body = document.body;
+        const doc = document.documentElement;
+        return {
+          scrollHeight: Math.max(body?.scrollHeight || 0, body?.offsetHeight || 0, doc?.clientHeight || 0, doc?.scrollHeight || 0, doc?.offsetHeight || 0),
+          viewportWidth: window.innerWidth || document.documentElement.clientWidth || 0,
+          viewportHeight: window.innerHeight || document.documentElement.clientHeight || 0,
+        };
+      }),
+      Math.min(browserFetchDomReadTimeoutMs, Math.max(1000, collectDeadlineAt - Date.now())),
+      "详情页高度读取超时，已按单屏截图继续。",
+    );
   await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
   await page.waitForTimeout(500).catch(() => {});
-  const metrics = await page
-    .evaluate(() => {
-      const body = document.body;
-      const doc = document.documentElement;
-      return {
-        scrollHeight: Math.max(body?.scrollHeight || 0, body?.offsetHeight || 0, doc?.clientHeight || 0, doc?.scrollHeight || 0, doc?.offsetHeight || 0),
-        viewportWidth: window.innerWidth || document.documentElement.clientWidth || 0,
-        viewportHeight: window.innerHeight || document.documentElement.clientHeight || 0,
-      };
-    })
-    .catch(() => ({ scrollHeight: browserScreenshotHeight, viewportWidth: browserScreenshotWidth, viewportHeight: browserScreenshotHeight }));
+  const initialMetrics = await readMetrics().catch(() => ({
+    scrollHeight: browserScreenshotHeight,
+    viewportWidth: browserScreenshotWidth,
+    viewportHeight: browserScreenshotHeight,
+  }));
+  await warmUpLazyLoadedPage(page, initialMetrics.scrollHeight, collectDeadlineAt, warnings);
+  const metrics = await readMetrics().catch(() => initialMetrics);
   const viewportHeight = Math.max(320, Math.min(Number(metrics.viewportHeight || browserScreenshotHeight), browserScreenshotHeight));
-  const pageHeight = Math.max(viewportHeight, Math.min(Number(metrics.scrollHeight || viewportHeight), maxBrowserScreenshotScrollHeight));
+  const actualScrollHeight = Math.max(viewportHeight, Number(metrics.scrollHeight || viewportHeight));
+  const pageHeight = Math.max(viewportHeight, Math.min(actualScrollHeight, maxBrowserScreenshotScrollHeight));
+  const clippedByHeight = actualScrollHeight > pageHeight;
+  if (clippedByHeight) {
+    warnings.push(`详情页高度约 ${actualScrollHeight}px，当前最多覆盖前 ${pageHeight}px；如后半段参数缺失，请上传长图补充。`);
+  }
+  const fullPositionCount = Math.max(1, Math.ceil(pageHeight / viewportHeight));
+  if (fullPositionCount > maxBrowserScreenshotCount) {
+    warnings.push(`详情页需要约 ${fullPositionCount} 张截图，当前模型最多发送 ${maxBrowserScreenshotCount} 张，已按整页均匀抽样。`);
+  }
   const step = viewportHeight;
   const allPositions = [];
   for (let y = 0; y < pageHeight; y += step) {
@@ -885,6 +930,10 @@ async function captureBrowserPageScreenshots(page) {
   const dataUrls = [];
   const capturedPositions = [];
   for (const y of positions) {
+    if (Date.now() >= collectDeadlineAt) {
+      warnings.push("整页截图达到时间上限，已返回已截取的部分截图。");
+      break;
+    }
     await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y).catch(() => {});
     await page.waitForTimeout(450).catch(() => {});
     const shot = await screenshotDataUrl(page).catch((error) => {
@@ -902,11 +951,32 @@ async function captureBrowserPageScreenshots(page) {
   return {
     dataUrls,
     pageHeight,
+    actualScrollHeight,
+    clippedByHeight,
+    sampled: fullPositionCount > maxBrowserScreenshotCount,
     viewportWidth: Number(metrics.viewportWidth || browserScreenshotWidth),
     viewportHeight,
     positions: capturedPositions,
-    warnings: warnings.slice(0, 8),
+    warnings: warnings.slice(0, 10),
   };
+}
+
+async function warmUpLazyLoadedPage(page, scrollHeight, collectDeadlineAt, warnings) {
+  const viewportHeight = browserScreenshotHeight;
+  const targetHeight = Math.min(Math.max(Number(scrollHeight || viewportHeight), viewportHeight), maxBrowserScreenshotScrollHeight);
+  const warmupStep = Math.max(480, Math.floor(viewportHeight * 0.85));
+  let steps = 0;
+  for (let y = 0; y < targetHeight; y += warmupStep) {
+    if (Date.now() >= collectDeadlineAt - browserFetchScreenshotTimeoutMs) {
+      warnings.push("详情页预滚动达到时间上限，可能仍有懒加载内容未展开。");
+      break;
+    }
+    await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y).catch(() => {});
+    await page.waitForTimeout(220).catch(() => {});
+    steps += 1;
+    if (steps >= 80) break;
+  }
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
 }
 
 function metadataFromBrowserSnapshot(snapshot = {}, originalUrl = "") {

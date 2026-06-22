@@ -159,8 +159,11 @@ AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE=320
 AUTO_SOURCE_IMAGE_MIN_PIXELS=250000
 # 可选：浏览器辅助抓取详情页截图
 BROWSER_EXECUTABLE_PATH=
-BROWSER_FETCH_SCREENSHOT_COUNT=24
-BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT=30000
+BROWSER_FETCH_SCREENSHOT_COUNT=32
+BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT=60000
+BROWSER_FETCH_DOM_READ_TIMEOUT_MS=8000
+BROWSER_FETCH_SCREENSHOT_TIMEOUT_MS=10000
+BROWSER_FETCH_COLLECT_TIMEOUT_MS=120000
 # OPENAI_INPUT_USD_PER_1M=...
 # OPENAI_OUTPUT_USD_PER_1M=...
 # OPENAI_TOTAL_USD_PER_1M=...
@@ -173,7 +176,7 @@ APP_ACCESS_TOKEN=change-me
 
 如果 URL 抓取能打开页面但 AI 仍提示“没有可用于视觉识别的详情页图片”，通常是页面只暴露了 logo、图标、小缩略图或需要登录后的大图。第一选择是上传详情页截图/长图；如果确认详情页里有足够清晰的大图，也可以在 `.env.local` 里调低 `AUTO_SOURCE_IMAGE_MIN_WIDTH`、`AUTO_SOURCE_IMAGE_MIN_SHORT_EDGE` 或 `AUTO_SOURCE_IMAGE_MIN_PIXELS`。
 
-浏览器辅助抓取会按顺序尝试 Google Chrome、Microsoft Edge、Playwright Chromium，用于登录后页面、验证码后页面或电商动态详情页截图。一般不用配置；如果你的浏览器安装在特殊位置，再把完整路径填到 `BROWSER_EXECUTABLE_PATH`。`BROWSER_FETCH_SCREENSHOT_COUNT` 控制最多截取多少张滚动截图，`BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT` 控制单次页面最大滚动高度。
+浏览器辅助抓取会按顺序尝试 Google Chrome、Microsoft Edge、Playwright Chromium，用于登录后页面、验证码后页面或电商动态详情页截图。一般不用配置；如果你的浏览器安装在特殊位置，再把完整路径填到 `BROWSER_EXECUTABLE_PATH`。`BROWSER_FETCH_SCREENSHOT_COUNT` 控制最多截取多少张滚动截图，`BROWSER_FETCH_SCREENSHOT_MAX_SCROLL_HEIGHT` 控制单次页面最大滚动高度。遇到电商详情页特别慢或页面脚本卡住时，`BROWSER_FETCH_DOM_READ_TIMEOUT_MS` 控制读取页面文字/规格的等待时间，`BROWSER_FETCH_SCREENSHOT_TIMEOUT_MS` 控制单张截图等待时间，`BROWSER_FETCH_COLLECT_TIMEOUT_MS` 控制一次“继续获取”的总时长；超时后会尽量返回已拿到的截图和证据，而不是直接卡死。
 
 多模型第一阶段改为 DeepSeek + Qwen-VL：
 

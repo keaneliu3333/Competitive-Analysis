@@ -1910,6 +1910,21 @@ function reviewProductDisplay(product) {
   return { brand, model, name, source };
 }
 
+function reviewSourceLabel(product) {
+  const sourceUrl = product.sourceUrl || product.sourceMetadata?.url || product.sourceMetadata?.finalUrl || "";
+  if (sourceUrl) {
+    try {
+      const url = new URL(sourceUrl);
+      return `${url.hostname.replace(/^www\./, "")}${url.pathname && url.pathname !== "/" ? " · 详情页" : ""}`;
+    } catch {
+      return "来源链接待确认";
+    }
+  }
+  const title = product.sourceMetadata?.title || product.analysisRuns?.[0]?.source || "";
+  if (!title || /待确认|未知/.test(title)) return "来源证据待补充";
+  return title.length > 42 ? `${title.slice(0, 42)}...` : title;
+}
+
 function reviewPendingItems(product) {
   const items = [...productCatalogBlockers(product)];
   if (!Number(product.price || 0)) items.push("价格待确认");
@@ -1959,6 +1974,7 @@ function renderReviewQueue() {
         const visibleItems = reviewVisiblePendingItems(product);
         const priceText = Number(product.price || 0) ? formatCurrency(product.price) : "价格待确认";
         const confidenceText = Number(product.confidence || 0) ? `置信度 ${Number(product.confidence || 0)}%` : "置信度待确认";
+        const sourceLabel = reviewSourceLabel(product);
         const highlightClass = product.id === highlightedReviewProductId ? " is-highlighted" : "";
         const checked = selectedReviewIds.has(product.id) ? "checked" : "";
         return `
@@ -1970,7 +1986,7 @@ function renderReviewQueue() {
         <div class="review-main">
           <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
           <p>${escapeHtml(display.name)} · ${escapeHtml(product.category)} · ${escapeHtml(priceText)}</p>
-          <small title="${escapeHtml(display.source)}">来源：${escapeHtml(display.source)}</small>
+          <small title="${escapeHtml(display.source)}">来源：${escapeHtml(sourceLabel)}</small>
           <div class="review-summary">
             <span>待处理 ${pendingItems.length} 项</span>
             <span>${escapeHtml(confidenceText)}</span>
@@ -3939,6 +3955,13 @@ function renderSourceEvidence(metadata) {
   const selectedSkuTexts = metadata.selectedSkuTexts || [];
   const skuTextSnippets = metadata.skuTextSnippets || [];
   const screenshotCount = Number(metadata.sourceScreenshotFetch?.count || metadata.sourceScreenshotDataUrls?.length || 0);
+  const screenshotMeta = metadata.sourceScreenshotFetch || {};
+  const screenshotNotes = [
+    screenshotMeta.actualScrollHeight && screenshotMeta.pageHeight ? `页面约 ${Math.round(screenshotMeta.actualScrollHeight)}px，已覆盖 ${Math.round(screenshotMeta.pageHeight)}px` : "",
+    screenshotMeta.sampled ? "页面较长，已按整页均匀抽样" : "",
+    screenshotMeta.clippedByHeight ? "页面超过当前截图上限，后半段可能未覆盖" : "",
+    ...(screenshotMeta.warnings || []).slice(0, 3),
+  ].filter(Boolean);
   if (!priceCandidates.length && imageCandidates.length <= 1 && !textSnippets.length && !screenshotCount && !selectedSkuTexts.length && !skuTextSnippets.length) return "";
   return `
     <div class="source-evidence">
@@ -3958,6 +3981,7 @@ function renderSourceEvidence(metadata) {
           ? `<div>
               <strong>浏览器截图</strong>
               <p>已截取 ${escapeHtml(screenshotCount)} 张详情页截图用于视觉识别。</p>
+              ${screenshotNotes.length ? `<ul>${screenshotNotes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : ""}
             </div>`
           : ""
       }

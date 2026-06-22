@@ -472,6 +472,15 @@ for (const token of [
   "Playwright Chromium",
   "captureBrowserPageScreenshots",
   "metadataFromBrowserSnapshot",
+  "withTimeout",
+  "BROWSER_FETCH_DOM_READ_TIMEOUT_MS",
+  "BROWSER_FETCH_SCREENSHOT_TIMEOUT_MS",
+  "BROWSER_FETCH_COLLECT_TIMEOUT_MS",
+  "整页截图达到时间上限",
+  "warmUpLazyLoadedPage",
+  "actualScrollHeight",
+  "clippedByHeight",
+  "已按整页均匀抽样",
   "fetchRemoteImageDataUrls",
   "sourceImageFetch",
   "sourceScreenshotDataUrls",
@@ -691,6 +700,8 @@ assertIncludes(scriptJs, "自动截取整页截图", "script.js browser collect 
 assertIncludes(scriptJs, "persistableSourceMetadata", "script.js strips transient screenshot data before persisting products");
 assertIncludes(scriptJs, "SKU/规格证据", "script.js source preview shows SKU evidence");
 assertIncludes(scriptJs, "selectedSkuTexts", "script.js renders selected SKU evidence");
+assertIncludes(scriptJs, "页面约", "script.js source preview shows screenshot coverage");
+assertIncludes(scriptJs, "页面超过当前截图上限", "script.js source preview warns clipped screenshots");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
@@ -732,7 +743,10 @@ for (const token of [
   "QWEN_REQUEST_TIMEOUT_MS=60000",
   "BROWSER_EXECUTABLE_PATH=",
   "BROWSER_FETCH_DISABLE_SANDBOX=0",
-  "BROWSER_FETCH_SCREENSHOT_COUNT=24",
+  "BROWSER_FETCH_SCREENSHOT_COUNT=32",
+  "BROWSER_FETCH_DOM_READ_TIMEOUT_MS=8000",
+  "BROWSER_FETCH_SCREENSHOT_TIMEOUT_MS=10000",
+  "BROWSER_FETCH_COLLECT_TIMEOUT_MS=120000",
   "APP_READ_TOKEN=",
   "APP_WRITE_TOKEN=",
   "PORT=4173",
