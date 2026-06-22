@@ -682,6 +682,10 @@ assertIncludes(scriptJs, "data-delete-module", "script.js module manager support
 assertIncludes(scriptJs, "editingModuleName", "script.js module manager supports inline group rename");
 assertIncludes(scriptJs, "saveFeatureFieldName", "script.js module manager saves inline field rename");
 assertIncludes(scriptJs, "data-save-module-name", "script.js module manager has save group rename action");
+assertIncludes(scriptJs, "data-field-type-input", "script.js module manager edits field type inline");
+assertIncludes(scriptJs, "data-field-options-input", "script.js module manager edits enum options inline");
+assertIncludes(scriptJs, "normalizeEditedFeatureValue", "script.js module manager normalizes values after type edits");
+assertIncludes(scriptJs, "枚举字段需要至少填写一个可选值", "script.js module manager validates enum options");
 assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-select state");
 assertIncludes(scriptJs, "isRoadmapProduct", "script.js roadmap filters out products not ready for milestone display");
 assertIncludes(scriptJs, "productRoadmapBlockers", "script.js roadmap readiness blockers");

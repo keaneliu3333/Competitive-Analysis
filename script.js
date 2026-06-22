@@ -2743,6 +2743,12 @@ function fieldTypeLabel(type) {
   }[type] || "文字";
 }
 
+function renderFieldTypeOptions(selectedType) {
+  return ["text", "number", "boolean", "enum", "price", "image"]
+    .map((type) => `<option value="${type}" ${type === selectedType ? "selected" : ""}>${escapeHtml(fieldTypeLabel(type))}</option>`)
+    .join("");
+}
+
 function renderModules() {
   els.moduleList.innerHTML = state.modules
     .map(
@@ -2766,7 +2772,7 @@ function renderModules() {
           <div class="module-row-actions">
             <button class="secondary-button" type="button" data-move-module="${escapeHtml(module.name)}" data-move-direction="-1" ${moduleIndex === 0 ? "disabled" : ""}>上移分组</button>
             <button class="secondary-button" type="button" data-move-module="${escapeHtml(module.name)}" data-move-direction="1" ${moduleIndex === state.modules.length - 1 ? "disabled" : ""}>下移分组</button>
-            <button class="secondary-button" type="button" data-rename-module="${escapeHtml(module.name)}">改名分组</button>
+            <button class="secondary-button" type="button" data-rename-module="${escapeHtml(module.name)}">编辑分组</button>
             <button class="secondary-button danger-button" type="button" data-delete-module="${escapeHtml(module.name)}">删除分组</button>
           </div>
         </div>
@@ -2786,21 +2792,31 @@ function renderModules() {
               <div class="module-field-row" role="row">
                 ${
                   editingField
-                    ? `<span class="inline-edit">
+                    ? `<span class="inline-edit field-config-edit">
                         <input type="text" value="${escapeHtml(field.name)}" data-field-name-input="${escapeHtml(field.key)}" aria-label="字段名称" />
-                        <button class="secondary-button" type="button" data-save-field-name="${escapeHtml(field.key)}">保存</button>
-                        <button class="secondary-button" type="button" data-cancel-field-rename>取消</button>
                       </span>`
                     : `<strong>${escapeHtml(field.name)}</strong>`
                 }
-                <span>${escapeHtml(fieldTypeLabel(field.type))}</span>
-                <span>${field.type === "enum" && field.options?.length ? escapeHtml(field.options.join(" / ")) : "不需要"}</span>
+                ${
+                  editingField
+                    ? `<select data-field-type-input="${escapeHtml(field.key)}" aria-label="字段类型">${renderFieldTypeOptions(field.type)}</select>`
+                    : `<span>${escapeHtml(fieldTypeLabel(field.type))}</span>`
+                }
+                ${
+                  editingField
+                    ? `<input type="text" value="${escapeHtml((field.options || []).join("、"))}" data-field-options-input="${escapeHtml(field.key)}" aria-label="可选值" placeholder="枚举可选值，例如 基础、进阶、旗舰" />`
+                    : `<span>${field.type === "enum" && field.options?.length ? escapeHtml(field.options.join(" / ")) : "不需要"}</span>`
+                }
                 <span class="module-row-actions">
-                  <button class="secondary-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="-1" ${fieldIndex === 0 ? "disabled" : ""}>前移</button>
-                  <button class="secondary-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="1" ${fieldIndex === module.fields.length - 1 ? "disabled" : ""}>后移</button>
-                  <button class="secondary-button" type="button" data-rename-field="${escapeHtml(field.key)}">改名</button>
-                  ${field.type === "enum" ? `<button class="secondary-button" type="button" data-edit-field-options="${escapeHtml(field.key)}">改选项</button>` : ""}
-                  <button class="secondary-button danger-button" type="button" data-delete-field="${escapeHtml(field.key)}">删除</button>
+                  ${
+                    editingField
+                      ? `<button class="secondary-button" type="button" data-save-field-name="${escapeHtml(field.key)}">保存</button>
+                         <button class="secondary-button" type="button" data-cancel-field-rename>取消</button>`
+                      : `<button class="secondary-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="-1" ${fieldIndex === 0 ? "disabled" : ""}>前移</button>
+                         <button class="secondary-button" type="button" data-move-field="${escapeHtml(field.key)}" data-move-direction="1" ${fieldIndex === module.fields.length - 1 ? "disabled" : ""}>后移</button>
+                         <button class="secondary-button" type="button" data-rename-field="${escapeHtml(field.key)}">编辑</button>
+                         <button class="secondary-button danger-button" type="button" data-delete-field="${escapeHtml(field.key)}">删除</button>`
+                  }
                 </span>
               </div>
             `;
@@ -2878,21 +2894,48 @@ function renameFeatureField(fieldKey) {
 
 function saveFeatureFieldName(fieldKey) {
   const input = els.moduleList.querySelector(`[data-field-name-input="${CSS.escape(fieldKey)}"]`);
+  const typeInput = els.moduleList.querySelector(`[data-field-type-input="${CSS.escape(fieldKey)}"]`);
+  const optionsInput = els.moduleList.querySelector(`[data-field-options-input="${CSS.escape(fieldKey)}"]`);
   const nextName = input?.value.trim();
+  const nextType = ["text", "number", "boolean", "enum", "price", "image"].includes(typeInput?.value) ? typeInput.value : "text";
+  const nextOptions = nextType === "enum" ? normalizeEnumOptions(optionsInput?.value || "") : [];
   if (!nextName) {
     editingFieldKey = "";
     renderModules();
+    return;
+  }
+  if (nextType === "enum" && !nextOptions.length) {
+    window.alert("枚举字段需要至少填写一个可选值。");
     return;
   }
   for (const module of state.modules) {
     const target = module.fields.find((item) => item.key === fieldKey);
     if (target) {
       target.name = nextName;
+      target.type = nextType;
+      target.options = nextOptions;
+      state.products.forEach((product) => {
+        product.features = product.features || {};
+        product.features[fieldKey] = normalizeEditedFeatureValue(target, product.features[fieldKey]);
+      });
+      autoMatchFeatureForProducts({ ...target, module: module.name });
       break;
     }
   }
   editingFieldKey = "";
   renderAll();
+}
+
+function normalizeEditedFeatureValue(field, value) {
+  if (!meaningfulFeatureValue(value)) return defaultFeatureValue(field);
+  if (field.type === "boolean") {
+    if (value === true || value === false) return value;
+    const text = String(value).trim();
+    if (/^(支持|是|true|yes|1)$/i.test(text)) return true;
+    if (/^(不支持|否|false|no|0)$/i.test(text)) return false;
+    return null;
+  }
+  return normalizeCustomFeatureValue(field, value);
 }
 
 function editFeatureFieldOptions(fieldKey) {
@@ -5672,11 +5715,13 @@ function bindEvents() {
   els.moduleList.addEventListener("keydown", (event) => {
     const moduleInput = event.target.closest("[data-module-name-input]");
     const fieldInput = event.target.closest("[data-field-name-input]");
-    if (!moduleInput && !fieldInput) return;
+    const fieldOptionsInput = event.target.closest("[data-field-options-input]");
+    if (!moduleInput && !fieldInput && !fieldOptionsInput) return;
     if (event.key === "Enter") {
       event.preventDefault();
       if (moduleInput) saveModuleName(moduleInput.dataset.moduleNameInput);
       if (fieldInput) saveFeatureFieldName(fieldInput.dataset.fieldNameInput);
+      if (fieldOptionsInput) saveFeatureFieldName(fieldOptionsInput.dataset.fieldOptionsInput);
     }
     if (event.key === "Escape") {
       event.preventDefault();
