@@ -323,9 +323,17 @@ async function main() {
     await page.locator(".module-manager").evaluate((element) => {
       element.open = true;
     });
-    page.once("dialog", (dialog) => dialog.accept(renamedFieldName));
     await page.locator(`[data-rename-field="${fieldKey}"]`).click();
-    await page.waitForTimeout(250);
+    await page.locator(`[data-field-name-input="${fieldKey}"]`).fill(renamedFieldName);
+    await page.locator(`[data-save-field-name="${fieldKey}"]`).click();
+    await page.waitForFunction(
+      ({ selector, expected }) =>
+        Array.from(document.querySelector(selector)?.options || []).some((option) =>
+          (option.textContent || "").includes(expected),
+        ),
+      { selector: "#featureFilterField", expected: renamedFieldName },
+      { timeout: 5000 },
+    );
     const renamedOptions = await optionLabels(page, "#featureFilterField");
     assert(renamedOptions.some((option) => option.label.includes(renamedFieldName)), "字段重命名后未同步筛选器");
     page.once("dialog", (dialog) => dialog.accept());

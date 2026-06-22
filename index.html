@@ -271,6 +271,10 @@
             </button>
           </div>
           <ol id="analysisSteps" class="analysis-steps wide-field" aria-label="AI 分析进度"></ol>
+          <div id="analysisPlan" class="analysis-plan wide-field" aria-live="polite">
+            <strong>模型调用计划</strong>
+            <span>输入 URL、上传截图或填写说明后，系统会在开始分析前显示本次使用的模型链路。</span>
+          </div>
         </section>
 
         <section class="panel review-workspace workspace-page" data-workspace-page="import" aria-labelledby="reviewTitle" hidden aria-hidden="true">
@@ -492,7 +496,8 @@
             </div>
             <div id="compareStatus" class="compare-status"></div>
             <div id="comparePicker" class="compare-picker"></div>
-            <div class="compare-field-panel" aria-label="对比字段选择">
+            <details class="compare-field-panel" aria-label="对比字段选择" open>
+              <summary class="compare-field-summary">对比字段选择</summary>
               <div class="compare-field-header">
                 <strong>对比字段</strong>
                 <div class="panel-actions">
@@ -526,7 +531,7 @@
                 </div>
                 <div id="moduleList" class="module-list"></div>
               </details>
-            </div>
+            </details>
             <div class="comparison-summary" id="comparisonSummary">
               选择至少 2 个型号后生成竞争对标总结。
             </div>

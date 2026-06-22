@@ -148,6 +148,7 @@ const requiredElementIds = [
   "sourcePreview",
   "analysisStatus",
   "analysisSteps",
+  "analysisPlan",
   "retryAnalysis",
   "collectBrowserFetch",
   "cancelBrowserFetch",
@@ -644,6 +645,8 @@ for (const token of [
   "data-brand-filter",
   "analysisPreflightMessage",
   "analysisProviderPlan",
+  "renderAnalysisPlan",
+  "analysis-plan-chip",
   "模型已配置；如果网络或平台临时失败",
 ]) {
   assertIncludes(scriptJs, token, "script.js upload capability");
@@ -662,6 +665,7 @@ assertIncludes(indexHtml, "继续获取", "index.html browser assisted collect a
 assertIncludes(indexHtml, "取消浏览器获取", "index.html browser assisted cancel action");
 assertIncludes(indexHtml, "确认所选", "index.html selected review confirm action");
 assertIncludes(indexHtml, "删除所选", "index.html selected review delete action");
+assertIncludes(indexHtml, "compare-field-summary", "index.html compare field picker is collapsible");
 assertOrder(indexHtml, "id=\"importPanel\"", "id=\"reviewTitle\"", "AI workspace detail ingestion before review queue");
 assertOrder(indexHtml, "id=\"compareCategoryFilter\"", "id=\"compareBrandFilter\"", "compare filters category before brand");
 assertIncludes(scriptJs, "await runAnalysis();", "script.js auto analysis after metadata fetch");
@@ -675,6 +679,9 @@ assertIncludes(scriptJs, "productDisplayTitle(product)", "script.js compare head
 assertIncludes(scriptJs, "module-field-table", "script.js module manager renders field table");
 assertIncludes(scriptJs, "fieldTypeLabel(field.type)", "script.js module manager shows friendly field types");
 assertIncludes(scriptJs, "data-delete-module", "script.js module manager supports deleting groups");
+assertIncludes(scriptJs, "editingModuleName", "script.js module manager supports inline group rename");
+assertIncludes(scriptJs, "saveFeatureFieldName", "script.js module manager saves inline field rename");
+assertIncludes(scriptJs, "data-save-module-name", "script.js module manager has save group rename action");
 assertIncludes(scriptJs, "setRoadmapBrands", "script.js roadmap brand multi-select state");
 assertIncludes(scriptJs, "isRoadmapProduct", "script.js roadmap filters out products not ready for milestone display");
 assertIncludes(scriptJs, "productRoadmapBlockers", "script.js roadmap readiness blockers");
@@ -733,6 +740,10 @@ assertIncludes(stylesCss, ".image-candidate.is-selected", "styles.css selected p
 assertIncludes(stylesCss, ".module-field-table", "styles.css module manager field table");
 assertIncludes(stylesCss, ".module-field-row", "styles.css module manager field rows");
 assertIncludes(stylesCss, ".module-row-actions", "styles.css module manager compact action buttons");
+assertIncludes(stylesCss, ".compare-field-summary", "styles.css compare fields collapsible summary");
+assertIncludes(stylesCss, ".inline-edit", "styles.css module manager inline rename controls");
+assertIncludes(stylesCss, "var(--roadmap-lanes) * 360px", "styles.css roadmap board uses wider lanes");
+assertIncludes(stylesCss, "width: 240px", "styles.css roadmap cards are wider");
 assertIncludes(stylesCss, "[hidden]", "styles.css hidden workspace hard guard");
 assertIncludes(stylesCss, ".brand-dot", "styles.css roadmap brand color dot");
 assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color variables");

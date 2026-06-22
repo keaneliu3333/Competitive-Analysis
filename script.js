@@ -386,6 +386,8 @@ let analysisStepState = {};
 let highlightedReviewProductId = "";
 let browserFetchSessionId = "";
 let selectedReviewIds = new Set();
+let editingModuleName = "";
+let editingFieldKey = "";
 let usageState = { count: 0, recent: [], estimatedTotalCostUsd: null, costPricingConfigured: false, loaded: false, error: "" };
 let healthState = {
   ok: false,
@@ -482,6 +484,31 @@ function analysisPreflightMessage(files, metadata) {
     return `本次计划：${planText}。但 ${unique(missing).join("、")} 未配置，系统会生成待人工复核记录。`;
   }
   return `本次计划：${planText}。模型已配置；如果网络或平台临时失败，系统会保留待人工复核记录。`;
+}
+
+function renderAnalysisPlan(files = [], metadata = null) {
+  if (!els.analysisPlan) return;
+  const plan = analysisProviderPlan(files, metadata);
+  const missing = plan.filter((item) => !item.configured);
+  els.analysisPlan.classList.toggle("is-warning", Boolean(missing.length));
+  els.analysisPlan.innerHTML = `
+    <div>
+      <strong>模型调用计划</strong>
+      <span>${missing.length ? "部分模型未配置，失败时会进入人工复核。" : "模型配置已就绪，失败时仍会保留人工复核记录。"}</span>
+    </div>
+    <div class="analysis-plan-items">
+      ${plan
+        .map(
+          (item) => `
+            <span class="analysis-plan-chip ${item.configured ? "is-ok" : "is-warning"}">
+              ${escapeHtml(item.task)}：${escapeHtml(item.provider)} / ${escapeHtml(item.model || "-")}
+              · ${item.configured ? "已配置" : "未配置"}
+            </span>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 async function apiFetch(url, options = {}) {
@@ -592,6 +619,7 @@ const els = {
   sourcePreview: document.querySelector("#sourcePreview"),
   analysisStatus: document.querySelector("#analysisStatus"),
   analysisSteps: document.querySelector("#analysisSteps"),
+  analysisPlan: document.querySelector("#analysisPlan"),
   retryAnalysis: document.querySelector("#retryAnalysis"),
   startBrowserFetch: document.querySelector("#startBrowserFetch"),
   collectBrowserFetch: document.querySelector("#collectBrowserFetch"),
@@ -1325,6 +1353,7 @@ async function loadHealth() {
     };
   }
   renderHealth();
+  renderAnalysisPlan(Array.from(els.sourceImage?.files || []), sourceMetadata);
 }
 
 function renderCustomFeatureEvidence(product) {
@@ -2717,11 +2746,21 @@ function fieldTypeLabel(type) {
 function renderModules() {
   els.moduleList.innerHTML = state.modules
     .map(
-      (module, moduleIndex) => `
+      (module, moduleIndex) => {
+        const editingModule = editingModuleName === module.name;
+        return `
       <section class="module-item">
         <div class="module-title-row">
           <div>
-            <strong>${escapeHtml(module.name)}</strong>
+            ${
+              editingModule
+                ? `<span class="inline-edit">
+                    <input type="text" value="${escapeHtml(module.name)}" data-module-name-input="${escapeHtml(module.name)}" aria-label="分组名称" />
+                    <button class="secondary-button" type="button" data-save-module-name="${escapeHtml(module.name)}">保存</button>
+                    <button class="secondary-button" type="button" data-cancel-module-rename>取消</button>
+                  </span>`
+                : `<strong>${escapeHtml(module.name)}</strong>`
+            }
             <small>${module.fields.length} 个对比项</small>
           </div>
           <div class="module-row-actions">
@@ -2741,9 +2780,19 @@ function renderModules() {
           ${
             module.fields
               .map(
-                (field, fieldIndex) => `
+                (field, fieldIndex) => {
+                  const editingField = editingFieldKey === field.key;
+                  return `
               <div class="module-field-row" role="row">
-                <strong>${escapeHtml(field.name)}</strong>
+                ${
+                  editingField
+                    ? `<span class="inline-edit">
+                        <input type="text" value="${escapeHtml(field.name)}" data-field-name-input="${escapeHtml(field.key)}" aria-label="字段名称" />
+                        <button class="secondary-button" type="button" data-save-field-name="${escapeHtml(field.key)}">保存</button>
+                        <button class="secondary-button" type="button" data-cancel-field-rename>取消</button>
+                      </span>`
+                    : `<strong>${escapeHtml(field.name)}</strong>`
+                }
                 <span>${escapeHtml(fieldTypeLabel(field.type))}</span>
                 <span>${field.type === "enum" && field.options?.length ? escapeHtml(field.options.join(" / ")) : "不需要"}</span>
                 <span class="module-row-actions">
@@ -2754,13 +2803,15 @@ function renderModules() {
                   <button class="secondary-button danger-button" type="button" data-delete-field="${escapeHtml(field.key)}">删除</button>
                 </span>
               </div>
-            `,
+            `;
+                },
               )
               .join("") || `<div class="module-field-empty">暂无对比项。可用上方表单新增。</div>`
           }
         </div>
       </section>
-    `,
+    `;
+      },
     )
     .join("");
 }
@@ -2781,14 +2832,28 @@ function moveModule(moduleName, direction) {
 function renameModule(moduleName) {
   const module = state.modules.find((item) => item.name === moduleName);
   if (!module) return;
-  const nextName = window.prompt("输入新的分组名称：", module.name);
-  const normalized = nextName?.trim();
-  if (!normalized || normalized === module.name) return;
+  editingModuleName = module.name;
+  editingFieldKey = "";
+  renderModules();
+  els.moduleList.querySelector(`[data-module-name-input="${CSS.escape(module.name)}"]`)?.focus();
+}
+
+function saveModuleName(moduleName) {
+  const module = state.modules.find((item) => item.name === moduleName);
+  if (!module) return;
+  const input = els.moduleList.querySelector(`[data-module-name-input="${CSS.escape(moduleName)}"]`);
+  const normalized = input?.value.trim();
+  if (!normalized || normalized === module.name) {
+    editingModuleName = "";
+    renderModules();
+    return;
+  }
   if (state.modules.some((item) => item.name === normalized)) {
     window.alert("已有同名分组，请换一个名称。");
     return;
   }
   module.name = normalized;
+  editingModuleName = "";
   renderAll();
 }
 
@@ -2805,15 +2870,28 @@ function moveFeatureField(fieldKey, direction) {
 function renameFeatureField(fieldKey) {
   const field = allFields().find((item) => item.key === fieldKey);
   if (!field) return;
-  const nextName = window.prompt("输入新的字段名称：", field.name);
-  if (!nextName?.trim()) return;
+  editingFieldKey = fieldKey;
+  editingModuleName = "";
+  renderModules();
+  els.moduleList.querySelector(`[data-field-name-input="${CSS.escape(fieldKey)}"]`)?.focus();
+}
+
+function saveFeatureFieldName(fieldKey) {
+  const input = els.moduleList.querySelector(`[data-field-name-input="${CSS.escape(fieldKey)}"]`);
+  const nextName = input?.value.trim();
+  if (!nextName) {
+    editingFieldKey = "";
+    renderModules();
+    return;
+  }
   for (const module of state.modules) {
     const target = module.fields.find((item) => item.key === fieldKey);
     if (target) {
-      target.name = nextName.trim();
+      target.name = nextName;
       break;
     }
   }
+  editingFieldKey = "";
   renderAll();
 }
 
@@ -3014,7 +3092,7 @@ function roadmapCard(product, priceScale, index, laneIndex = 0) {
   const range = Math.max(priceScale.max - priceScale.min, 1);
   const normalized = (priceScale.max - Number(product.price || 0)) / range;
   const y = Math.max(8, Math.min(78, 8 + normalized * 70));
-  const x = laneIndex * 220 + roadmapLaneOffset(product, index);
+  const x = laneIndex * 270 + roadmapLaneOffset(product, index);
   return `
     <article class="roadmap-card" style="--roadmap-y: ${y}%; --roadmap-x: ${x}px; ${roadmapBrandStyle(product.brand)}">
       <div>
@@ -3049,7 +3127,7 @@ function renderRoadmapTimeline(products) {
   const selectedBrandLabel = selectedBrands.length ? selectedBrands.map(displayBrandName).join("、") : "全部";
   const lanes = unique(scopedProducts.map(productRoadmapPeriod));
   const priceScale = roadmapPriceScale(scopedProducts);
-  const chartHeight = Math.max(500, Math.min(780, priceScale.ticks.length * 72));
+  const chartHeight = Math.max(620, Math.min(940, priceScale.ticks.length * 88));
   return `
     <div class="roadmap-mode-note">单品牌时间 · ${escapeHtml(selectedBrandLabel)} · 横轴为半年度周期，纵轴按 ${priceScale.step} 元价格档位。</div>
     <div class="roadmap-chart" style="--roadmap-lanes: ${Math.max(lanes.length, 1)}; --roadmap-height: ${chartHeight}px">
@@ -3059,7 +3137,7 @@ function renderRoadmapTimeline(products) {
           .map((period) => {
             const laneProducts = scopedProducts.filter((product) => productRoadmapPeriod(product) === period);
             const laneBrands = unique(laneProducts.map((product) => product.brand));
-            return `<section class="roadmap-lane" style="--period-width: ${Math.max(laneBrands.length, 1) * 220 + 28}px">
+            return `<section class="roadmap-lane" style="--period-width: ${Math.max(340, Math.max(laneBrands.length, 1) * 270 + 40)}px">
               <h3>${escapeHtml(period)}</h3>
               ${laneProducts
                 .map((product, index) => roadmapCard(product, priceScale, index, Math.max(0, laneBrands.indexOf(product.brand))))
@@ -3075,7 +3153,7 @@ function renderRoadmapTimeline(products) {
 function renderRoadmapBrandCompare(products) {
   const lanes = unique(products.map((product) => product.brand));
   const priceScale = roadmapPriceScale(products);
-  const chartHeight = Math.max(500, Math.min(780, priceScale.ticks.length * 72));
+  const chartHeight = Math.max(620, Math.min(940, priceScale.ticks.length * 88));
   return `
     <div class="roadmap-mode-note">品牌对比 · 横轴为所选品牌，纵轴按 ${priceScale.step} 元价格档位。</div>
     <div class="roadmap-chart" style="--roadmap-lanes: ${Math.max(lanes.length, 1)}; --roadmap-height: ${chartHeight}px">
@@ -4030,6 +4108,7 @@ async function runAnalysis() {
   setAnalysisStep("input", "done");
   await loadHealth();
   renderHealth();
+  renderAnalysisPlan(files, sourceMetadata);
   setAnalysisStatus(analysisPreflightMessage(files, sourceMetadata), "progress");
   try {
     setAnalysisStep(files.length ? "files" : "request", "active");
@@ -5335,6 +5414,7 @@ function bindEvents() {
   els.sourceUrl.addEventListener("input", () => {
     sourceMetadata = null;
     renderSourcePreview(null);
+    renderAnalysisPlan(Array.from(els.sourceImage?.files || []), sourceMetadata);
   });
 
   document.querySelector("#clearFilters").addEventListener("click", () => {
@@ -5541,6 +5621,16 @@ function bindEvents() {
       renameModule(renameModuleButton.dataset.renameModule);
       return;
     }
+    const saveModuleButton = event.target.closest("[data-save-module-name]");
+    if (saveModuleButton) {
+      saveModuleName(saveModuleButton.dataset.saveModuleName);
+      return;
+    }
+    if (event.target.closest("[data-cancel-module-rename]")) {
+      editingModuleName = "";
+      renderModules();
+      return;
+    }
     const moveFieldButton = event.target.closest("[data-move-field]");
     if (moveFieldButton) {
       moveFeatureField(moveFieldButton.dataset.moveField, Number(moveFieldButton.dataset.moveDirection || 0));
@@ -5549,6 +5639,16 @@ function bindEvents() {
     const renameButton = event.target.closest("[data-rename-field]");
     if (renameButton) {
       renameFeatureField(renameButton.dataset.renameField);
+      return;
+    }
+    const saveFieldButton = event.target.closest("[data-save-field-name]");
+    if (saveFieldButton) {
+      saveFeatureFieldName(saveFieldButton.dataset.saveFieldName);
+      return;
+    }
+    if (event.target.closest("[data-cancel-field-rename]")) {
+      editingFieldKey = "";
+      renderModules();
       return;
     }
     const optionsButton = event.target.closest("[data-edit-field-options]");
@@ -5567,6 +5667,23 @@ function bindEvents() {
     if (!confirmed) return;
     state.modules = state.modules.filter((module) => module.name !== button.dataset.deleteModule);
     renderAll();
+  });
+
+  els.moduleList.addEventListener("keydown", (event) => {
+    const moduleInput = event.target.closest("[data-module-name-input]");
+    const fieldInput = event.target.closest("[data-field-name-input]");
+    if (!moduleInput && !fieldInput) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (moduleInput) saveModuleName(moduleInput.dataset.moduleNameInput);
+      if (fieldInput) saveFeatureFieldName(fieldInput.dataset.fieldNameInput);
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      editingModuleName = "";
+      editingFieldKey = "";
+      renderModules();
+    }
   });
 
   document.querySelector("#addField").addEventListener("click", addField);
@@ -5643,7 +5760,10 @@ function bindEvents() {
   els.startBrowserFetch?.addEventListener("click", startBrowserFetch);
   els.collectBrowserFetch?.addEventListener("click", collectBrowserFetch);
   els.cancelBrowserFetch?.addEventListener("click", cancelBrowserFetch);
-  els.sourceImage.addEventListener("change", showSelectedAnalysisFiles);
+  els.sourceImage.addEventListener("change", () => {
+    showSelectedAnalysisFiles();
+    renderAnalysisPlan(Array.from(els.sourceImage?.files || []), sourceMetadata);
+  });
   document.querySelector("#createProduct").addEventListener("click", createProduct);
   document.querySelector("#closeImport").addEventListener("click", () => {
     els.importPanel.classList.remove("is-open");

@@ -1233,6 +1233,60 @@ textarea {
   font-weight: 700;
 }
 
+.analysis-plan {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  padding: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.analysis-plan > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.analysis-plan strong {
+  color: var(--text);
+}
+
+.analysis-plan.is-warning {
+  border-color: #f0c36d;
+  background: #fffaf0;
+}
+
+.analysis-plan-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.analysis-plan-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  padding: 5px 8px;
+  font-weight: 750;
+}
+
+.analysis-plan-chip.is-ok {
+  border-color: #a7d9bd;
+  background: #effaf4;
+  color: var(--success);
+}
+
+.analysis-plan-chip.is-warning {
+  border-color: #f0c36d;
+  background: #fff7e6;
+  color: var(--warning);
+}
+
 .analysis-steps {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1735,6 +1789,17 @@ tbody tr.is-selected {
   padding: 10px;
 }
 
+.compare-field-summary {
+  cursor: pointer;
+  color: var(--primary-dark);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.compare-field-panel:not([open]) {
+  gap: 0;
+}
+
 .compare-field-header {
   display: flex;
   align-items: center;
@@ -1948,6 +2013,19 @@ tbody tr.is-selected {
   font-size: 12px;
 }
 
+.inline-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-edit input {
+  min-width: 180px;
+  min-height: 34px;
+  padding: 0 10px;
+}
+
 .module-field-table {
   display: grid;
   border: 1px solid var(--line);
@@ -2061,8 +2139,8 @@ tbody tr.is-selected {
 
 .roadmap-chart {
   display: grid;
-  grid-template-columns: 88px minmax(calc(var(--roadmap-lanes) * 290px), 1fr);
-  min-width: calc(88px + var(--roadmap-lanes) * 290px);
+  grid-template-columns: 96px minmax(calc(var(--roadmap-lanes) * 360px), 1fr);
+  min-width: calc(96px + var(--roadmap-lanes) * 360px);
   width: max-content;
   max-width: none;
   border: 1px solid var(--line);
@@ -2109,12 +2187,12 @@ tbody tr.is-selected {
 
 .roadmap-lanes {
   display: grid;
-  grid-template-columns: repeat(var(--roadmap-lanes), minmax(280px, 1fr));
+  grid-template-columns: repeat(var(--roadmap-lanes), minmax(350px, 1fr));
 }
 
 .roadmap-lane {
   position: relative;
-  min-width: var(--period-width, 248px);
+  min-width: var(--period-width, 340px);
   min-height: var(--roadmap-height, 420px);
   border-right: 1px solid var(--line);
   background:
@@ -2151,7 +2229,7 @@ tbody tr.is-selected {
   top: var(--roadmap-y);
   left: calc(12px + var(--roadmap-x));
   z-index: 1;
-  width: 200px;
+  width: 240px;
   border: 1px solid var(--brand-line, var(--line));
   border-left: 4px solid var(--brand-color, var(--primary));
   border-radius: var(--radius);
