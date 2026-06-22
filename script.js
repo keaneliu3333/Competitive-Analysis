@@ -822,6 +822,43 @@ function bestProductImage(product) {
   return candidate || image || getCategoryImage(product?.category);
 }
 
+function productImageCandidates(product) {
+  return unique(
+    [
+      product?.image,
+      product?.sourceMetadata?.image,
+      ...(product?.sourceMetadata?.imageCandidates || []),
+    ]
+      .map((url) => String(url || "").trim())
+      .filter((url) => url && !isFallbackProductImage(url)),
+  ).slice(0, 8);
+}
+
+function renderProductImageCandidates(product) {
+  const candidates = productImageCandidates(product);
+  if (!candidates.length) return "";
+  const current = bestProductImage(product);
+  return `
+    <div class="image-candidate-panel">
+      <div>
+        <p class="eyebrow">Product image candidates</p>
+        <strong>详情页候选产品图</strong>
+      </div>
+      <div class="image-candidate-grid">
+        ${candidates
+          .map(
+            (url, index) => `
+          <button class="image-candidate ${url === current ? "is-selected" : ""}" type="button" data-set-product-image="${product.id}" data-image-url="${encodeURIComponent(url)}" title="设为产品主图">
+            <img src="${escapeHtml(url)}" alt="候选产品图 ${index + 1}" loading="lazy" />
+          </button>
+        `,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
 function productDisplayTitle(product) {
   const brand = displayBrandName(safeProductPart(product?.brand, ""));
   const model = safeProductPart(product?.model, "");
@@ -2190,6 +2227,7 @@ function renderDetail() {
         删除产品
       </button>
     </div>
+    ${renderProductImageCandidates(product)}
     <div>
       <p class="eyebrow">Top3 priority selling points</p>
       <ul class="selling-list">
@@ -2411,8 +2449,8 @@ function renderCompare() {
   const fields = compareFields();
   renderCompareStatus(selected, fields);
 
-  els.compareHead.innerHTML = `<tr><th>模块</th><th>字段</th>${selected
-    .map((product) => `<th><strong>${escapeHtml(productDisplayTitle(product))}</strong></th>`)
+  els.compareHead.innerHTML = `<tr><th class="compare-module-head">模块</th><th class="compare-field-head">字段</th>${selected
+    .map((product) => `<th class="compare-product-head"><strong>${escapeHtml(productDisplayTitle(product))}</strong></th>`)
     .join("")}</tr>`;
 
   const moduleRowSpans = compareModuleRowSpans(fields);
@@ -3023,6 +3061,17 @@ function confirmReviewFormProduct(product) {
     return;
   }
   confirmProduct(product.id, "表单确认入库");
+}
+
+function setProductImageFromCandidate(productId, encodedUrl) {
+  const product = state.products.find((item) => item.id === productId);
+  if (!product) return;
+  const url = decodeURIComponent(encodedUrl || "").trim();
+  if (!url || isFallbackProductImage(url) || product.image === url) return;
+  product.image = url;
+  addAudit(product, "更新产品图", "从详情页候选图设为产品主图", "researcher");
+  queuePersist();
+  renderAll();
 }
 
 function focusReviewProduct(productId) {
@@ -5134,6 +5183,11 @@ function bindEvents() {
   });
 
   els.productDetail.addEventListener("click", (event) => {
+    const imageButton = event.target.closest("[data-set-product-image]");
+    if (imageButton) {
+      setProductImageFromCandidate(imageButton.dataset.setProductImage, imageButton.dataset.imageUrl);
+      return;
+    }
     const editButton = event.target.closest("button[data-edit-product]");
     if (editButton) {
       startEditProduct(editButton.dataset.editProduct);

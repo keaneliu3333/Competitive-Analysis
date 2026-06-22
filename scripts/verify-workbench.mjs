@@ -702,11 +702,16 @@ assertIncludes(scriptJs, "SKU/规格证据", "script.js source preview shows SKU
 assertIncludes(scriptJs, "selectedSkuTexts", "script.js renders selected SKU evidence");
 assertIncludes(scriptJs, "页面约", "script.js source preview shows screenshot coverage");
 assertIncludes(scriptJs, "页面超过当前截图上限", "script.js source preview warns clipped screenshots");
+assertIncludes(scriptJs, "productImageCandidates(product)", "script.js renders source image candidates for product detail");
+assertIncludes(scriptJs, "setProductImageFromCandidate", "script.js can set product image from source candidates");
+assertIncludes(scriptJs, "data-set-product-image", "script.js candidate image buttons update the product image");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
 assertIncludes(stylesCss, ".compare-module-cell", "styles.css compare grouped module cell");
 assertIncludes(stylesCss, ".compare-strong-cell", "styles.css compare strong value highlight");
+assertIncludes(stylesCss, ".image-candidate-panel", "styles.css image candidate picker panel");
+assertIncludes(stylesCss, ".image-candidate.is-selected", "styles.css selected product image candidate state");
 assertIncludes(stylesCss, ".module-field-table", "styles.css module manager field table");
 assertIncludes(stylesCss, ".module-field-row", "styles.css module manager field rows");
 assertIncludes(stylesCss, ".module-row-actions", "styles.css module manager compact action buttons");

@@ -231,8 +231,9 @@ async function main() {
     await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 15000 });
     await ensureProductsWorkspace(page);
     const bodyText = await page.locator("body").innerText();
+    const workspaceLabels = await page.locator("[data-workspace]").evaluateAll((nodes) => nodes.map((node) => node.textContent || "").join("\n"));
     assert(
-      bodyText.includes("产品库") && bodyText.includes("型号对比") && bodyText.includes("品牌路标"),
+      bodyText.includes("产品库") && bodyText.includes("型号对比") && workspaceLabels.includes("品牌路标"),
       "核心工作台模块缺失",
     );
     assert(!bodyText.includes("内部试用反馈"), "页面出现内部试用反馈模块");
@@ -356,6 +357,12 @@ async function main() {
     record("详情页与 AI 导入", "passed", analysisStatus.slice(0, 120));
 
     await ensureCompareWorkspace(page);
+    await page.locator("#compareFilteredProducts").click();
+    await page.waitForFunction(
+      () => document.querySelectorAll("#comparePicker input[data-compare-id]:checked").length >= 2,
+      null,
+      { timeout: 5000 },
+    );
     await page.locator("#selectAllCompareFields").click();
     await page.locator("#generateSummary").click();
     await page.waitForFunction(

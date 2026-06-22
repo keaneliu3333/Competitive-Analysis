@@ -1504,6 +1504,46 @@ tbody tr.is-selected {
   height: 96px;
 }
 
+.image-candidate-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+  padding: 10px;
+}
+
+.image-candidate-panel strong {
+  font-size: 13px;
+}
+
+.image-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 8px;
+}
+
+.image-candidate {
+  display: grid;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 4px;
+  place-items: center;
+}
+
+.image-candidate.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.12);
+}
+
+.image-candidate img {
+  width: 100%;
+  height: 54px;
+  object-fit: contain;
+}
+
 .detail-card h3 {
   margin: 0 0 6px;
   font-size: 20px;
@@ -1789,6 +1829,15 @@ tbody tr.is-selected {
 
 .compact table {
   min-width: 640px;
+}
+
+.compare-product-head,
+.compare-field-head,
+.compare-module-head {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 950;
+  line-height: 1.25;
 }
 
 .diff-cell {
