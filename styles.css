@@ -1023,6 +1023,47 @@ textarea {
   font-weight: 800;
 }
 
+.review-evidence-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.review-evidence-facts span {
+  border-radius: 6px;
+  background: #eef2f6;
+  padding: 3px 6px;
+  overflow-wrap: anywhere;
+}
+
+.review-next-actions {
+  display: grid;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.review-next-actions > strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.review-next-actions > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.review-next-actions span {
+  border-radius: 999px;
+  background: #fff7e5;
+  color: var(--warning);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .review-field-tags {
   display: flex;
   flex-wrap: wrap;

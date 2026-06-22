@@ -729,7 +729,24 @@ function normalizeProductModel(product = {}) {
   const model = String(product.model || "").trim();
   const brandText = `${product.brand || ""} ${product.name || ""} ${product.sourceMetadata?.title || ""} ${product.sourceUrl || ""}`;
   if (/^T90\s+PRO$/i.test(model) && /科沃斯|ECOVACS|1017327646764/.test(brandText)) return "T90PRO";
+  if (isNarwalInternalSkuCode(model, brandText)) {
+    return extractNarwalSalesModel(brandText) || "型号待确认";
+  }
   return model;
+}
+
+function isNarwalInternalSkuCode(model, context = "") {
+  const text = `${model} ${context}`;
+  return /云鲸|NARWAL/i.test(text) && /^YJCC?\d{3,}$/i.test(String(model || "").trim());
+}
+
+function extractNarwalSalesModel(text) {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  if (/1051245140260|100317576680/.test(normalized)) return "JX 水箱版";
+  const jxMatch = normalized.match(/(?:扫地机器人|机器人)\s*(JX)\b/i) || normalized.match(/\b(JX)\b/i);
+  if (!jxMatch) return "";
+  const versionMatch = normalized.match(/(水箱版|水箱款|上下水版|自动上下水版|旗舰版|标准版)/);
+  return [jxMatch[1].toUpperCase(), versionMatch?.[1] || ""].filter(Boolean).join(" ");
 }
 
 function normalizeProduct(product) {
@@ -2209,6 +2226,33 @@ function reviewVisiblePendingItems(product) {
   return (primary.length ? primary : items).slice(0, 4);
 }
 
+function reviewActionItems(product) {
+  const genericPatterns = [/^AI 结果待确认$/, /^标记待确认$/, /^产品信息待确认$/, /^置信度\s*\d+%$/, /^AI 置信度\s*\d+%$/];
+  const actionable = reviewPendingItems(product)
+    .filter((item) => !genericPatterns.some((pattern) => pattern.test(item)))
+    .slice(0, 5);
+  return actionable.length ? actionable : reviewVisiblePendingItems(product).slice(0, 3);
+}
+
+function reviewEvidenceFacts(product) {
+  const metadata = product.sourceMetadata || {};
+  const facts = [];
+  const source = reviewSourceLabel(product);
+  facts.push(`来源：${source}`);
+  const imageCount = unique([metadata.image, ...(metadata.imageCandidates || [])].filter(Boolean)).length;
+  if (imageCount) facts.push(`图片候选 ${imageCount} 张`);
+  const textCount = [
+    ...(metadata.textSnippets || []),
+    ...(metadata.selectedSkuTexts || []),
+    ...(metadata.skuTextSnippets || []),
+  ].filter(Boolean).length;
+  if (textCount) facts.push(`文字片段 ${textCount} 条`);
+  const latestRun = product.analysisRuns?.[0];
+  if (latestRun?.provider || latestRun?.model) facts.push(`模型：${latestRun.provider || latestRun.source || "AI"} / ${latestRun.model || "-"}`);
+  if (!facts.length) facts.push("证据待补充");
+  return facts.slice(0, 4);
+}
+
 function getReviewProducts() {
   return state.products
     .filter((product) => !isCatalogProduct(product) || fieldReviewIssues(product).length)
@@ -2236,10 +2280,10 @@ function renderReviewQueue() {
       (product) => {
         const display = reviewProductDisplay(product);
         const pendingItems = reviewPendingItems(product);
-        const visibleItems = reviewVisiblePendingItems(product);
+        const actionItems = reviewActionItems(product);
+        const evidenceFacts = reviewEvidenceFacts(product);
         const priceText = Number(product.price || 0) ? formatCurrency(product.price) : "价格待确认";
         const confidenceText = Number(product.confidence || 0) ? `置信度 ${Number(product.confidence || 0)}%` : "置信度待确认";
-        const sourceLabel = reviewSourceLabel(product);
         const highlightClass = product.id === highlightedReviewProductId ? " is-highlighted" : "";
         const checked = selectedReviewIds.has(product.id) ? "checked" : "";
         return `
@@ -2251,13 +2295,22 @@ function renderReviewQueue() {
         <div class="review-main">
           <strong>${escapeHtml(display.brand)} · ${escapeHtml(display.model)}</strong>
           <p>${escapeHtml(display.name)} · ${escapeHtml(product.category)} · ${escapeHtml(priceText)}</p>
-          <small title="${escapeHtml(display.source)}">来源：${escapeHtml(sourceLabel)}</small>
           <div class="review-summary">
             <span>待处理 ${pendingItems.length} 项</span>
             <span>${escapeHtml(confidenceText)}</span>
           </div>
+          <div class="review-evidence-facts" title="${escapeHtml(display.source)}">
+            ${evidenceFacts.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+          </div>
+          <div class="review-next-actions">
+            <strong>下一步补充</strong>
+            <div>${actionItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>
+          </div>
           <div class="review-field-tags">
-            ${visibleItems.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}
+            ${fieldReviewIssues(product)
+              .slice(0, 4)
+              .map((item) => `<span>${escapeHtml(item.field.name)} ${Number(item.confidence || 0)}%</span>`)
+              .join("")}
           </div>
         </div>
         <div class="review-actions">

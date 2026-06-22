@@ -693,6 +693,8 @@ assertIncludes(scriptJs, "Top3 卖点不足", "script.js roadmap requires comple
 assertIncludes(scriptJs, "roadmapBrandStyle(product.brand)", "script.js roadmap product brand colors");
 assertIncludes(scriptJs, "roadmapBrandStyle(brand)", "script.js roadmap lane brand colors");
 assertIncludes(scriptJs, "reviewVisiblePendingItems", "script.js compact review queue display");
+assertIncludes(scriptJs, "reviewActionItems", "script.js review cards show actionable next steps");
+assertIncludes(scriptJs, "reviewEvidenceFacts", "script.js review cards show evidence facts");
 assertIncludes(scriptJs, "selectedReviewIds", "script.js selected review state");
 assertIncludes(scriptJs, "confirmSelectedReviews", "script.js selected review confirmation");
 assertIncludes(scriptJs, "deleteSelectedReviews", "script.js selected review deletion");
@@ -718,6 +720,9 @@ assertIncludes(scriptJs, "productDisplayTitle", "script.js product library title
 assertIncludes(scriptJs, "normalizedAnalysisProductName", "script.js normalizes generic AI product names");
 assertIncludes(scriptJs, "String(brand || \"\").trim()", "script.js product names use raw brand text instead of display labels");
 assertIncludes(scriptJs, "T90PRO", "script.js normalizes ECOVACS T90PRO model from Tmall title");
+assertIncludes(scriptJs, "isNarwalInternalSkuCode", "script.js detects Narwal internal SKU codes");
+assertIncludes(scriptJs, "extractNarwalSalesModel", "script.js extracts Narwal sales model from title evidence");
+assertIncludes(scriptJs, "YJCC?\\d{3,}", "script.js treats YJC/YJCC codes as internal SKUs");
 assertIncludes(scriptJs, "autoMatchFeatureForProducts", "script.js auto matches new fields from existing evidence");
 assertIncludes(scriptJs, "inferFeatureValueFromEvidence", "script.js infers feature values from stored source evidence");
 assertIncludes(scriptJs, "字段更新后自动匹配", "script.js records auto matched field evidence");
@@ -754,6 +759,8 @@ assertIncludes(stylesCss, "var(--brand-color", "styles.css roadmap brand color v
 assertIncludes(stylesCss, "repeat(auto-fit, minmax(132px, 1fr))", "styles.css adaptive filter toolbar");
 assertIncludes(stylesCss, ".review-header-actions", "styles.css review queue header action layout");
 assertIncludes(stylesCss, ".review-summary", "styles.css compact review queue summary");
+assertIncludes(stylesCss, ".review-next-actions", "styles.css review queue next action chips");
+assertIncludes(stylesCss, ".review-evidence-facts", "styles.css review queue evidence facts");
 assertIncludes(stylesCss, ".review-item.is-highlighted", "styles.css highlighted pending review item");
 assertIncludes(stylesCss, ".source-warning", "styles.css metadata fetch warning display");
 assertIncludes(stylesCss, "scroll-snap-type: x proximity", "styles.css compact mobile nav scroller");

@@ -1990,6 +1990,7 @@ async function analyzeProduct(input) {
     "Top3 sellingPoints 要按竞品优先级排序，每条包含 title 和 evidence。",
     "如果输入包含 PDF、上传图片或自动下载的详情页图片，请优先从图片中的详情页文案、参数表、价格和商品图证据抽取。",
     "同一 SPU 商品下可能存在多个 SKU；型号和版本必须优先参考当前 URL skuId、页面已选 SKU/规格/版本、截图里的选中规格，不要只按 SPU 主标题或泛称填写。",
+    "不要把平台货号、内部 SKU 或商品编码当成正式型号，例如云鲸/NARWAL 的 YJC034、YJCC034 这类编码；若标题同时出现“扫地机器人 JX 水箱版”等销售型号，应输出 JX 水箱版。",
     "image 字段只能使用页面中明确出现的产品图 URL；没有可靠 URL 时返回空字符串，不要生成虚构图片。",
     "customFeatures 必须只使用下方自定义字段列表里的 key；没有证据时 value 填待确认、confidence 降低。",
     "enum 类型的 customFeatures 应优先从字段 options 中选择取值；详情页没有明确证据时填待确认。",
