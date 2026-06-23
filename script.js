@@ -385,6 +385,8 @@ let sourceMetadata = null;
 let analysisStepState = {};
 let highlightedReviewProductId = "";
 let browserFetchSessionId = "";
+let manualCaptureImportId = "";
+let manualCapturePollTimer = 0;
 let selectedReviewIds = new Set();
 let editingModuleName = "";
 let editingFieldKey = "";
@@ -619,6 +621,8 @@ const els = {
   sourcePreview: document.querySelector("#sourcePreview"),
   manualCapturePanel: document.querySelector("#manualCapturePanel"),
   openExternalBrowser: document.querySelector("#openExternalBrowser"),
+  refreshManualCapture: document.querySelector("#refreshManualCapture"),
+  manualCaptureStatus: document.querySelector("#manualCaptureStatus"),
   analysisStatus: document.querySelector("#analysisStatus"),
   analysisSteps: document.querySelector("#analysisSteps"),
   analysisPlan: document.querySelector("#analysisPlan"),
@@ -952,11 +956,24 @@ function getCategoryImage(category) {
   return imageMap[category] || "assets/robot-vacuum.svg";
 }
 
+function isJdProductSource(product = {}) {
+  const metadata = product?.sourceMetadata || {};
+  return (
+    String(product?.channel || "") === "京东" ||
+    String(metadata.platform || "") === "京东" ||
+    String(metadata.channel || "") === "京东" ||
+    /(^|\.)jd\.com|360buyimg\.com|京东/i.test(
+      [product?.source, metadata.url, metadata.finalUrl, metadata.sourceUrl, metadata.fetchWarning].filter(Boolean).join(" "),
+    )
+  );
+}
+
 function isFallbackProductImage(value) {
   return !value || /^assets\//.test(String(value));
 }
 
 function bestProductImage(product) {
+  if (isJdProductSource(product)) return "assets/robot-vacuum.svg";
   const image = String(product?.image || "").trim();
   if (!isFallbackProductImage(image)) return image;
   const candidate = String(product?.sourceMetadata?.image || product?.sourceMetadata?.imageCandidates?.[0] || "").trim();
@@ -964,6 +981,7 @@ function bestProductImage(product) {
 }
 
 function productImageCandidates(product) {
+  if (isJdProductSource(product)) return [];
   return unique(
     [
       product?.image,
@@ -2460,7 +2478,7 @@ function renderProductEditForm(product, options = {}) {
                 .join("")}
             </select>
           </label>
-          <label>价格<input name="price" type="number" min="0" value="${Number(product.price || 0)}" /></label>
+          <label>价格<input name="price" type="number" min="0" step="0.01" value="${Number(product.price || 0)}" /></label>
           <label>渠道<input name="channel" value="${escapeHtml(product.channel)}" /></label>
           <label>上市状态<input name="status" value="${escapeHtml(product.status)}" /></label>
           <label>路标季度<input name="quarter" placeholder="例如 2026 Q2；不确定填未规划" value="${escapeHtml(normalizeQuarterInput(product.quarter || "未规划"))}" /></label>
@@ -3827,6 +3845,14 @@ function productImageFromAnalysis(result, category) {
     ...(sourceMetadata || {}),
     ...(result.sourceMetadata || {}),
   };
+  if (
+    String(result.channel || "") === "京东" ||
+    String(metadata.platform || "") === "京东" ||
+    String(metadata.channel || "") === "京东" ||
+    /(^|\.)jd\.com|360buyimg\.com|京东/i.test([result.source, metadata.url, metadata.finalUrl, metadata.sourceUrl].filter(Boolean).join(" "))
+  ) {
+    return imageMap[category] || "assets/robot-vacuum.svg";
+  }
   const remoteImage = [
     String(result.image || "").trim(),
     String(metadata.image || "").trim(),
@@ -4229,7 +4255,8 @@ async function runAnalysis() {
     await fetchSourceMetadata();
     return;
   }
-  if (sourceUrl && !hasManualAnalysisEvidence(files, notes) && shouldUseManualCaptureFlow(sourceMetadata || {}, sourceUrl)) {
+  const hasManualCaptureScreenshots = Boolean(sourceMetadata?.sourceScreenshotDataUrls?.length);
+  if (sourceUrl && !hasManualAnalysisEvidence(files, notes) && !hasManualCaptureScreenshots && shouldUseManualCaptureFlow(sourceMetadata || {}, sourceUrl)) {
     setAnalysisStatus("京东链接已切换为手动截图模式，不调用自动抓取。请在普通浏览器里打开真实详情页并粘贴/上传截图后再分析。", "warning");
     resetAnalysisSteps();
     setAnalysisStep("input", "warning");
@@ -4410,6 +4437,13 @@ function setBrowserFetchControls(isActive) {
 
 function setManualCaptureMode(isActive) {
   if (els.manualCapturePanel) els.manualCapturePanel.hidden = !isActive;
+  if (isActive && !manualCapturePollTimer) {
+    manualCapturePollTimer = window.setInterval(() => refreshManualCaptureImport({ silent: true }), 4000);
+  }
+  if (!isActive && manualCapturePollTimer) {
+    window.clearInterval(manualCapturePollTimer);
+    manualCapturePollTimer = 0;
+  }
 }
 
 function setAnalysisBusy(isBusy) {
@@ -4423,6 +4457,7 @@ function setAnalysisBusy(isBusy) {
   if (els.retryAnalysis) els.retryAnalysis.disabled = isBusy;
   if (els.startBrowserFetch) els.startBrowserFetch.disabled = isBusy;
   if (els.openExternalBrowser) els.openExternalBrowser.disabled = isBusy;
+  if (els.refreshManualCapture) els.refreshManualCapture.disabled = isBusy;
   if (els.collectBrowserFetch) els.collectBrowserFetch.disabled = isBusy;
   if (els.cancelBrowserFetch) els.cancelBrowserFetch.disabled = isBusy;
 }
@@ -4501,6 +4536,109 @@ async function openExternalBrowserForManualCapture() {
     setAnalysisStatus(`普通浏览器打开失败：${normalizeErrorMessage(error)}。请手动复制链接到 Chrome 或 Edge，再上传/粘贴截图。`, "error");
   } finally {
     setAnalysisBusy(false);
+  }
+}
+
+function manualCaptureMetadata(item = {}) {
+  const sourceUrl = item.sourceUrl || els.sourceUrl.value.trim();
+  return {
+    title: item.title || "扩展提交的详情页截图",
+    description: "浏览器截图助手提交的当前页面滚动截图，将作为 AI 视觉识别输入。",
+    image: "",
+    imageCandidates: [],
+    price: null,
+    currency: "CNY",
+    priceSource: "",
+    priceCandidates: [],
+    textSnippets: ["来源：Chrome/Edge 截图助手", item.screenshotCount ? `扩展截图：${item.screenshotCount} 张` : ""].filter(Boolean),
+    sourceScreenshotDataUrls: item.sourceScreenshotDataUrls || [],
+    sourceScreenshotFetch: {
+      count: Number(item.screenshotCount || item.sourceScreenshotDataUrls?.length || 0),
+      warnings: item.fetchWarning ? [item.fetchWarning] : [],
+    },
+    fetchMode: "manual-extension",
+    browserAssisted: true,
+    platform: item.platform || (isJdManualCaptureUrl(sourceUrl) ? "京东" : ""),
+    channel: item.platform || (isJdManualCaptureUrl(sourceUrl) ? "京东" : ""),
+    fetchWarning: item.fetchWarning || "",
+    finalUrl: sourceUrl,
+    url: sourceUrl,
+  };
+}
+
+function imageFromDataUrl(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("截图缩略图读取失败"));
+    image.src = dataUrl;
+  });
+}
+
+async function productImageCandidateFromScreenshot(dataUrl) {
+  if (!dataUrl?.startsWith("data:image/")) return "";
+  const image = await imageFromDataUrl(dataUrl);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  if (!width || !height) return "";
+  const desktop = width >= height;
+  const cropSize = desktop ? Math.min(width * 0.46, height * 0.72) : Math.min(width, height * 0.58);
+  const sx = desktop ? Math.max(0, Math.round(width * 0.02)) : 0;
+  const sy = desktop ? Math.max(0, Math.round(height * 0.08)) : 0;
+  const sw = Math.max(1, Math.min(width - sx, Math.round(cropSize)));
+  const sh = Math.max(1, Math.min(height - sy, Math.round(cropSize)));
+  const canvas = document.createElement("canvas");
+  canvas.width = 360;
+  canvas.height = 360;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.78);
+}
+
+async function applyManualCaptureImport(item = {}) {
+  if (!item?.id || manualCaptureImportId === item.id) return false;
+  manualCaptureImportId = item.id;
+  if (item.sourceUrl && !els.sourceUrl.value.trim()) els.sourceUrl.value = item.sourceUrl;
+  const metadata = manualCaptureMetadata(item);
+  const isJdCapture = String(metadata.platform || metadata.channel || "") === "京东" || isJdManualCaptureUrl(metadata.url || metadata.finalUrl || "");
+  const productImageCandidate = isJdCapture ? "" : await productImageCandidateFromScreenshot(item.sourceScreenshotDataUrls?.[0]).catch(() => "");
+  if (productImageCandidate) {
+    metadata.image = productImageCandidate;
+    metadata.imageCandidates = [productImageCandidate];
+    metadata.textSnippets = unique([...metadata.textSnippets, "产品图候选：从扩展首张截图裁切生成"]);
+    metadata.sourceScreenshotFetch = {
+      ...(metadata.sourceScreenshotFetch || {}),
+      productImageCandidate: "first-screenshot-crop",
+    };
+  }
+  sourceMetadata = { ...metadata, fetchedAt: nowIso() };
+  setManualCaptureMode(true);
+  renderSourcePreview(sourceMetadata);
+  renderAnalysisPlan(Array.from(els.sourceImage?.files || []), sourceMetadata);
+  const count = Number(item.screenshotCount || item.sourceScreenshotDataUrls?.length || 0);
+  const message = item.fetchWarning
+    ? item.fetchWarning
+    : `已收到截图助手提交的 ${count} 张关键截图。截图助手已覆盖整页，AI 分析时会自动抽样。`;
+  if (els.manualCaptureStatus) els.manualCaptureStatus.textContent = message;
+  setAnalysisStatus(message, item.fetchWarning ? "warning" : "success");
+  return true;
+}
+
+async function refreshManualCaptureImport({ silent = false } = {}) {
+  try {
+    const response = await apiFetch("/api/manual-capture/latest");
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "无法读取扩展截图");
+    if (payload.item && (await applyManualCaptureImport(payload.item))) return;
+    if (!silent) {
+      const message = "还没有收到截图助手提交。请在 Chrome/Edge 商品页点击扩展按钮“一键滚动截图并提交”。";
+      if (els.manualCaptureStatus) els.manualCaptureStatus.textContent = message;
+      setAnalysisStatus(message, "warning");
+    }
+  } catch (error) {
+    if (!silent) setAnalysisStatus(`读取扩展截图失败：${normalizeErrorMessage(error)}`, "error");
   }
 }
 
@@ -6022,6 +6160,7 @@ function bindEvents() {
   document.querySelector("#fetchSourceMetadata").addEventListener("click", fetchSourceMetadata);
   els.startBrowserFetch?.addEventListener("click", startBrowserFetch);
   els.openExternalBrowser?.addEventListener("click", openExternalBrowserForManualCapture);
+  els.refreshManualCapture?.addEventListener("click", () => refreshManualCaptureImport({ silent: false }));
   els.collectBrowserFetch?.addEventListener("click", collectBrowserFetch);
   els.cancelBrowserFetch?.addEventListener("click", cancelBrowserFetch);
   document.addEventListener("paste", handleAnalysisPaste);

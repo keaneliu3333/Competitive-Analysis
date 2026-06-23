@@ -139,13 +139,24 @@ try {
     "/api/browser-fetch/collect missing session error should be actionable",
   );
 
+  const manualImport = await postJson(server, "/api/manual-capture/import", {
+    sourceUrl: "https://item.jd.com/100327075896.html",
+    title: "京东测试详情页",
+    screenshots: ["data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2w=="],
+  });
+  assert(manualImport.ok === true, "/api/manual-capture/import should accept extension screenshots");
+  assert(manualImport.screenshotCount === 1, "/api/manual-capture/import should report screenshot count");
+  const latestManualImport = await requestJson(server, "/api/manual-capture/latest");
+  assert(latestManualImport.item?.id === manualImport.id, "/api/manual-capture/latest should return latest extension import");
+  assert(latestManualImport.item?.sourceScreenshotDataUrls?.length === 1, "/api/manual-capture/latest should include screenshot data urls");
+
   const html = await requestText(server, "/");
-  for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "manualCapturePanel", "openExternalBrowser", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
+  for (const token of ["清洁电器竞品分析工作台", "workspace-nav", "filterSummary", "compareStatus", "compareFilteredProducts", "compareSimilarProducts", "sourceImage", "manualCapturePanel", "openExternalBrowser", "refreshManualCapture", "manualCaptureStatus", "comparePicker", "roadmapBoard", "data-roadmap-mode", "exportDataPackage"]) {
     assert(html.includes(token), `index page missing ${token}`);
   }
 
   const script = await requestText(server, "/script.js");
-  for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "shouldUseManualCaptureFlow", "handleAnalysisPaste", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
+  for (const token of ["scrollToWorkspace", "renderFilterSummary", "renderCompareStatus", "compareFilteredProducts", "compareSimilarProducts", "renderRoadmapTimeline", "renderRoadmapBrandCompare", "runAnalysis", "shouldUseManualCaptureFlow", "handleAnalysisPaste", "refreshManualCaptureImport", "brandRoadmapReportHtml", "normalizeComparisonSummary"]) {
     assert(script.includes(token), `script.js missing ${token}`);
   }
 

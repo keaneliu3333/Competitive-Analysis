@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "清洁电器工作台截图助手",
+  "description": "在当前京东/电商详情页滚动截图，并提交到本地竞品分析工作台。",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "提交详情页截图",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "tabs"],
+  "host_permissions": [
+    "http://127.0.0.1:4173/*",
+    "http://127.0.0.1:4174/*",
+    "http://127.0.0.1:4175/*",
+    "http://localhost:4173/*",
+    "http://localhost:4174/*",
+    "http://localhost:4175/*",
+    "https://*.jd.com/*",
+    "https://*.360buyimg.com/*",
+    "https://pc-frequent-pro.pf.jd.com/*"
+  ]
+}

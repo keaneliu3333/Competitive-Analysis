@@ -34,6 +34,8 @@ const browserFetchScreenshotTimeoutMs = Number(env.BROWSER_FETCH_SCREENSHOT_TIME
 const browserFetchCollectTimeoutMs = Number(env.BROWSER_FETCH_COLLECT_TIMEOUT_MS || 120000);
 const browserFetchSessions = new Map();
 const browserFetchProfileRootDir = env.BROWSER_FETCH_PROFILE_DIR || join(root, ".tmp", "browser-fetch-profile");
+const manualCaptureImports = [];
+const maxManualCaptureImports = 8;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -66,6 +68,9 @@ function sendJson(response, status, data) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type, X-App-Token",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
   });
   response.end(JSON.stringify(data));
 }
@@ -686,29 +691,109 @@ async function launchBrowserFetchContext(chromium, launchOptions) {
 
 function openUrlInExternalBrowser(rawUrl) {
   const url = normalizeFetchUrl(rawUrl);
-  const command =
+  const candidates =
     process.platform === "darwin"
-      ? "open"
+      ? [
+          { label: "Google Chrome", command: "open", args: ["-a", "Google Chrome", url] },
+          { label: "Microsoft Edge", command: "open", args: ["-a", "Microsoft Edge", url] },
+          { label: "系统默认浏览器", command: "open", args: [url] },
+        ]
       : process.platform === "win32"
-        ? "cmd"
-        : "xdg-open";
-  const args =
-    process.platform === "darwin"
-      ? [url]
-      : process.platform === "win32"
-        ? ["/c", "start", "", url]
-        : [url];
-  try {
-    const child = spawn(command, args, { detached: true, stdio: "ignore" });
-    child.unref();
-  } catch (error) {
-    throw new HttpError(503, `无法打开系统浏览器：${error.message}。请手动复制链接到 Chrome 或 Edge 打开。`);
+        ? [
+            { label: "Google Chrome", command: "cmd", args: ["/c", "start", "", "chrome", url] },
+            { label: "Microsoft Edge", command: "cmd", args: ["/c", "start", "", "msedge", url] },
+            { label: "系统默认浏览器", command: "cmd", args: ["/c", "start", "", url] },
+          ]
+        : [
+            { label: "Google Chrome", command: "google-chrome", args: [url] },
+            { label: "Microsoft Edge", command: "microsoft-edge", args: [url] },
+            { label: "系统默认浏览器", command: "xdg-open", args: [url] },
+          ];
+  const errors = [];
+  for (const candidate of candidates) {
+    try {
+      const child = spawn(candidate.command, candidate.args, { detached: true, stdio: "ignore" });
+      child.unref();
+      return {
+        ok: true,
+        url,
+        browserLabel: candidate.label,
+        message: `已使用 ${candidate.label} 打开链接。请在普通浏览器里手动进入真实详情页、滚动并用截图助手提交到工作台。`,
+      };
+    } catch (error) {
+      errors.push(`${candidate.label}: ${error.message}`);
+    }
   }
   return {
-    ok: true,
+    ok: false,
     url,
-    message: "已使用系统默认浏览器打开链接。请在普通浏览器里手动进入真实详情页、滚动并截图，然后回到工作台粘贴或上传截图。",
+    message: `无法自动打开 Chrome/Edge。请手动复制链接到 Chrome 或 Edge 打开。失败原因：${errors.join(" | ")}`,
   };
+}
+
+function normalizeManualCaptureScreenshots(values) {
+  const screenshots = Array.isArray(values) ? values : [];
+  const normalized = screenshots
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  if (!normalized.length) {
+    throw new HttpError(400, "截图助手没有提交可用截图，请在真实详情页重新截取。");
+  }
+  for (const screenshot of normalized) {
+    if (!/^data:image\/(?:jpeg|png);base64,[A-Za-z0-9+/=]+$/i.test(screenshot)) {
+      throw new HttpError(400, "截图格式不正确，仅支持 JPEG/PNG data URL。");
+    }
+    if (screenshot.length > maxModelImageDataUrlChars) {
+      throw new HttpError(413, "单张截图超过模型输入限制，请缩小浏览器窗口或减少截图宽度后重试。");
+    }
+  }
+  return normalized;
+}
+
+function selectModelScreenshots(screenshots, limit = maxModelImageCount) {
+  const values = Array.isArray(screenshots) ? screenshots.filter(Boolean) : [];
+  if (values.length <= limit) return values;
+  const selected = new Set([0, values.length - 1]);
+  for (let index = 1; selected.size < limit && index < limit - 1; index += 1) {
+    selected.add(Math.round((index * (values.length - 1)) / (limit - 1)));
+  }
+  return Array.from(selected)
+    .sort((a, b) => a - b)
+    .map((index) => values[index]);
+}
+
+function importManualCapture(input = {}) {
+  const sourceUrl = normalizeFetchUrl(input.sourceUrl || input.url || "");
+  const screenshots = normalizeManualCaptureScreenshots(input.screenshots || input.sourceScreenshotDataUrls);
+  const title = String(input.title || "").replace(/\s+/g, " ").trim().slice(0, 240);
+  const blocked = isJdPcFrequencyControlEvidence(`${sourceUrl} ${title}`);
+  const item = {
+    id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    sourceUrl,
+    title,
+    screenshotCount: screenshots.length,
+    sourceScreenshotDataUrls: screenshots,
+    importedAt: new Date().toISOString(),
+    fetchWarning: blocked ? "扩展提交的是京东 PC 频控页截图，不是真实商品详情页；不会生成空产品，请在普通浏览器重新进入真实详情页后再提交。" : "",
+    fetchMode: "manual-extension",
+    browserAssisted: true,
+    platform: metadataFromCommerceUrl(sourceUrl)?.platform || "",
+  };
+  manualCaptureImports.unshift(item);
+  manualCaptureImports.splice(maxManualCaptureImports);
+  return {
+    ok: true,
+    id: item.id,
+    screenshotCount: item.screenshotCount,
+    importedAt: item.importedAt,
+    fetchWarning: item.fetchWarning,
+    message: item.fetchWarning || `已收到 ${item.screenshotCount} 张扩展截图，请回到工作台确认后开始分析。`,
+  };
+}
+
+function latestManualCapture() {
+  const item = manualCaptureImports[0];
+  return item ? { item } : { item: null };
 }
 
 async function startBrowserFetch(input = {}) {
@@ -2039,7 +2124,7 @@ async function analyzeProduct(input) {
   const uploadedImageUrls = normalizeImageDataUrls(input);
   const sourceScreenshotDataUrls = isBlockedSourcePageMetadata(metadata)
     ? []
-    : normalizeImageDataUrls({ imageDataUrls: metadata.sourceScreenshotDataUrls || [] });
+    : selectModelScreenshots(normalizeImageDataUrls({ imageDataUrls: metadata.sourceScreenshotDataUrls || [] }), maxModelImageCount);
   if (
     input.sourceUrl &&
     requiresBrowserAssistedDetailCapture(metadata) &&
@@ -2441,6 +2526,22 @@ async function handleApi(request, response, pathname) {
     return;
   }
 
+  if (request.method === "POST" && pathname === "/api/manual-capture/import") {
+    const input = await readJson(request);
+    try {
+      sendJson(response, 200, importManualCapture(input));
+    } catch (error) {
+      sendJson(response, error instanceof HttpError ? error.status : 500, { error: error.message });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/manual-capture/latest") {
+    if (!requireAccess(request, response, "read")) return;
+    sendJson(response, 200, latestManualCapture());
+    return;
+  }
+
   if (request.method === "POST" && pathname === "/api/browser-fetch/collect") {
     if (!requireAccess(request, response, "read")) return;
     const input = await readJson(request);
@@ -2490,6 +2591,16 @@ function createAppServer() {
     try {
       const url = new URL(request.url, `http://${request.headers.host}`);
       if (url.pathname.startsWith("/api/")) {
+        if (request.method === "OPTIONS") {
+          response.writeHead(204, {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Content-Type, X-App-Token",
+            "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+            "Cache-Control": "no-store",
+          });
+          response.end();
+          return;
+        }
         await handleApi(request, response, url.pathname);
         return;
       }

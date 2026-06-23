@@ -245,12 +245,15 @@
             </label>
             <div id="manualCapturePanel" class="manual-capture-panel wide-field" hidden>
               <strong>京东手动截图模式</strong>
-              <p>已改用普通浏览器打开链接。请手动进入真实商品详情页、选择 SKU、滚动详情页并截图，然后回到这里粘贴截图或上传长图。</p>
+              <p>已改用 Chrome/Edge 打开链接。请手动进入真实商品详情页、选择 SKU，然后用截图助手提交到工作台。</p>
               <div class="manual-capture-actions">
                 <button class="secondary-button" type="button" id="openExternalBrowser">
                   打开普通浏览器
                 </button>
-                <span>支持直接 Ctrl/⌘ + V 粘贴截图。</span>
+                <button class="secondary-button" type="button" id="refreshManualCapture">
+                  刷新扩展截图
+                </button>
+                <span id="manualCaptureStatus">支持截图助手自动提交，也支持 Ctrl/⌘ + V 粘贴截图。</span>
               </div>
             </div>
             <div id="sourcePreview" class="source-preview wide-field" aria-live="polite"></div>

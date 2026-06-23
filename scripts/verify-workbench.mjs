@@ -86,6 +86,11 @@ const mvpVerifier = readRequired("scripts/verify-mvp.mjs");
 const runtimeVerifier = readRequired("scripts/verify-runtime.mjs");
 const traceabilityVerifier = readRequired("scripts/verify-traceability.mjs");
 const traceabilityDoc = readRequired("docs/requirements-traceability.md");
+const extensionManifest = readRequired("extension/manifest.json");
+const extensionBackground = readRequired("extension/background.js");
+const extensionContent = readRequired("extension/content.js");
+const extensionPopup = readRequired("extension/popup.js");
+const extensionReadme = readRequired("extension/README.md");
 const exportVerifier = readRequired("scripts/verify-exports.mjs");
 const summaryVerifier = readRequired("scripts/verify-summary.mjs");
 const dataPackageVerifier = readRequired("scripts/verify-data-package.mjs");
@@ -148,6 +153,8 @@ const requiredElementIds = [
   "sourcePreview",
   "manualCapturePanel",
   "openExternalBrowser",
+  "refreshManualCapture",
+  "manualCaptureStatus",
   "analysisStatus",
   "analysisSteps",
   "analysisPlan",
@@ -472,6 +479,9 @@ for (const token of [
   "startBrowserFetch",
   "openUrlInExternalBrowser",
   "/api/open-external-browser",
+  "manualCaptureImports",
+  "/api/manual-capture/import",
+  "/api/manual-capture/latest",
   "collectBrowserFetch",
   "browserExecutablePaths",
   "BROWSER_EXECUTABLE_PATH",
@@ -724,6 +734,11 @@ assertIncludes(scriptJs, "关键参数/卖点区域截图", "script.js actionabl
 assertIncludes(scriptJs, "shouldUseManualCaptureFlow", "script.js sends JD links to manual screenshot capture");
 assertIncludes(scriptJs, "openExternalBrowserForManualCapture", "script.js opens normal browser for JD manual capture");
 assertIncludes(scriptJs, "handleAnalysisPaste", "script.js accepts pasted screenshots for manual capture");
+assertIncludes(scriptJs, "refreshManualCaptureImport", "script.js receives extension screenshots");
+assertIncludes(scriptJs, "sourceScreenshotDataUrls", "script.js maps extension screenshots to analysis metadata");
+assertIncludes(scriptJs, "productImageCandidateFromScreenshot", "script.js creates product image candidates from extension screenshots");
+assertIncludes(scriptJs, "first-screenshot-crop", "script.js labels screenshot crop product image source");
+assertIncludes(scriptJs, "产品图候选：从扩展首张截图裁切生成", "script.js records visual product image candidate evidence");
 assertIncludes(scriptJs, "不调用自动抓取", "script.js explains JD manual mode does not use automatic crawling");
 assertIncludes(scriptJs, "focusPendingAnalysisResult", "script.js pending analysis result focus");
 assertIncludes(scriptJs, "已进入待确认队列", "script.js pending analysis result status copy");
@@ -755,6 +770,29 @@ assertIncludes(serverMjs, "明显功能配置差异", "server prompt preserves f
 assertIncludes(scriptJs, "autoMatchFeatureForProducts", "script.js auto matches new fields from existing evidence");
 assertIncludes(scriptJs, "inferFeatureValueFromEvidence", "script.js infers feature values from stored source evidence");
 assertIncludes(scriptJs, "字段更新后自动匹配", "script.js records auto matched field evidence");
+assertIncludes(extensionManifest, "\"manifest_version\": 3", "extension manifest v3");
+assertIncludes(extensionManifest, "\"activeTab\"", "extension activeTab permission");
+assertIncludes(extensionManifest, "\"scripting\"", "extension scripting permission");
+assertIncludes(extensionManifest, "http://127.0.0.1:4173/*", "extension default local workbench permission");
+assertIncludes(extensionManifest, "http://127.0.0.1:4174/*", "extension alternate local workbench permission");
+assertIncludes(extensionManifest, "http://127.0.0.1:4175/*", "extension browser-smoke local workbench permission");
+assertIncludes(extensionBackground, "chrome.tabs.captureVisibleTab", "extension visible tab screenshots");
+assertIncludes(extensionBackground, "WORKBENCH_IMPORT_URLS", "extension tries multiple local workbench ports");
+assertIncludes(extensionBackground, "/api/manual-capture/import", "extension submits screenshots to workbench");
+assertIncludes(extensionBackground, "DISCOVERY_SCROLL_WAIT_MS = 220", "extension fast discovery wait");
+assertIncludes(extensionBackground, "DISCOVERY_SETTLE_WAIT_MS = 900", "extension discovery settle wait");
+assertIncludes(extensionBackground, "MAX_CAPTURE_SAFETY_STEPS = 45", "extension capture safety cap");
+assertIncludes(extensionBackground, "MAX_SUBMITTED_SCREENSHOTS = 40", "extension submission screenshot cap");
+assertIncludes(extensionBackground, "discoverPageExtent", "extension discovers full lazy-loaded page extent");
+assertIncludes(extensionBackground, "sampledScreenshotPositions", "extension samples full page key screenshots");
+assertIncludes(extensionBackground, "heightStable", "extension waits for lazy-loaded page height");
+assertIncludes(extensionBackground, "stableBottomCount >= 2", "extension confirms stable page bottom");
+assertIncludes(extensionBackground, "y: targetY", "extension probes current page bottom directly");
+assertIncludes(serverMjs, "selectModelScreenshots", "server samples complete extension screenshots for model input");
+assertIncludes(scriptJs, "截图助手已覆盖整页，AI 分析时会自动抽样", "script.js explains full-page capture and model sampling");
+assertIncludes(extensionContent, "CAPTURE_SCROLL_TO", "extension content scroll command");
+assertIncludes(extensionPopup, "chrome.runtime.connect", "extension popup progress connection");
+assertIncludes(extensionReadme, "加载已解压的扩展", "extension install guide");
 assertIncludes(scriptJs, "已有证据未匹配到明确值", "script.js keeps uncertain new fields pending");
 assertIncludes(scriptJs, "正在打开浏览器获取真实详情页", "script.js opens browser fetch when public detail page evidence is missing");
 assertIncludes(scriptJs, "继续获取", "script.js tells users to collect after browser login");
@@ -768,6 +806,7 @@ assertIncludes(scriptJs, "productImageCandidates(product)", "script.js renders s
 assertIncludes(scriptJs, "setProductImageFromCandidate", "script.js can set product image from source candidates");
 assertIncludes(scriptJs, "data-set-product-image", "script.js candidate image buttons update the product image");
 assertIncludes(scriptJs, "renderProductImageCandidates(selectedReviewProduct)", "script.js review detail can set product image before confirmation");
+assertIncludes(scriptJs, 'name="price" type="number" min="0" step="0.01"', "script.js product edit price accepts decimal prices");
 assertIncludes(stylesCss, "is-sidebar-collapsed", "styles.css sidebar collapse state");
 assertIncludes(stylesCss, ".analysis-step", "styles.css analysis progress steps");
 assertIncludes(stylesCss, ".review-select", "styles.css review multi-select control");
@@ -796,7 +835,7 @@ assertIncludes(stylesCss, "scroll-snap-type: x proximity", "styles.css compact m
 assertIncludes(stylesCss, ".products-panel > .panel-header .panel-actions", "styles.css mobile product header actions");
 assertIncludes(stylesCss, "@media (max-width: 520px)", "styles.css narrow mobile breakpoint");
 
-for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/"]) {
+for (const ignore of [".env.local", ".env.*.local", "!.env.example", "data/workbench-state.json", "data/api-usage.json", "data/*.json", "reports/", ".tmp/", "tmp/", "output/"]) {
   assertIncludes(gitignore, ignore, ".gitignore entry");
 }
 

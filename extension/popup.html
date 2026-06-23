@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        width: 280px;
+        margin: 0;
+        padding: 14px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #10213f;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 16px;
+      }
+      p {
+        margin: 0 0 12px;
+        color: #5c6b82;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 8px;
+        background: #1d4ed8;
+        color: #fff;
+        padding: 10px 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      #status {
+        margin-top: 10px;
+        color: #10213f;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>详情页截图助手</h1>
+    <p>请先停留在真实商品详情页并选择 SKU。点击后会从当前位置开始滚动截图并提交到本地工作台。</p>
+    <button id="capture">滚动截图并提交</button>
+    <div id="status">等待操作。</div>
+    <script src="popup.js"></script>
+  </body>
+</html>
